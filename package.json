@@ -1,0 +1,42 @@
+{
+  "name": "skeins",
+  "version": "0.1.0",
+  "description": "Every agent running across every repository, grouped by project \u2014 and a read-only door so the agents can check who else is in a file before they write it.",
+  "keywords": [
+    "claude-code",
+    "codex",
+    "opencode",
+    "agents",
+    "dashboard",
+    "coordination",
+    "cli"
+  ],
+  "license": "Apache-2.0",
+  "author": "rambaarde",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/rambaarde/skein.git"
+  },
+  "homepage": "https://github.com/rambaarde/skein#readme",
+  "bugs": {
+    "url": "https://github.com/rambaarde/skein/issues"
+  },
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "bin": {
+    "skein": "bin/skein.js"
+  },
+  "files": [
+    "bin",
+    "src",
+    "README.md",
+    "LICENSE"
+  ],
+  "scripts": {
+    "test": "node --test",
+    "deps": "node -e \"const p=require('./package.json');if(p.dependencies&&Object.keys(p.dependencies).length)throw new Error('runtime dependencies are not allowed');console.log('zero runtime dependencies')\"",
+    "prepublishOnly": "npm test && npm run deps"
+  }
+}

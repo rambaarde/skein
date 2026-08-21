@@ -1,0 +1,155 @@
+import { collect } from './sources/index.js'
+import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
+import { byProject, gitRoot, projectName } from './project.js'
+import { toon, table, ago, short, trunc } from './format.js'
+import { hookLine } from './hook.js'
+import { isAbsolute, join } from 'node:path'
+import { install } from './install.js'
+
+const HELP = `skein — every agent running across every repository, grouped by project.
+
+  skein                     projects with agents active now
+  skein ls                  one line per project
+  skein who [path]          who else is in this repo, or in one file
+  skein collisions          recent same-file overlaps
+  skein hook                print the ambient line and exit
+  skein install             wire the hook into your agents
+
+  --json                   machine-readable
+  --toon                   token-efficient, for agents
+  --since <30d|24h|90m>    lookback window            (default 30d)
+  --window <minutes>       collision window           (default ${WINDOW_MIN})
+  --all                    every project, not just the active ones
+  --help                   this
+
+skein reports. It never starts, stops, routes or blocks anything.`
+
+const DURATION = /^(\d+)([mhd])$/
+const parseSince = s => {
+  const m = DURATION.exec(s ?? '')
+  if (!m) return null
+  const n = Number(m[1])
+  return n * ({ m: 60_000, h: 3_600_000, d: 86_400_000 })[m[2]]
+}
+
+export function parseArgs(argv) {
+  const opts = { json: false, toon: false, all: false, since: 30 * 86_400_000, window: WINDOW_MIN, _: [] }
+  for (let i = 0; i < argv.length; i++) {
+    const a = argv[i]
+    if (a === '--json') opts.json = true
+    else if (a === '--toon') opts.toon = true
+    else if (a === '--all') opts.all = true
+    else if (a === '--help' || a === '-h') opts.help = true
+    else if (a === '--since') {
+      const v = parseSince(argv[++i])
+      if (v === null) return { error: `--since expects a duration like 24h, 30d or 90m` }
+      opts.since = v
+    } else if (a === '--window') {
+      const n = Number(argv[++i])
+      if (!Number.isFinite(n) || n <= 0) return { error: `--window expects a number of minutes` }
+      opts.window = n
+    } else if (a.startsWith('-')) return { error: `unknown option ${a}` }
+    else opts._.push(a)
+  }
+  return opts
+}
+
+const out = (opts, name, rows, fields, human, emptyMsg) => {
+  if (opts.json) return JSON.stringify(rows, null, 2)
+  if (opts.toon) return toon(name, rows, fields)
+  return rows.length ? human() : emptyMsg
+}
+
+export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false } = {}) {
+  const opts = parseArgs(argv)
+  if (opts.error) return { code: 1, err: `skein: ${opts.error}\ntry: skein --help` }
+  if (opts.help) return { code: 0, text: HELP }
+
+  // A TUI when a human is looking, text when anything else is (PRD D9, AXI 6).
+  // The CLI must never render escape codes into a pipe.
+  const cmd = opts._[0] ?? (tty && !opts.json && !opts.toon ? 'tui' : 'rollup')
+  const since = now - opts.since
+
+  if (cmd === 'install') return install(opts._.slice(1))
+  if (cmd === 'tui') return { code: 0, tui: true }
+  if (cmd === 'hook') {
+    const line = hookLine({ cwd, session: process.env.SKEIN_SESSION ?? null, now })
+    return { code: 0, text: line ?? '' }          // silence when alone (Q7)
+  }
+
+  const { events, sessions } = collect({ sinceMs: since })
+  // D13 — the same filter the TUI applies, or the two doors report different
+  // numbers for the same question and one of them is lying.
+  const recent = events.filter(e => e.at >= since && !isNoise(e.path))
+  const root = gitRoot(`${cwd}/.`)
+
+  if (cmd === 'rollup' || cmd === 'ls') {
+    const projects = [...byProject(recent).values()]
+      .filter(p => opts.all || cmd === 'ls' || p.last >= now - 6 * 3_600_000)
+      .sort((a, b) => b.last - a.last)
+    const cols = projects.map(p => ({
+      project: p.name,
+      agents: p.agents.join('+'),
+      sessions: p.sessions,
+      files: p.files,
+      edits: p.events.length,
+      last: ago(p.last, now),
+    }))
+    const cs = collisions(recent, sessions, { windowMin: opts.window, since })
+    const text = out(opts, 'projects', cols, ['project', 'agents', 'sessions', 'files', 'edits', 'last'],
+      () => table(cols, [
+        { head: 'PROJECT', key: 'project' }, { head: 'AGENTS', key: 'agents' },
+        { head: 'SESSIONS', key: 'sessions', right: true }, { head: 'FILES', key: 'files', right: true },
+        { head: 'EDITS', key: 'edits', right: true }, { head: 'LAST', key: 'last', right: true },
+      ]) + `\n\n${cs.length} collision${cs.length === 1 ? '' : 's'} in the window · skein collisions`,
+      `no agent activity in the last ${argvSince(opts)} (0 projects)`)
+    return { code: 0, text }
+  }
+
+  if (cmd === 'who') {
+    const path = opts._[1] ? (isAbsolute(opts._[1]) ? opts._[1] : join(cwd, opts._[1])) : null
+    const rows = who(recent, sessions, { root, path, activeMin: opts.window, self: process.env.SKEIN_SESSION ?? null, now })
+      .map(o => ({ agent: o.agent, kind: o.kind, file: short(o.path, root), branch: o.branch ?? '', title: trunc(o.title, 40) ?? '', ago: ago(o.at, now) }))
+    return {
+      code: 0,
+      text: out(opts, 'agents', rows, ['agent', 'kind', 'file', 'branch', 'title', 'ago'],
+        () => table(rows, [
+          { head: 'AGENT', key: 'agent' }, { head: 'DID', key: 'kind' }, { head: 'FILE', key: 'file' },
+          { head: 'BRANCH', key: 'branch' }, { head: 'AGO', key: 'ago', right: true },
+        ]),
+        root
+          ? `no other agents active in ${projectName(root)} in the last ${opts.window}m (0 agents)`
+          : `no other agents active here in the last ${opts.window}m (0 agents)`),
+    }
+  }
+
+  if (cmd === 'collisions') {
+    const rows = collisions(recent, sessions, { windowMin: opts.window, since })
+      .filter(c => opts.all || !root || c.project === root)
+      .map(c => ({
+        project: projectName(c.project), file: trunc(short(c.path, c.project), 56),
+        agents: `${c.a.agent}/${c.b.agent}`, gap: `${c.gapMin}m`, ago: ago(c.at, now),
+      }))
+    return {
+      code: 0,
+      text: out(opts, 'collisions', rows, ['project', 'file', 'agents', 'gap', 'ago'],
+        () => table(rows, [
+          { head: 'PROJECT', key: 'project' }, { head: 'FILE', key: 'file' },
+          { head: 'AGENTS', key: 'agents' }, { head: 'GAP', key: 'gap', right: true },
+          { head: 'AGO', key: 'ago', right: true },
+        ]),
+        root && !opts.all
+          ? `no collisions in ${projectName(root)} in the last ${argvSince(opts)} (0 collisions) · --all for every project`
+          : `no collisions in the last ${argvSince(opts)} (0 collisions)`),
+    }
+  }
+
+  return { code: 1, err: `skein: unknown command "${cmd}"\ntry: skein --help` }
+}
+
+const argvSince = opts => {
+  const d = opts.since
+  if (d % 86_400_000 === 0) return `${d / 86_400_000}d`
+  if (d % 3_600_000 === 0) return `${d / 3_600_000}h`
+  return `${Math.round(d / 60_000)}m`
+}

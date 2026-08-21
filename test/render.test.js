@@ -1,0 +1,142 @@
+import test from 'node:test'
+import assert from 'node:assert/strict'
+import { TIERS, graph, gradient, tierFor } from '../src/symbols.js'
+import { toon, ago, table } from '../src/format.js'
+import { box, fit, width } from '../src/box.js'
+
+test('the braille table is btop\'s, exactly', () => {
+  assert.deepEqual(TIERS.braille.up,
+    [' ', '⢀', '⢠', '⢰', '⢸', '⡀', '⣀', '⣠', '⣰', '⣸', '⡄', '⣄', '⣤', '⣴', '⣼', '⡆', '⣆', '⣦', '⣶', '⣾', '⡇', '⣇', '⣧', '⣷', '⣿'])
+})
+
+test('every tier is the same 25-entry shape, so the renderer never branches', () => {
+  for (const [name, t] of Object.entries(TIERS)) {
+    assert.equal(t.up.length, 25, name)
+    assert.equal(t.down.length, 25, name)
+  }
+})
+
+test('a graph packs two samples per cell', () => {
+  const rows = graph(Array(40).fill(1), { width: 20, rows: 1, tier: 'braille' })
+  assert.equal(rows.length, 1)
+  assert.equal([...rows[0]].length, 20)      // 40 samples -> 20 cells
+})
+
+test('stacked rows give 4 levels each', () => {
+  const top = graph([...Array(8).fill(0.1)], { width: 4, rows: 3 })
+  assert.equal(top.length, 3)
+  assert.equal(top[0].trim(), '')            // a low series leaves the top row empty
+})
+
+test('gradients are 101-entry lookup tables', () => {
+  const lut = gradient('#000000', '#808080', '#ffffff')
+  assert.equal(lut.length, 101)
+  assert.match(lut[0], /38;2;0;0;0/)
+  assert.match(lut[100], /38;2;255;255;255/)
+})
+
+test('the tier degrades without unicode', () => {
+  assert.equal(tierFor({ TERM: 'xterm-256color', LANG: 'en_US.UTF-8' }), 'braille')
+  assert.equal(tierFor({ TERM: 'xterm', LANG: 'C' }), 'block')
+  assert.equal(tierFor({ TERM: 'dumb' }), 'tty')
+})
+
+test('toon states its own length and fields', () => {
+  const out = toon('projects', [{ a: 1, b: 'x' }, { a: 2, b: 'y,z' }], ['a', 'b'])
+  assert.equal(out.split('\n')[0], 'projects[2]{a,b}:')
+  assert.match(out, /"y,z"/)                 // commas are quoted, never ambiguous
+})
+
+test('an empty toon list is still a definitive statement', () => {
+  assert.equal(toon('projects', [], ['a']), 'projects[0]{a}:')
+})
+
+test('the border carries title and state, costing no interior row', () => {
+  const b = box({ w: 40, title: 'skein', state: '3 projects' })
+  assert.equal(width(b.top), 40)
+  assert.equal(width(b.bottom), 40)
+  assert.equal(width(b.row('hi')), 40)
+  assert.match(b.top, /skein/)
+  assert.match(b.bottom, /3 projects/)
+})
+
+test('fit pads and truncates to an exact width, ignoring colour', () => {
+  assert.equal(fit('abc', 6), 'abc   ')
+  assert.equal(fit('abcdefgh', 4), 'abc…')
+  assert.equal(width(fit('\x1b[2mabc\x1b[0m', 6)), 6)
+})
+
+test('ago is stable and coarse', () => {
+  const now = 1_000_000_000_000
+  assert.equal(ago(now - 30_000, now), '30s')
+  assert.equal(ago(now - 120_000, now), '2m')
+  assert.equal(ago(now - 7_200_000, now), '2h')
+  assert.equal(ago(now - 172_800_000, now), '2d')
+})
+
+test('a quiet hour is still visible beside a busy one', async () => {
+  // The bug this guards: linear normalisation against the peak rendered one
+  // edit next to fifty as 0.02, which rounds to nothing. Every hour except the
+  // busiest drew blank, and the chart looked like scattered dust.
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const since = now - 86_400_000
+  const at = frac => since + Math.floor((now - since) * frac)
+  const events = [
+    ...Array.from({ length: 50 }, () => ({ at: at(0.5), session: 's', agent: 'claude', path: '/r/a.ts' })),
+    { at: at(0.1), session: 's', agent: 'claude', path: '/r/b.ts' },   // a single edit
+  ]
+  const state = {
+    projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 2, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  const row = render(state, { cols: 120, rows: 20 }).split('\n')[2]
+  const marks = [...row.replace(/\x1b\[[0-9;]*m/g, '')].filter(c => c >= '⠁' && c <= '⣿')
+  assert.ok(marks.length >= 2, `the lone edit should still draw a mark, got ${marks.length}`)
+})
+
+test('the pulse advances so a still screen reads as a live one', async () => {
+  const { render } = await import('../src/tui.js')
+  const base = {
+    projects: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: 0, now: 1, lookback: '24h', windowMin: 30,
+  }
+  const a = render({ ...base, tick: 0 }, { cols: 80, rows: 16 })
+  const b = render({ ...base, tick: 1 }, { cols: 80, rows: 16 })
+  assert.notEqual(a, b, 'consecutive ticks must differ')
+})
+
+test('the demo frame contains nothing from the machine that renders it', async () => {
+  // The README screenshot once carried real client project names into a public
+  // repo and into every npm tarball. This asserts the demo generator is
+  // self-contained: same bytes on any machine, and no real path in them.
+  const { execFileSync } = await import('node:child_process')
+  const { fileURLToPath } = await import('node:url')
+  const script = fileURLToPath(new URL('../docs/demo-frame.mjs', import.meta.url))
+  const once = execFileSync(process.execPath, [script], { encoding: 'utf8' })
+  const twice = execFileSync(process.execPath, [script], { encoding: 'utf8' })
+  assert.equal(once, twice, 'the demo must be deterministic')
+  assert.doesNotMatch(once, /\/Users\/|\/home\/|C:\\Users/, 'a real path leaked into the demo')
+  assert.match(once, /atlas-api/, 'the invented projects should be there')
+})
+
+test('a COLLISIONS header never appears with no room for a row', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const ev = (session, at) => ({ session, at, agent: 'claude', path: '/r/x.ts', kind: 'edit', project: '/r' })
+  const events = [ev('a', now - 600_000), ev('b', now - 300_000)]
+  const colls = [{ path: '/r/x.ts', project: '/r', a: events[0], b: events[1], gapMin: 5, at: now - 600_000 }]
+  const state = {
+    projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 2, files: 1, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls, tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  for (const rows of [12, 14, 16, 20, 30]) {
+    const out = render(state, { cols: 100, rows })
+    if (out.includes('COLLISIONS')) {
+      const after = out.split('\n').slice(out.split('\n').findIndex(l => l.includes('COLLISIONS')) + 1)
+      assert.ok(after.some(l => l.includes('x.ts')), `header with no row at rows=${rows}`)
+    }
+  }
+})

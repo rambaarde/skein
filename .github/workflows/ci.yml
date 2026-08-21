@@ -1,0 +1,73 @@
+# Tests that only run on one laptop are half a test suite. skein reads paths
+# written by three other programs, and the whole product is path handling: a
+# separator assumption that holds on macOS and breaks on Windows is exactly the
+# bug that would otherwise ship, and it would ship as a *false collision* —
+# which costs more trust than a missed one.
+#
+# workflow_dispatch is here because release-please opens its Release PR using
+# GITHUB_TOKEN, and GitHub deliberately does not start workflows from that
+# token. Without a way to run this on demand, a Release PR can arrive with no
+# checks at all and never satisfy a required one.
+name: ci
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+jobs:
+  test:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        node: ["20", "22", "24"]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ matrix.node }}
+      - run: npm test
+
+  no-dependencies:
+    # The install story defended mechanically rather than by intention.
+    #
+    # skein has no optional dependencies either, and that is the point: unlike
+    # `aps`, nothing here needs a pty. Anything appearing in either field is a
+    # change worth arguing about, so it fails here.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          node -e '
+            const pkg = require("./package.json");
+            for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+              const found = Object.keys(pkg[field] ?? {});
+              if (found.length) {
+                console.error(`${field} appeared: ${found.join(", ")}`);
+                process.exit(1);
+              }
+            }
+            console.log("ok: zero dependencies, required or otherwise");
+          '
+
+  reads-only:
+    # skein writes exactly one path: its own cache. This asserts the source has
+    # not grown a second one -- an advisory tool that writes into somebody
+    # else's config is the reliably-noticed mistake.
+    #
+    # src/install.js is exempt by design: `skein install` is the one command
+    # whose job is to write, and its own tests cover what it may touch.
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - run: |
+          if grep -rnE '\b(writeFileSync|appendFileSync|rmSync|unlinkSync|renameSync)\b' src bin \
+               --include='*.js' | grep -vE '^(src/install\.js|src/cache\.js):'; then
+            echo "a write appeared outside src/cache.js and src/install.js"
+            exit 1
+          fi
+          echo "ok: the only writers are the cache and the installer"

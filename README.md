@@ -1,0 +1,295 @@
+<div align="center">
+
+# skein
+
+**Every agent running across every repository, grouped by project — and a
+read-only door so the agents can check who else is in a file before they write
+it.**
+
+Four sessions open across three repos, two of them on the same repo. One edits
+`src/auth/session.ts`; twenty minutes later another opens the same file with a
+stale picture of it and rewrites a function the first one had already changed.
+Neither agent could have known. Both behaved correctly.
+
+Most agent dashboards scope to the **session**. You do not work in sessions — you
+work in projects, and the collisions that cost you happen *between* sessions,
+where a session-shaped tool cannot look. skein's unit is the **project**, and the
+agents can consult it themselves.
+
+No daemon. No account. No telemetry. Nothing leaves the machine.
+
+</div>
+
+<!-- Outside the centred block on purpose: align="center" centres every LINE of
+     a code fence, so a short first line sits indented and the block reads as
+     mis-typed code rather than as something to paste. -->
+
+```sh
+npm i -g skeins
+skein install          # wires the hook into claude, codex and opencode
+```
+
+<div align="center">
+
+[![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
+![tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)
+![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
+![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
+![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
+![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+
+</div>
+
+---
+
+## The one line that is the product
+
+Everything below this is a dashboard, and five other tools already have one. This
+is the part none of them can do — injected into an agent's session before it
+writes, without anyone asking for it:
+
+```
+2 other agents active in this repo
+  claude   editing  src/auth/middleware.ts   (4m ago)
+  codex    editing  src/auth/session.ts      (1m ago)
+```
+
+That is shared awareness, not coordination. **skein never starts, stops,
+restarts, routes, queues, schedules or blocks anything.** It has no locks and no
+claims. The aviation distinction is exact: this is a *flight information
+service* — "traffic in your area, same altitude" — never air traffic control —
+"turn left heading 270 now". A tool that stops an agent mid-task gets
+uninstalled the first time it is wrong.
+
+---
+
+## The dashboard, which is the other half
+
+```
+╭─ skein¹ ─────────────────────────────────────────────────────────────────────────────────────╮
+│ PROJECT               AGENTS            SESS  FILES  EDITS ACTIVITY (30d)                LAST│
+│ atlas-api             claude+codex         8     75    314 ⣼⣴⣴⣴⣶⣤⣆⡆⣦⣦⣦⣤⣦⣶⣼⣼⣴⣴⣦⣴⣷⣄⣦⣧⣶⣶⣴⣦    8s│
+│ atlas-web             claude+codex         5     61    249 ⣸⣴⣤⣦⣤⣦⣆⣇⣦⣤⣧⣤⣧⣼⣰⣼⣴⣤⣴⣤⣦⣦⣧⣦⣦⣤⣰⣰    4m│
+│ checkout              claude               3     29     97 ⢸⢰⡆⣴⣦ ⣦⣤⣦⣤⡄⡄⣴⢰⣴⢰⢠⣤⡄⡆⡄⣤⣤⣶⣤⣤⣴⣼   22m│
+│ notify-svc            codex+opencode       2     18     55 ⢰⢰⣴ ⣶ ⡆⡄⣦⣤⢠ ⡆⢰⣴⢠⣴⣴⣤⣦ ⡄   ⡄⣶⣼    2h│
+│ docs-site             claude               2     12     32 ⢠ ⢰⢠⢠⡆⢠  ⡄ ⡇ ⣦ ⢰⢠⣤ ⣤ ⡄ ⡆⡄⡄ ⣶    9h│
+│ loose                 claude+codex         7     40     89 ⣰⣀⣀⣠⡀⡆⡀⣀⡄ ⣀⡀⢰⢠ ⣠⣀⣰⣤⣄⣆⣆⣤⣄⣤⡆⢸     1d│
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+╰─ 6 projects · 3 collisions · 30d ⠸ ──────────────────────────────────────────────────────────╯
+╭─ atlas-api² ─────────────────────────────────────────────────────────────────────────────────╮
+│ claude    main             Rotate the session expiry hea…  ⢰ ⢠⢠⣶⢠⡄ ⣤⣦⡄ ⡄⡄⣴⢰⣴⣤⣦⣤⣤⡄⣷⡇⣤⡄⣤⣧    8s│
+│ codex     feat/rate-limit  Add rate limiting to /auth      ⢻⠘⠛⠃⠛⠛⠘ ⠟⠸⠟⠃⠇⠟⠸⠛ ⠸⠃⠘⠇ ⠛⠃⠘⡇⠘⠛   19m│
+│ COLLISIONS                                                                                   │
+│ · src/auth/session.ts                       claude/codex           20m apart, 40m ago        │
+│ · src/mod47.ts                              codex/codex            10m apart, 9d ago         │
+│                                                                                              │
+╰─ ↑↓ move · a all · w window 30m · q quit ────────────────────────────────────────────────────╯
+```
+
+<p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>
+Your own project names never leave your machine, which is rather the point.</em></p>
+
+Timelines are value-gradient braille at **two samples per character cell**; the
+roster carries per-agent hue. Both conventions come from
+[btop](https://github.com/aristocratos/btop), and the braille table is asserted
+identical to btop's, character for character.
+
+`↑↓` move · `a` cycle the window · `w` collision window · `r` refresh · `q` quit
+
+---
+
+## Why now
+
+Parallel agents stopped being exotic about a year ago. Three things changed at
+once, and only the third one is new.
+
+1. **Running four agents became normal.** Under a multiplexer it is routine to
+   have several sessions open across several repositories, two of them on the
+   same repo, all editing files at once.
+
+2. **Nothing coordinates them, on purpose.** That is the right call — an
+   orchestrator that routes work is a heavier product with a worse failure mode.
+   But "no orchestrator" was quietly taken to mean "no awareness either".
+
+3. **The agents can now be told things.** This is the one that matters. Every
+   agent grew a session-start hook, so a fact can reach an agent *before* it
+   writes, without a human relaying it. The defence used to be a human holding
+   the whole board in their head — the exact thing that fails at four sessions.
+
+skein is what you do about the third one.
+
+---
+
+## Before and after
+
+| | Before | With skein |
+|---|---|---|
+| where your week went | a guess, or a token bill | per project, per agent, on a timeline |
+| two agents in one file | found later, in a merge | the second one is told before it writes |
+| what an agent knows about its neighbours | nothing | who is here, what they touched, how long ago |
+| the unit of attention | the session | the project, with sessions nested under it |
+| a repo you have not touched in a week | still on screen | ranked below the ones that are live |
+| asking "is anyone else in this file?" | you cannot | `skein who src/auth/session.ts` |
+| what happens when skein breaks | — | nothing. The hook exits 0 and says nothing |
+
+---
+
+## Two doors, one store
+
+One reader underneath, two surfaces on top — the shape `aps` already proved.
+
+| Door | For | Shape |
+|---|---|---|
+| **TUI** | your eyes | project rollup, agents nested, timeline |
+| **CLI** | agents and pipes | `--json`, `--toon`, pre-computed aggregates, minimal schemas |
+| **Hook** | agents, ambiently | one line at session start — the block above |
+
+```
+skein                     the TUI
+skein ls                  one line per project
+skein who [path]          who else is in this repo, or in one file
+skein collisions          recent same-file overlaps
+skein hook                the ambient line, for a session-start hook
+skein --json | --toon     machine-readable
+```
+
+A tty gets the TUI; a pipe gets text. **No metric exists in only one door** —
+anything the chart shows, the CLI answers, and the reverse. Otherwise one door
+becomes second-class, which is the failure that makes most TUIs unscriptable.
+
+---
+
+## The problem
+
+The code lands. Nobody knows who else was in it.
+
+Your defence against two agents overwriting each other is that you are holding
+the whole board in your head. That works at two sessions and fails at four,
+which is a normal Tuesday. The cost is not tokens — it is a silent merge
+conflict discovered later, in code neither you nor either agent remembers
+writing.
+
+- **Sessions are the wrong unit.** You think in projects. Every tool in the field
+  keys on `sessionKey`, so "where did my week go, per project" has no answer.
+- **The dashboards are write-only.** Five tools will draw you a chart. None can
+  be *consulted by the agents they watch*, so the warning always arrives after
+  the fact and always to a human.
+- **The knowledge is per-file and nobody holds it.** *"Codex touched this file
+  four minutes ago."* That fact exists on disk, in three different formats, and
+  no agent can reach it.
+
+## The promise
+
+> **No agent writes into a file blind that another agent just changed.**
+>
+> **No agent is ever told what to do about it.**
+>
+> **Nothing you did not ask for leaves the machine.**
+
+---
+
+## Was this real, or a solution looking for a problem?
+
+It was gated on that question, and the gate was allowed to kill it.
+
+Before a line of product code, a throwaway script
+([`tools/m0.mjs`](tools/m0.mjs)) measured 30 days of real history. The rule,
+written down in advance: **fewer than ~5 collisions in 30 days and the project is
+cancelled, not descoped.**
+
+It found **97**, across 8 distinct days. ([full result](docs/m0-result.txt))
+
+The more useful finding was about *capture*. The design assumed Claude records
+file edits as `file-history-delta`. It does — in 63 of 197 transcripts, covering
+2,110 of 8,850 edits. The rest arrive as `Edit`/`Write` tool calls (5,090) and as
+shell redirects, `sed -i`, `tee` and heredocs (1,650), which is how Claude Code's
+auto mode is *instructed* to edit files.
+
+**A reader built on the documented contract alone finds 6 collisions and cancels
+the project.** The same 30 days, read properly, contain 97.
+
+---
+
+## How it reads
+
+| Agent | File edits | Project | Branch | Title |
+|---|---|---|---|---|
+| **Claude Code** | `file-history-delta` + `Edit`/`Write` + shell writes | `cwd` | ✓ | ✓ `aiTitle` |
+| **Codex** | `patch_apply_end.changes` — says what *kind* of change | `session_meta.cwd` | — | first prompt |
+| **opencode** | `tool:edit` / `write` parts | `project.worktree` | — | — |
+
+Absence renders as absence, never as breakage. **Read-only, always** — the one
+path skein writes is its own cache in `~/.skein`, and CI greps the source to keep
+it that way.
+
+Transcripts get large. The biggest on the author's machine is **1.27 GB**, past
+Node's maximum string length, so every file is streamed and parsed incrementally
+from its previous end. Cold read of a 30-day window: **~4 s**. Warm: **~20 ms**.
+No daemon — nothing to start, nothing to have crashed.
+
+---
+
+## What skein will not do
+
+Binding, and each one is either something an incumbent does well or something
+that rots.
+
+- **Orchestration of any kind.** No starting, stopping, restarting, routing,
+  queueing, scheduling or assigning. This is the line that defines the product.
+- **Blocking or gating an agent.** Advisory only, forever.
+- **Locks, claims or leases.** The same thing wearing a filesystem hat.
+- **Cost and token panels.** agtop and agentic-metric already do these well.
+- **Process trees and CPU gauges.** agtop's are good, and it is three platforms
+  of `ps` pain.
+- **Session management.** herdr and agent-manager own this.
+- **Anything hosted or shared.** Paths and titles carry client names.
+- **Telemetry.** Absent, not off-by-default.
+
+## Design lineage
+
+Inspired by [agtop](https://github.com/ldegio/agtop), descended from
+[btop](https://github.com/aristocratos/btop).
+
+agtop proved the category — 273 stars in five months for a single-file, zero-dep
+Node TUI. Its object is the **session**; skein's is the **project**, and that is a
+spine change rather than a `groupBy`. agtop is GPL-2.0 and skein is permissive, so
+**agtop's source is deliberately unread**: the visual grammar comes from btop
+(Apache-2.0), which is agtop's own ancestor. Take from the parent, not the
+sibling.
+
+---
+
+## Status
+
+**M1.** The readers, the collision engine, the TUI, the CLI and the hook, with
+49 tests and zero runtime dependencies, green on ubuntu/macOS/Windows × Node
+20/22/24.
+
+On npm as **`skeins`**; the command it installs is `skein`. The singular is held
+by an unrelated 2015 crypto package with just enough traffic that npm will not
+release it — so the plural carries the package and the singular is what you
+type.
+
+The hook has not yet been lived with for a week, which is the only test that
+matters for it.
+
+[`docs/prd-v1.md`](docs/prd-v1.md) is the product requirements, including the
+parts that were wrong and what running it corrected.
+
+## Open questions
+
+- Does the hook line earn its place every session, or become wallpaper?
+- Is "same file within 30 minutes" the right collision definition, or should it
+  be same-function?
+- Should `skein who` report reads, or only writes? (Writes, today.)
+- Does the Kitty/Sixel tier slot into the symbol table, or need its own path?
+
+## Licence
+
+Apache-2.0.

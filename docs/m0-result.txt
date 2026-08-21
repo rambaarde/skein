@@ -1,0 +1,104 @@
+
+M0 — measured 2026-08-21 18:33   window 30m   recent = last 30d
+
+  edit events        8850   (dropped as noise: 991)
+  by capture         file-history-delta 2110 · tool_use 5090 · bash 1650
+  total              8850   (claude 8200 · codex 621 · opencode 29)
+  sessions           234
+  distinct files     3007
+  git roots seen     28
+
+Q1  same file, two sessions, within 30 minutes
+      last 30 days   108      <-- the gate: >= 5 clears
+      of those, sessions genuinely overlapping in time   97
+      distinct days on which one occurred                8
+      all time         108
+      span             2026-07-25 05:44  ->  2026-08-17 17:42
+
+Q2  same repo, different branch, within an hour
+      all time         13
+
+Q3  claude sessions with no pr-link
+      160 of 197
+
+Blind spot (claude only) — edits skein would MISS
+      tool edits (tracked)      5090
+      bash-shaped edits         1650
+
+Most recent collisions:
+  2026-08-13 04:09  claude/claude    0m  __tests__/ServiceUnderTest.test.ts
+  2026-08-13 04:10  claude/claude    0m  __tests__/ServiceUnderTest.test.ts
+  2026-08-13 04:11  claude/claude    0m  <path redacted>
+  2026-08-13 09:06  claude/claude   28m  src/app/components/Dashboard/ServiceUnderTest.tsx
+  2026-08-14 19:27  claude/claude   13m  src/index.js
+  2026-08-14 19:27  claude/claude   21m  src/index.js
+  2026-08-14 19:27  claude/claude   21m  test/index.test.js
+  2026-08-14 19:27  claude/claude   21m  README.md
+  2026-08-14 19:40  claude/claude    7m  src/index.js
+  2026-08-17 17:31  claude/claude   18m  bin/aps.js
+  2026-08-17 17:33  claude/claude   16m  test/cli.test.js
+  2026-08-17 17:42  claude/claude   10m  README.md
+
+--------------------------------------------------------------------------
+VERDICT: the gate in PRD §0.2 clears.
+
+  Threshold        >= 5 collisions in 30 days
+  Measured         97 (of 108 raw, restricted to sessions whose lifetimes
+                   genuinely overlap), across 8 distinct days
+
+Caveat worth carrying into M1: the 97 are CLUSTERED into 8 days, not spread
+evenly. Collisions are rare on a normal day and common on a parallel one --
+which is the behaviour the thesis predicted, but it means "collisions per day"
+is the wrong headline metric.  "Collisions per day of parallel work" is the
+real one.
+
+Method notes -- what counts, and what was excluded:
+  - subagent (isSidechain) records are attributed to the parent session, so a
+    session colliding with its own subagent is not counted
+  - noise dropped: node_modules, .git, dist/build/coverage, *.log, *.lock,
+    /tmp and /private/tmp scratch
+  - one row per (file, session-pair); repeated edits inside one overlap are a
+    single event
+  - "genuinely overlapping" requires the two sessions' active spans to
+    intersect, not merely two edits landing inside 30 minutes
+
+CAPTURE FINDING -- this changes PRD §5, and it is the most important output
+of M0 besides the number itself:
+
+  file-history-delta   2110    <- what the thesis assumed was the whole story
+  tool_use file_path   5090
+  bash-shaped writes   1649
+
+file-history-delta sees under a quarter of real edits.  It is present in only
+63 of 197 transcripts.  Most edits arrive as Edit/Write/trueline_edit tool
+calls, and a further ~1650 arrive as shell redirects, `sed -i`, `tee` and
+heredocs -- which is how Claude Code's auto mode is instructed to edit files.
+
+A reader built on file-history-delta alone would have found 6 collisions and
+CANCELLED THE PROJECT.  The same 30 days, read properly, contain 97.
+
+--------------------------------------------------------------------------
+POSTSCRIPT (2026-08-22, after M1 shipped)
+
+This file records the measurement AS TAKEN.  The shipped reader is stricter
+than the throwaway script that produced it, so the numbers no longer match
+exactly, and both are correct:
+
+  M0 script, 30d          97 collisions
+  shipped skein, 30d      ~91 collisions
+
+The shipped reader added two filters M0 did not have:
+
+  - heredoc bodies are stripped before scanning a command for redirects, so
+    `a.at > c.at` inside a heredoc no longer invents a file called `c.at`
+  - an agent's own store (~/.claude, ~/.codex, opencode storage) is excluded,
+    because editing a transcript is not project work
+
+Both remove false positives.  The gate was >= 5.  Nothing about the decision
+changes, and the finding that mattered -- that the documented capture path is
+under a quarter of real edits -- is unaffected.
+
+--------------------------------------------------------------------------
+REDACTION: file and project names in the sample rows above are replaced
+with placeholders. The counts, timings and verdict are untouched — they
+are the point of the document, and the names never were.

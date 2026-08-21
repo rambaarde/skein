@@ -1,0 +1,136 @@
+# Conventional commits on main accumulate into a Release PR that maintains
+# CHANGELOG.md and the package version. Merging that PR cuts the tag and the
+# GitHub Release, and publishes to npm in the SAME run — a GITHUB_TOKEN-created
+# release event cannot trigger a separate workflow, so `on: release: published`
+# would never fire.
+#
+# Both jobs live in this one file on purpose. npm's trusted publisher is pinned
+# to the workflow filename, and for OIDC npm reads the TOP-LEVEL workflow of the
+# run. Splitting the publish half into its own file — even called via `uses:` —
+# would make npm see the caller instead and refuse the publish.
+#
+# There is deliberately no NPM_TOKEN. Trusted Publishing mints a short-lived
+# OIDC token for this exact workflow in this exact repository, so nothing
+# long-lived exists to leak or rotate.
+#
+# One-time setup on npmjs.com, which cannot be done from here:
+#   skeins → Settings → Trusted Publisher → GitHub Actions
+#   organization: rambaarde   repository: skein   workflow: publish.yml
+#
+# That trust is pinned to the REPOSITORY NAME. Renaming rambaarde/skein breaks
+# publishing until the trusted publisher is updated to match — and so does
+# package.json's repository.url, which provenance checks below.
+name: publish
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: publish
+  cancel-in-progress: false
+
+jobs:
+  release-please:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+      pull-requests: write
+    outputs:
+      release_created: ${{ steps.release.outputs.release_created }}
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: googleapis/release-please-action@v4
+        id: release
+        with:
+          config-file: release-please-config.json
+          manifest-file: .release-please-manifest.json
+
+  publish:
+    needs: release-please
+    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      id-token: write # to mint the OIDC token npm verifies
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          registry-url: https://registry.npmjs.org
+
+      # Trusted Publishing needs npm >= 11.5.1 to perform the OIDC exchange at
+      # all. Node 22 bundles npm 10, which simply publishes with whatever token
+      # it can find — and with no token configured, the registry answers a 404
+      # on the PUT that reads exactly like a missing package rather than a
+      # missing credential. This line is the whole difference.
+      - run: npm install -g npm@latest
+
+      # The suite is the gate. skein reads files three other programs wrote, on
+      # three operating systems; a release that ships a broken reader is worse
+      # than a late one, and there is no build step to catch it later.
+      - run: npm test
+
+      # A proxy for "the CLI ships" is not the same as the CLI shipping. Assert
+      # on the actual tarball: the entry point must be in it, and nothing that
+      # only belongs in the repository may be.
+      - name: assert the tarball before it leaves
+        run: |
+          npm pack --dry-run --json > /tmp/pack.json
+          node -e '
+            // npm 12 changed this from an array to an object keyed by package
+            // name, and the step above installs whatever npm is current.
+            const raw = require("/tmp/pack.json");
+            const meta = Array.isArray(raw) ? raw[0] : Object.values(raw)[0];
+            if (!meta || !Array.isArray(meta.files)) {
+              console.error("unrecognised npm pack --json shape: " + JSON.stringify(Object.keys(raw)));
+              process.exit(1);
+            }
+            const files = meta.files.map((f) => f.path);
+            const fail = (m) => { console.error("REFUSING TO PUBLISH: " + m); process.exit(1); };
+            if (!files.includes("bin/skein.js")) fail("bin/skein.js is not in the tarball");
+            if (!files.some((f) => f.startsWith("src/"))) fail("src/ is not in the tarball");
+            const junk = files.filter((f) => f.startsWith("test/") || f.startsWith(".github/") || f.startsWith("tools/") || f.startsWith("docs/"));
+            if (junk.length) fail("must not publish: " + junk.join(", "));
+            const pkg = require("./package.json");
+            for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
+              if (Object.keys(pkg[field] ?? {}).length) fail(`a ${field} entry appeared`);
+            }
+            if (pkg.bin?.skein !== "bin/skein.js") fail("the bin mapping is not skein → bin/skein.js");
+            // Provenance is checked by the registry only AFTER the bundle is
+            // signed and uploaded, and it reports a mismatch as a 422 that
+            // reads like an auth problem. Asking here turns that into a plain
+            // sentence, before anything is signed.
+            const want = `github.com/${process.env.GITHUB_REPOSITORY}`;
+            const url = pkg.repository?.url ?? pkg.repository ?? "";
+            if (!url.includes(want)) {
+              fail(`repository.url is "${url}" — provenance needs it to name ${want}`);
+            }
+            console.log(`ok: ${meta.entryCount} files, ${(meta.size / 1024).toFixed(1)}kb, 0 deps`);
+          '
+
+      # Provenance requires a PUBLIC source repository — npm rejects the bundle
+      # with 422 otherwise, AFTER signing it, so the failure arrives late and
+      # reads like an auth problem when it is not.
+      - name: publish
+        run: npm publish ${{ github.event.repository.private && ' ' || '--provenance' }}
+
+      - name: verify it is actually installable
+        run: |
+          VERSION='${{ needs.release-please.outputs.version }}'
+          for i in 1 2 3 4 5 6; do
+            npm view "skeins@$VERSION" version >/dev/null 2>&1 && break
+            echo "waiting for the registry to serve $VERSION ($i)"; sleep 10
+          done
+          WORK=$(mktemp -d)
+          cd "$WORK"
+          npm init -y >/dev/null
+          npm install "skeins@$VERSION" --prefer-online
+          # Run the installed binary, not the checkout: bin paths are the thing
+          # most likely to be right in the repo and wrong once packaged.
+          ./node_modules/.bin/skein --help | head -1
+          # The hook is the product, and it must exit 0 from anywhere.
+          (cd / && "$WORK/node_modules/.bin/skein" hook)
+          echo "ok: skeins@$VERSION installs and runs"
