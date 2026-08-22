@@ -947,3 +947,24 @@ test('the no-repo bucket claims no branch, on the page as well as the list', asy
   assert.doesNotMatch(page.split('\n')[0], /develop/, 'the title must not borrow a branch')
   assert.match(page.split('\n')[0], /not in a repo/)
 })
+
+test('esc leaves a full-screen preset instead of quitting', async () => {
+  // preset 4 replaces the whole dashboard, and esc fell straight through to
+  // quit -- so the only way back was already knowing that p or 1 does it, and
+  // neither was on screen. A full-screen preset with no visible exit and no
+  // working escape key is a dead end.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [{ at: now, agent: 'claude', path: '/w/a/f.ts', session: 's', project: '/w/a' }]
+  const plain = render({
+    projects: [{ name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], last: now, events }],
+    events, sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 3, tab: 0, feedTop: 0,
+  }, { cols: 140, rows: 32 }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(plain, /velocity/, 'this is the velocity screen')
+  // The way out is ON the screen, not just in the key handler.
+  assert.match(plain, /1 back/, 'and it says how to get back')
+  assert.match(plain, /q quit/, 'the two pinned controls survive the trim')
+  assert.match(plain, /\? keys/)
+})

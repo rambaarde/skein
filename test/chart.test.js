@@ -175,3 +175,29 @@ test('a rendered chart carries no control characters', () => {
     for (const c of plain(line)) assert.ok(c === '\t' ? false : c.codePointAt(0) >= 32, `control character in ${JSON.stringify(line)}`)
   }
 })
+
+test('the selected line is lit and the rest fade back', () => {
+  // Reordering the draw stack alone was a bad idea: with six running totals
+  // sharing a long baseline, changing which one was drawn last recoloured that
+  // whole baseline, and moving the cursor read as the chart jumping to another
+  // project. Fading is the same information without the geometry appearing to
+  // move — one line is bright, the rest are still exactly where they were.
+  const now = Date.now()
+  const S = i => ({ marker: MARKERS[i], label: `p${i}`, color: '\x1b[38;2;200;100;50m', values: [0, 1, 2] })
+  const opts = { width: 30, rows: 4, max: 2, since: now - 3600_000, now, pad: 0 }
+  const none = chart([S(0), S(1)], opts).join('')
+  const lit = chart([S(0), S(1)], { ...opts, focus: 0 }).join('')
+  assert.ok(none.includes('38;2;200;100;50m'), 'with no selection every line keeps its own colour')
+  assert.ok(lit.includes('38;2;200;100;50m'), 'the selected line keeps its colour')
+  assert.ok(/38;2;84;42;21m/.test(lit), 'and the others are the same hue, quieter')
+  // Geometry is untouched: the same cells are drawn either way.
+  const cells = s => s.replace(/\x1b\[[0-9;]*m/g, '')
+  assert.equal(cells(lit), cells(none), 'nothing moves when the selection changes')
+})
+
+test('a focus outside the list changes nothing', () => {
+  const now = Date.now()
+  const s = [{ marker: '#', label: 'r', color: '\x1b[38;2;200;100;50m', values: [0, 1] }]
+  const opts = { width: 10, rows: 3, max: 1, since: now - 3600_000, now }
+  assert.deepEqual(chart(s, { ...opts, focus: -1 }), chart(s, { ...opts, focus: 9 }))
+})

@@ -85,9 +85,10 @@ const KEYS = [
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
   ['1-4', 'jump straight to a preset: all · watch · table · velocity'],
+  ['', 'the selected project is lit on the chart; the rest fade back'],
   ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
   ['space', 'peek at a project inline without leaving the list'],
-  ['esc', 'back one level: page, then detail, then quit'],
+  ['esc', 'back one level: page, then detail, then preset 1, then quit'],
   ['tab', 'switch the detail pane: info · sessions · files · collisions'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
@@ -261,13 +262,21 @@ export function render(state, size) {
       : [` ${DIM}no activity in ${lookback}${R}`]
 
     const totalAll = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
+    // The page carries this project's delivery too. Velocity across every
+    // project answers "is it improving"; the number that belongs to the repo
+    // you opened belongs on the screen about that repo, or the preset is the
+    // only place it exists and you have to hold it in your head to use it.
+    const vp = velocity(p.root, p.events ?? [], { since, now, attention: att(p) })
     const stats = [
       `${humanMs(att(p))} attention`,
       `${Math.round((att(p) / totalAll) * 100)}% of all`,
       `${p.sessions} session${p.sessions === 1 ? '' : 's'}`,
       `${p.files} file${p.files === 1 ? '' : 's'}`,
+      vp ? `${vp.landed} landed` : null,
+      vp && vp.lead !== null ? `${humanMs(vp.lead)} lead` : null,
+      vp && vp.rework !== null ? `${Math.round(vp.rework * 100)}% rework` : null,
       collsHere.length ? `${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : 'no collisions',
-    ].join(`${DIM} · ${R}`)
+    ].filter(Boolean).join(`${DIM} · ${R}`)
 
     // --- agents: btop's per-core list, but the cores are agents
     const perAgent = (p.agents ?? []).map(a => {
@@ -399,7 +408,7 @@ export function render(state, size) {
         since, now, lead: 6, pad: 7, tier,
         fmt: v => String(Math.round(v)),
         caption: `landed · ${lookback}`,
-        top: ranked.findIndex(s => s.p === projects[sel]),
+        focus: lines.findIndex(l => l.label === projects[sel]?.name),
       }))
     } else {
       rowsOut.push(` ${DIM}no git history in any of these projects${R}`)
@@ -407,7 +416,10 @@ export function render(state, size) {
     rowsOut.push('')
     const W = V.w - 2
     const nameW = Math.max(12, Math.min(26, projects.reduce((m, p) => Math.max(m, p.name.length + 2), 10)))
-    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit('  /WEEK', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('  REWORK', 9)}${fit('  ATTENTION', 12)}${R}`)
+    // A rate over a window shorter than a week is a projection, not a
+    // measurement, so the column says which one it is.
+    const weekly = (now - since) >= 7 * 86_400_000
+    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('  REWORK', 9)}${fit('  ATTENTION', 12)}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
     for (const { p, v } of ranked.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
       const on = p === projects[sel]
@@ -415,7 +427,7 @@ export function render(state, size) {
       // about your week rather than about what skein can see.
       const cells = v
         ? `${LUT.activity[Math.round((v.landed / topLanded) * 100)]}${String(v.landed).padStart(7)}${R}  ` +
-          `${fit(v.perWeek.toFixed(1).padStart(6), 8)}` +
+          `${fit((weekly ? v.perWeek : v.perDay).toFixed(1).padStart(6), 8)}` +
           `${fit((v.lead === null ? '—' : humanMs(v.lead)).padStart(6), 8)}` +
           `${fit((v.perShip === null ? '—' : humanMs(v.perShip)).padStart(9), 12)}` +
           `${v.rework === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.heat[Math.round(v.rework * 100)]}${`${Math.round(v.rework * 100)}%`.padStart(7)}${R}`}  ` +
@@ -431,11 +443,56 @@ export function render(state, size) {
     const anyGit = stats.filter(s => s.v).length
     return compose(h, [{ rect: V, lines: pane(V, {
       title: 'velocity', key: SUP[3], line: THEME.boxHead,
-      right: `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`,
+      right: (() => {
+        // The preset label is a control everywhere else on screen, and it was
+        // inert here — which on a full-screen preset means no visible way out.
+        const label = `preset ${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}`
+        const painted = `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`
+        const x0 = V.x + V.w - width(painted) - 3
+        hit.tags.push({ y: V.y, x0, x1: x0 + label.length, key: 'p' })
+        return painted
+      })(),
       // Naming what is NOT here is half the point: two of DORA's four cannot
       // be computed from a laptop, and a tool that quietly shows two and calls
       // it DORA is lying by omission.
-      state: `${DIM}${anyGit} of ${projects.length} in git · landed = trunk commits, releases excluded · rework is a proxy for change-failure · no MTTR without incidents${R}`,
+      //
+      // And the way OUT has to be on screen. This preset replaces the whole
+      // dashboard, so a reader with no controls on the border has no way to
+      // discover that p or 1 goes back — the screen reads as a dead end.
+      state: (() => {
+        const note = `${DIM}${anyGit}/${projects.length} in git · landed excludes releases · rework proxies change-failure${R}`
+        // The two escape hatches are PINNED and everything else yields to
+        // them, the same rule the headline keeps: the least discoverable
+        // things on screen are how to get help and how to get out, so they
+        // are the last to go rather than the first to be trimmed off the end.
+        const pinned = [{ key: '?', label: 'keys', glyph: '?' }, { key: 'q', label: 'quit', glyph: 'q' }]
+        const optional = [
+          { key: '1', label: 'back', glyph: '1' },
+          { key: 'p', label: 'preset', glyph: 'p' },
+          { key: '\r', label: 'open', glyph: '⏎' },
+          { key: 'a', label: lookback, glyph: 'a' },
+        ]
+        const sep = width(TAG_SEP)
+        const room = V.w - 2 - 3 - width(note) - 2
+        let used = pinned.reduce((n, c) => n + width(tag(c.glyph, c.label)) + sep, 0)
+        const keep = []
+        for (const c of optional) {
+          const cost = width(tag(c.glyph, c.label)) + sep
+          if (used + cost > room) break
+          used += cost
+          keep.push(c)
+        }
+        const y = V.y + V.h - 1
+        let at = 3 + width(note) + 2
+        const painted = []
+        for (const c of [...keep, ...pinned]) {
+          const s = tag(c.glyph, c.label)
+          hit.tags.push({ y, x0: V.x + at, x1: V.x + at + width(s), key: c.key })
+          at += width(s) + sep
+          painted.push(s)
+        }
+        return `${note}  ${painted.join(TAG_SEP)}`
+      })(),
       rows: rowsOut,
     }) }])
   }
@@ -689,9 +746,9 @@ export function render(state, size) {
       width: gwChart, rows: graphRows, max: scale, since, now, lead: 6, pad: VALW,
       fmt: humanMs, tier,
       caption: `attention · ${lookback}`,
-      // The project under the cursor wins any cell it shares, so moving the
-      // selection reads its line out of the tangle.
-      top: ranked.indexOf(projects[sel]),
+      // The project under the cursor is lit and the rest fade back, so one
+      // line can be read out of six without any of them appearing to move.
+      focus: ranked.indexOf(projects[sel]),
     }))
   }
 
@@ -1228,9 +1285,13 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
 
     if (help) { help = false; draw(); return }          // any key dismisses it
 
-    // esc unwinds one level at a time: page, then focus, then quit.
+    // esc unwinds one level at a time: page, then focus, then preset, then
+    // quit. Without the preset step a full-screen preset was a dead end — esc
+    // fell through to quit, so the only way back was knowing that p or 1 does
+    // it, and neither was on screen.
     if (k === '\x1b' && page) { page = null; draw(); return }
     if (k === '\x1b' && focus) { focus = null; draw(); return }
+    if (k === '\x1b' && preset !== 0) { preset = 0; draw(); return }
     if (k === 'q' || k === '\x1b' || k === '\x03') return quit()
     else if (k === '?' || k === 'h') help = true
     else if (k === '\x1b[B' || k === 'j') sel = Math.min(state.projects.length - 1, sel + 1)
