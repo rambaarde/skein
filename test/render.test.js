@@ -140,3 +140,37 @@ test('a COLLISIONS header never appears with no room for a row', async () => {
     }
   }
 })
+
+test('the TUI boots without throwing', async () => {
+  // It did not, once: the refresh scheduler was called a few lines above where
+  // it was declared, so `skein` crashed on launch with a temporal-dead-zone
+  // ReferenceError. Every unit test passed, because none of them started it.
+  const { start } = await import('../src/tui.js')
+  const { PassThrough } = await import('node:stream')
+  const out = new PassThrough(); out.columns = 100; out.rows = 24; out.isTTY = true
+  const inp = new PassThrough(); inp.isTTY = true; inp.setRawMode = () => {}
+  let painted = ''
+  out.on('data', d => { painted += d.toString() })
+  assert.doesNotThrow(() => start({ stdout: out, stdin: inp }))
+  await new Promise(r => setTimeout(r, 50))
+  assert.match(painted, /skein/, 'the first frame should have been painted')
+  assert.match(painted, /\x1b\[\?1049h/, 'it should switch to the alternate screen')
+})
+
+test('keys are handled without throwing', async () => {
+  const { start } = await import('../src/tui.js')
+  const { PassThrough } = await import('node:stream')
+  const out = new PassThrough(); out.columns = 100; out.rows = 24; out.isTTY = true
+  const inp = new PassThrough(); inp.isTTY = true; inp.setRawMode = () => {}
+  out.resume()
+  start({ stdout: out, stdin: inp })
+  await new Promise(r => setTimeout(r, 30))
+  // every key except the ones that quit
+  for (const k of ['j', 'k', '\r', ' ', 's', 'c', 'a', 'w', 'r', 'g', 'G', '?', 'x']) {
+    assert.doesNotThrow(() => inp.write(k), `key ${JSON.stringify(k)} threw`)
+  }
+  // the filter is a mode: type into it, backspace, then escape out
+  inp.write('/'); for (const c of 'atlas') inp.write(c)
+  inp.write('\x7f'); inp.write('\x1b')
+  await new Promise(r => setTimeout(r, 30))
+})

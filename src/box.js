@@ -13,6 +13,11 @@ export const width = s => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length
 
 export function box({ w, title = '', state = '', rounded = true, key = '' }) {
   const c = rounded ? ROUND : SQUARE
+  // Border text is decoration; the frame is not. Anything that will not fit is
+  // dropped rather than allowed to push the corner off the right edge.
+  const room = Math.max(0, w - 6)
+  const clamp = s => (width(s) <= room ? s : `${[...s.replace(/\x1b\[[0-9;]*m/g, '')].slice(0, room).join('')}`)
+  title = clamp(title); state = clamp(state)
   const head = title ? `${DIM}${c.h}${R} ${BOLD}${title}${R}${key ? `${DIM}${key}${R}` : ''} ` : ''
   const foot = state ? `${DIM}${c.h} ${state} ${R}` : ''
   const pad = n => c.h.repeat(Math.max(0, n))
