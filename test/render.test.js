@@ -474,3 +474,40 @@ test('a zero is reported beside a comparison, not on its own', async () => {
   assert.match(plain, /no collisions in 24h/)
   assert.doesNotMatch(plain, /· 0 collisions ·/)
 })
+
+test('a column must differ between rows to be drawn', async () => {
+  // Measured on a real one-agent machine: AGENTS carried one distinct value
+  // across seven projects and COLL carried one — two columns of screen width
+  // saying nothing, while BRANCH and DOING were captured and never shown.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = (name, agents, branch) => ({
+    name, root: `/${name}`, agents, sessions: 1, files: 3, last: now,
+    events: [{ at: now, session: `s-${name}`, agent: agents[0], path: `/${name}/a.ts`, project: `/${name}` }],
+  })
+  const sess = (name, branch, title) => [`s-${name}`, { agent: 'claude', branch, title, first: 0, last: now }]
+
+  const oneAgent = {
+    events: [], colls: [], sel: 0, expanded: new Set(), tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    projects: [mk('a', ['claude']), mk('b', ['claude'])],
+    sessions: new Map([sess('a', 'main', 'Fix the importer'), sess('b', 'develop', 'Rotate the header')]),
+  }
+  const head = s => (render(s, { cols: 150, rows: 16 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n').find(l => l.includes('PROJECT')) ?? '')
+
+  const h1 = head(oneAgent)
+  assert.doesNotMatch(h1, /AGENTS/, 'one agent everywhere is not worth a column')
+  assert.doesNotMatch(h1, /COLL/, 'no collisions is not worth a column')
+  assert.match(h1, /BRANCH/, 'branch differs, so it earns its place')
+  assert.match(h1, /DOING/, 'and so does what each project is on')
+
+  // give it two agents and a collision, and the columns come back
+  const twoAgents = {
+    ...oneAgent,
+    projects: [mk('a', ['claude']), mk('b', ['claude', 'codex'])],
+    colls: [{ path: '/b/a.ts', project: '/b', a: {}, b: {}, gapMin: 2, at: now }],
+  }
+  const h2 = head(twoAgents)
+  assert.match(h2, /AGENTS/, 'agents differ now, so show them')
+  assert.match(h2, /COLL/, 'and there is a collision to report')
+})

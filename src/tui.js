@@ -124,15 +124,43 @@ export function render(state, size) {
   // knows its own metrics; a project list does not know how wide a name is or
   // how narrow a terminal will be. Drop the least valuable column first, and
   // give whatever is left to the name.
+  // Declared here, above the column plan, because the plan asks whether these
+  // vary between rows before deciding whether to draw them.
+  const att = x => x.attention ?? attentionOf(x.events ?? [])
+  const metaOf = x => {
+    const seen = [...new Map((x.events ?? []).map(e => [e.session, e])).values()]
+      .sort((a, b) => b.at - a.at)
+      .map(e => state.sessions?.get(e.session))
+      .filter(Boolean)
+    return {
+      branch: seen.map(s => s.branch).find(Boolean) ?? null,
+      doing: seen.map(s => s.title).find(Boolean) ?? null,
+    }
+  }
+
   const plan = (() => {
     // The name column is sized to the longest NAME, not to whatever is left
     // over. Giving it the slack put nine characters of nothing in every row and
     // starved the graph — btop never leaves a gap it could put data in.
     const longest = projects.reduce((m, p) => Math.max(m, p.name.length + 2), 8)
     const name = Math.max(10, Math.min(28, longest))
+
+    // A column earns its place by DIFFERING between rows. Measured on a
+    // one-agent machine: AGENTS carried one distinct value across seven
+    // projects and COLL carried one — two columns of screen width saying
+    // nothing, while BRANCH and DOING were captured and never shown. btop
+    // hides its swap gauge on a machine with no swap for the same reason.
+    const varies = f => projects.length < 2 || new Set(projects.map(f)).size >= 2
     const optional = [
-      ['agents', 16], ['time', 7], ['share', 8], ['collisions', 5], ['files', 6], ['sessions', 5],
-    ]
+      ['branch', 18, varies(x => metaOf(x).branch ?? '')],
+      ['doing', 30, projects.some(x => metaOf(x).doing)],
+      ['agents', 16, varies(x => x.agents.join('+'))],
+      ['time', 7, true],
+      ['share', 8, true],
+      ['collisions', 5, colls.length > 0],
+      ['files', 6, true],
+      ['sessions', 5, varies(x => x.sessions)],
+    ].filter(([, , keep]) => keep).map(([k, w]) => [k, w])
     let budget = listW - 2 - 1 - 6 - name      // borders, lead, LAST, name
     const on = new Set()
     for (const [key, need] of optional) {
@@ -172,16 +200,20 @@ export function render(state, size) {
       state.onlyColliding ? `${BOLD}collisions only${R}` : null,
     ].filter(Boolean).join(' · ')
   const b = box({ w: listW })
-  const cells = (name, agents, sessions, files, edits, share, colls_, activity, last) => {
-    const s = [' ', fit(name, plan.name)]
-    if (plan.on.has('agents')) s.push(' ', fit(agents, 16))
-    if (plan.on.has('sessions')) s.push(' ', fit(sessions, 5))
-    if (plan.on.has('files')) s.push(' ', fit(files, 6))
-    if (plan.on.has('time')) s.push(' ', fit(edits, 7))
-    if (plan.on.has('share')) s.push(' ', fit(share, 8))
-    if (plan.on.has('collisions')) s.push(' ', fit(colls_, 5))
-    if (gw > 0) s.push(' ', activity)
-    s.push(' ', fit(last, 6))
+  // Keyed rather than positional: the column set is now decided at runtime, and
+  // nine ordered arguments is how you silently shift every value one place left.
+  const cells = c => {
+    const s = [' ', fit(c.name, plan.name)]
+    if (plan.on.has('branch')) s.push(' ', fit(c.branch, 18))
+    if (plan.on.has('doing')) s.push(' ', fit(c.doing, 30))
+    if (plan.on.has('agents')) s.push(' ', fit(c.agents, 16))
+    if (plan.on.has('sessions')) s.push(' ', fit(c.sessions, 5))
+    if (plan.on.has('files')) s.push(' ', fit(c.files, 6))
+    if (plan.on.has('time')) s.push(' ', fit(c.time, 7))
+    if (plan.on.has('share')) s.push(' ', fit(c.share, 8))
+    if (plan.on.has('collisions')) s.push(' ', fit(c.colls, 5))
+    if (gw > 0) s.push(' ', c.activity)
+    s.push(' ', fit(c.last, 6))
     return s.join('')
   }
   // ---- the live strip: btop's cpu graph, with agents for cores ------------
@@ -219,10 +251,7 @@ export function render(state, size) {
   }
   if (stripH > 0) headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
 
-  headRows.push(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', '   TIME', '   SHARE', ' COLL', fit(`ATTENTION (${lookback})`, gw), '  LAST')}${R}`)
-  // byProject() attaches this; computing it here too means render survives a
-  // hand-built project object, which is how every test constructs one.
-  const att = x => x.attention ?? attentionOf(x.events ?? [])
+  headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', activity: fit(`ATTENTION (${lookback})`, gw), last: '  LAST' })}${R}`)
   const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
 
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
@@ -247,16 +276,20 @@ export function render(state, size) {
     const open = expanded.has(p.root ?? 'loose')
     const marker = open ? '▾' : '▸'
     const mine = colls.filter(c => c.project === p.root).length
-    const line = cells(
-      `${marker} ${p.name}`,
+    const m = metaOf(p)
+    const line = cells({
+      name: `${marker} ${p.name}`,
+      branch: m.branch ?? `${DIM}—${R}`,
+      doing: m.doing ? trunc(m.doing, 30) : `${DIM}—${R}`,
       agents,
-      String(p.sessions).padStart(5),
-      String(p.files).padStart(6),
-      humanMs(att(p)).padStart(7),
-      meter(att(p) / totalTime, 8, LUT.activity),
-      mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
-      `${spark}${R}`,
-      ago(p.last, now).padStart(6))
+      sessions: String(p.sessions).padStart(5),
+      files: String(p.files).padStart(6),
+      time: humanMs(att(p)).padStart(7),
+      share: meter(att(p) / totalTime, 8, LUT.activity),
+      colls: mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
+      activity: `${spark}${R}`,
+      last: ago(p.last, now).padStart(6),
+    })
     // Selection reverses fg/bg on a plain line. Interleaving REV with 24-bit
     // colour leaves gaps wherever a reset lands, so the row drops its hues for
     // the one frame it is selected -- readable on any theme by definition.
