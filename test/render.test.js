@@ -285,11 +285,19 @@ test('the activity feed is newest-first and deduplicated', async () => {
     sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
     since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
   }
-  const plain = render(state, { cols: 100, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '')
-  const newAt = plain.indexOf('new.ts'), oldAt = plain.indexOf('old.ts')
+  // Scoped to the feed by COLUMN, not by line: in the wide layout the detail
+  // pane sits beside the feed on the same rows, and it legitimately names the
+  // same file because it shows what an agent starting in that repo is told.
+  const { layout } = await import('../src/layout.js')
+  const cols = 100
+  const L = layout(cols, 24)
+  const lines = render(state, { cols, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+  const feed = lines.map(l => [...l].slice(L.feed.x, L.feed.x + L.feed.w).join('')).join('\n')
+  assert.match(feed, /activity/, 'the feed pane should be on screen')
+  const newAt = feed.indexOf('new.ts'), oldAt = feed.indexOf('old.ts')
   assert.ok(newAt > -1 && oldAt > -1, 'both files should be listed')
   assert.ok(newAt < oldAt, 'the newer edit must come first')
-  assert.equal(plain.split('new.ts').length - 1, 1, 'the same file in one session should appear once')
+  assert.equal(feed.split('new.ts').length - 1, 1, 'the same file in one session should appear once in the feed')
 })
 
 test('a recent age counts in seconds so it visibly ticks', async () => {
@@ -373,4 +381,57 @@ test('a narrow terminal falls back to one column', async () => {
   // stacked panes must span the full width
   const l = layout(80, 24)
   for (const r of [l.head, l.detail, l.feed]) assert.equal(r.w, 80)
+})
+
+test('the pane shows the line an agent would actually be handed', async () => {
+  // Thesis §5: the defensible claim is not the chart, it is that an agent can
+  // read this. The TUI has to show that, or the product is invisible in its
+  // own dashboard.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [
+    { session: 'a', at: now - 4 * 60_000, agent: 'claude', path: '/r/src/auth/middleware.ts', kind: 'edit', project: '/r' },
+    { session: 'b', at: now - 60_000, agent: 'codex', path: '/r/src/auth/session.ts', kind: 'edit', project: '/r' },
+  ]
+  const state = {
+    events,
+    projects: [{ name: 'atlas-api', root: '/r', agents: ['claude', 'codex'], sessions: 2, files: 2, events, last: now, attention: 300_000 }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  const plain = render(state, { cols: 120, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(plain, /what an agent is told here/)
+  assert.match(plain, /2 other agents active in this repo/)
+  assert.match(plain, /middleware\.ts/)
+})
+
+test('when nobody else is here it says so, rather than showing an empty box', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [{ session: 'a', at: now - 9 * 3_600_000, agent: 'claude', path: '/r/a.ts', kind: 'edit', project: '/r' }]
+  const plain = render({
+    events, projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 1, events, last: now - 9 * 3_600_000, attention: 60_000 }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }, { cols: 120, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(plain, /would be told nothing/)
+})
+
+test('the headline metric is time, not a count of edits', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  // Same edit count, very different amounts of a day.
+  const burst = Array.from({ length: 20 }, (_, i) => ({ session: 'a', at: now - i * 1000, agent: 'claude', path: `/b/f${i}.ts`, project: '/b' }))
+  const spread = Array.from({ length: 20 }, (_, i) => ({ session: 'c', at: now - i * 20 * 60_000, agent: 'claude', path: `/s/f${i}.ts`, project: '/s' }))
+  const mk = (name, root, events) => ({ name, root, agents: ['claude'], sessions: 1, files: 20, events, last: now })
+  const plain = render({
+    events: [...burst, ...spread], projects: [mk('burst', '/b', burst), mk('spread', '/s', spread)],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }, { cols: 120, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+  assert.match(plain[1], /TIME/, 'the column should be TIME')
+  assert.match(plain[1], /ATTENTION/, 'and the graph should be ATTENTION')
+  const bars = l => (l.match(/■/g) ?? []).length
+  const burstRow = plain.find(l => l.includes('burst')), spreadRow = plain.find(l => l.includes('spread'))
+  assert.ok(bars(spreadRow) > bars(burstRow), 'the same edit count must not give the same share')
 })
