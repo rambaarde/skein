@@ -47,3 +47,23 @@ test('cost is deliberately absent', async () => {
   assert.doesNotMatch(code, /USD|\bprice\b|\bcost\b|per[_ ]?million/i, 'no pricing may enter this file')
   assert.doesNotMatch(code, /\d+\s*\/\s*1_?000_?000\s*\*/, 'no rate arithmetic either')
 })
+
+test('a stated limit beats an inferred one', () => {
+  // Codex reports model_context_window outright. Claude does not, so its
+  // sessions fall back to observation — but when a real number is on offer,
+  // guessing from a high-water mark is strictly worse.
+  const stated = new Map([['a', { context: 30_000, limit: 258_400 }]])
+  assert.equal(highWater(stated), 258_400)
+  const observed = new Map([['a', { context: 952_000 }]])
+  assert.equal(highWater(observed), 1_000_000)
+})
+
+test('a cumulative total is not window occupancy', () => {
+  // The bug this guards: Codex's total_token_usage is the session's lifetime
+  // spend, and reading it as context produced a 255M ceiling and a meter that
+  // meant nothing. Only per-request usage describes the window.
+  const lifetime = 255_000_000
+  const perRequest = contextOf({ input_tokens: 30_263, cache_read_input_tokens: 4_480 })
+  assert.ok(perRequest < lifetime / 1000, 'per-request context is orders below a lifetime total')
+  assert.equal(perRequest, 34_743)
+})

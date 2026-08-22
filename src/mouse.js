@@ -29,7 +29,11 @@ export function parseMouse(seq) {
 // the layout decides row positions at render time and guessing them again in
 // the input handler is how the two drift apart.
 export function hits() {
-  return { rows: [], tags: [] }
+  return { rows: [], tags: [], feed: [] }
+}
+
+export function hitFeed(map, y) {
+  return map.feed?.find(f => f.y === y)?.event ?? null
 }
 
 export function hitRow(map, y) {

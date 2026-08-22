@@ -26,13 +26,26 @@ export const WINDOW_MS = 15 * 60_000
 // is the rate over the preceding SMOOTH_MS, so neighbouring samples share
 // almost all of their window and a burst decays into a hump instead of a
 // single-cell spike.
-export const SMOOTH_MS = 3 * 60_000
+// Smoothing is measured in SAMPLES, not minutes.
+//
+// A fixed three minutes sounded reasonable and was not: at 260 samples across
+// fifteen minutes a sample is 3.5s wide, so three minutes averages 52
+// neighbours and every point inside a burst comes out identical. The result is
+// a rectangle at one level — which is what "the graph looks ugly" meant.
+//
+// btop samples instantaneously and gets spikes; a raw count at 3.5s resolution
+// gets scatter. Averaging four or five samples sits between the two: local
+// enough to keep the peaks, wide enough to join the dots.
+export const SMOOTH_SAMPLES = 5
+export const SMOOTH_MS = 3 * 60_000   // only used when a caller asks for it
 
 // Samples oldest → newest, so the newest is on the right and everything
 // marches left as `now` advances.
-export function rateSeries(events, samples, { now = Date.now(), windowMs = WINDOW_MS, smoothMs = SMOOTH_MS } = {}) {
+export function rateSeries(events, samples, { now = Date.now(), windowMs = WINDOW_MS, smoothMs = null } = {}) {
   const since = now - windowMs
   const per = windowMs / samples
+  // Scale with the sample width unless a caller pins it explicitly.
+  smoothMs = smoothMs ?? Math.max(10_000, per * SMOOTH_SAMPLES)
   const at = events.map(e => e.at).filter(t => t && t <= now && t >= since - smoothMs).sort((a, b) => a - b)
   const out = new Array(samples).fill(0)
   // Two pointers over a sorted list: each sample's window is [t-smooth, t], and
