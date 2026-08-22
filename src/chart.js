@@ -93,7 +93,24 @@ const tickCols = (width, ticks) =>
 //
 // Series are drawn in order and a later one wins a shared cell, so the caller
 // puts the line it most wants readable last.
-export function plot(series, { width, rows, max = 1, pad = 0 }) {
+//
+// `tier` picks how the line itself is drawn, and this is the whole difference
+// between a chart that looks like a tool and one that looks like a wall of
+// hashes. Braille packs 2×4 subpixels into a cell, so a line drawn in it is
+// ONE DOT THICK instead of one character thick — which is why btop, ratatui
+// and blessed-contrib all look the way they do.
+//
+// The reason skein did not start there: colour is per character CELL, so two
+// series sharing a cell cannot both keep their hue. That was treated as the
+// common case and it is not. These lines are running totals; they fan out and
+// spend almost all of their length apart. Where they do share a cell one hue
+// wins, which is a smaller price than every line being a fat bar.
+//
+// The marker is still each series' identity — it just lives in the legend now
+// rather than being stamped across the data. Terminals without braille fall
+// back to drawing the marker itself, which is R2: a table swap, not a branch.
+export function plot(series, { width, rows, max = 1, pad = 0, tier = 'braille' }) {
+  if (tier === 'braille') return plotBraille(series, { width, rows, max, pad })
   const w = Math.max(1, width), r = Math.max(1, rows), cap = max > 0 ? max : 1
   const span = Math.max(1, w - pad)
   const ch = Array.from({ length: r }, () => new Array(w).fill(' '))
@@ -202,28 +219,34 @@ export function xaxis(since, now, { width, ticks = 4 }) {
   return buf.join('')
 }
 
-// Which line is which. Without this the markers are a cipher.
+// Which line is which. Without this the series are a cipher.
+//
+// The key changes with the tier, because the thing that identifies a line
+// changes with it. Drawn in braille the line carries no marker — its identity
+// is its hue — so the legend shows a swatch of the same glyphs the chart is
+// made of. Drawn in markers it shows the marker.
 //
 // Entries that do not fit are counted rather than dropped, per AXI 5: a legend
 // that silently ends at four says there were four.
-export function legend(series, { width }) {
+export function legend(series, { width, tier = 'braille' }) {
   const SEP = ` ${DIM}│${R} `
+  const key = s => (tier === 'braille' ? '⣿⣿' : `${s.marker}:`)
   const out = []
   let used = 0, i = 0
   for (; i < series.length; i++) {
     const s = series[i]
-    const plain = `${s.marker}: ${s.label}${s.value ? ` ${s.value}` : ''}`
+    const plain = `${key(s)} ${s.label}${s.value ? ` ${s.value}` : ''}`
     const cost = plain.length + (out.length ? 3 : 0)
     if (used + cost > width) break
     used += cost
-    out.push(`${s.color ?? ''}${s.marker}: ${s.label}${R}${s.value ? `${DIM} ${s.value}${R}` : ''}`)
+    out.push(`${s.color ?? ''}${key(s)} ${s.label}${R}${s.value ? `${DIM} ${s.value}${R}` : ''}`)
   }
   // The counter itself must fit, or the legend silently ends at four again
   // with nothing to say it did. Give back entries until it does.
   let rest = series.length - i
   while (rest > 0 && out.length && used + `+${rest} more`.length + 3 > width) {
     const s = series[--i]
-    used -= `${s.marker}: ${s.label}${s.value ? ` ${s.value}` : ''}`.length + (out.length > 1 ? 3 : 0)
+    used -= `${key(s)} ${s.label}${s.value ? ` ${s.value}` : ''}`.length + (out.length > 1 ? 3 : 0)
     out.pop()
     rest++
   }
@@ -239,14 +262,14 @@ export function legend(series, { width }) {
 // colour and legend position stay tied to rank, so moving the cursor does not
 // repaint the chart in a different set of colours.
 export function chart(series, {
-  width, rows, max, since, now, lead = 6, pad = 6, top = -1, caption = '',
+  width, rows, max, since, now, lead = 6, pad = 6, top = -1, caption = '', tier = 'braille',
   // The axis is whatever the caller's values are. Both of skein's charts plot
   // milliseconds, so both pass humanMs.
   fmt = String,
 }) {
   const order = series.map((_, i) => i).sort((a, b) => (a === top ? 1 : 0) - (b === top ? 1 : 0))
   const drawn = order.map(i => series[i]).filter(s => s && s.values?.length)
-  const body = plot(drawn, { width, rows, max, pad })
+  const body = plot(drawn, { width, rows, max, pad, tier })
   const out = []
   // A gradation that repeats the one above it is not a gradation: with a low
   // peak, ten rows all round to the same couple of values.
@@ -266,6 +289,88 @@ export function chart(series, {
   // markers a cipher. Naming the lines outranks naming the axis.
   const label = width - caption.length - 4 >= 12 ? caption : ''
   const cap = label ? `${DIM}${label}${R}${CAP_SEP}` : ''
-  out.push(` ${' '.repeat(lead + 1)}${cap}${legend(series, { width: Math.max(0, width - label.length - (label ? 4 : 0)) })}`)
+  out.push(` ${' '.repeat(lead + 1)}${cap}${legend(series, { width: Math.max(0, width - label.length - (label ? 4 : 0)), tier })}`)
   return out
+}
+
+// The braille renderer.
+//
+// A cell is 2 subpixels wide and 4 tall, so a rows×width grid of them is a
+// bitmap of (width×2) × (rows×4). The dot bit for a subpixel is fixed by the
+// standard's own layout: the left column is dots 1,2,3,7 and the right column
+// is dots 4,5,6,8, which is bits 0,1,2,6 and 3,4,5,7.
+const DOT = [
+  [0x01, 0x02, 0x04, 0x40],   // left column, top to bottom
+  [0x08, 0x10, 0x20, 0x80],   // right column
+]
+
+function plotBraille(series, { width, rows, max, pad }) {
+  const w = Math.max(1, width), r = Math.max(1, rows), cap = max > 0 ? max : 1
+  const span = Math.max(1, w - pad)
+  const SW = span * 2, SH = r * 4
+  const bits = Array.from({ length: r }, () => new Array(w).fill(0))
+  const owner = Array.from({ length: r }, () => new Array(w).fill(-1))
+  const text = Array.from({ length: r }, () => new Array(w).fill(null))
+  const labelled = new Set()
+  const ends = new Array(series.length).fill(null)
+  const rowOf = v => SH - 1 - Math.round(clamp(v / cap, 0, 1) * (SH - 1))
+
+  series.forEach((s, si) => {
+    if (!s.values?.some(v => v > 0)) return
+    const n = Math.min(SW, s.values.length * 2)
+    let prev = null
+    for (let x = 0; x < n; x++) {
+      // Two subpixels per value, so a series with `span` values draws across
+      // the full width rather than stopping half way.
+      const v = s.values[Math.min(s.values.length - 1, x >> 1)] ?? 0
+      const y = rowOf(v)
+      const from = prev === null ? y : Math.min(prev, y)
+      const to = prev === null ? y : Math.max(prev, y)
+      for (let g = from; g <= to; g++) {
+        const cy = g >> 2, cx = x >> 1
+        bits[cy][cx] |= DOT[x & 1][g & 3]
+        owner[cy][cx] = si
+      }
+      prev = y
+      ends[si] = y >> 2
+    }
+  })
+
+  // Values at the right margin, on the cell row each line ended on.
+  if (pad > 1) {
+    const priority = [series.length - 1, ...series.keys()]
+    for (const si of priority) {
+      const s = series[si], y = ends[si]
+      if (!s?.value || y === null || y === undefined || labelled.has(y)) continue
+      labelled.add(y)
+      const txt = String(s.value).slice(0, pad - 1)
+      for (let k = 0; k < txt.length; k++) {
+        const c = span + 1 + k
+        if (c < w) text[y][c] = { ch: txt[k], colour: s.color ?? '' }
+      }
+    }
+  }
+
+  return bits.map((row, y) => {
+    let line = '', last = null
+    for (let c = 0; c < w; c++) {
+      const t = text[y][c]
+      if (t) {
+        if (t.colour !== last) { line += t.colour; last = t.colour }
+        line += t.ch
+        continue
+      }
+      if (!row[c]) {
+        if (last !== null) { line += R; last = null }
+        line += ' '
+        continue
+      }
+      const colour = series[owner[y][c]]?.color ?? ''
+      if (colour !== last) { line += colour; last = colour }
+      // A space, not U+2800, for an empty cell — but this cell is never empty,
+      // so the offset is unconditional here.
+      line += String.fromCharCode(0x2800 | row[c])
+    }
+    return last === null ? line : line + R
+  })
 }
