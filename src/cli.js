@@ -162,9 +162,17 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
           { head: 'AGENTS', key: 'agents' }, { head: 'GAP', key: 'gap', right: true },
           { head: 'AGO', key: 'ago', right: true },
         ]),
-        root && !opts.all
-          ? `no collisions in ${projectName(root)} in the last ${argvSince(opts)} (0 collisions) · --all for every project`
-          : `no collisions in the last ${argvSince(opts)} (0 collisions)`),
+        (() => {
+          // A zero on its own reads as a broken tool. A zero beside a wider
+          // window reads as good news, and tells you what normal looks like.
+          const wide = collisions(events, sessions, { windowMin: opts.window, since: now - 30 * 86_400_000 })
+          const here = root && !opts.all ? ` in ${projectName(root)}` : ''
+          const context = wide.length
+            ? ` · ${wide.length} across all projects in 30d`
+            : ' · none anywhere in 30d either'
+          return `no collisions${here} in the last ${argvSince(opts)} (0 collisions)${context}` +
+                 (root && !opts.all ? ' · --all for every project' : '')
+        })()),
     }
   }
 

@@ -63,6 +63,43 @@ export function gradient(start, mid, end) {
   return lut
 }
 
+// Two series in one row, mirrored about the baseline (design language R7).
+//
+// Thesis §6.5 asks for the timeline "per project, STACKED BY AGENT". A braille
+// cell has four vertical dots, so one row can carry two series at two levels
+// each: the first fills up from the bottom, the second hangs down from the top.
+// Coarse, but it answers the question a single undifferentiated line cannot —
+// was this project one agent or two, and which one spent the time.
+//
+// Colour is per character cell (§3.2), so the two cannot keep separate hues in
+// the same cell. Position carries the distinction instead, which is exactly
+// what the mirrored tables are for.
+export function graphPair(up, down, { width, tier = 'braille', lut = null }) {
+  const U = TIERS[tier].up, D = TIERS[tier].down
+  const take = (vals) => {
+    const need = width * 2
+    return vals.length >= need ? vals.slice(vals.length - need)
+      : [...Array(need - vals.length).fill(0), ...vals]
+  }
+  const a = take(up), b = take(down)
+  let line = '', last = null
+  for (let c = 0; c < width; c++) {
+    const lvl = v => Math.max(0, Math.min(2, Math.round(v * 2)))
+    const ua = lvl(a[c * 2]), ub = lvl(a[c * 2 + 1])
+    const da = lvl(b[c * 2]), db = lvl(b[c * 2 + 1])
+    if (lut) {
+      const v = Math.round(Math.max(a[c * 2], a[c * 2 + 1], b[c * 2], b[c * 2 + 1]) * 100)
+      const col = lut[Math.max(0, Math.min(100, v))]
+      if (col !== last) { line += col; last = col }
+    }
+    // OR the two glyphs: up-dots and down-dots occupy different bits.
+    const u = U[ua * 5 + ub].codePointAt(0), d = D[da * 5 + db].codePointAt(0)
+    const merged = (u === 32 ? 0x2800 : u) | (d === 32 ? 0x2800 : d)
+    line += String.fromCharCode(merged)
+  }
+  return line
+}
+
 // Render one series as a braille/block graph.
 // `values` are 0..1; two consumed per cell (R1). `rows` stacks for height.
 export function graph(values, { width, rows = 1, tier = 'braille', down = false, lut = null }) {
