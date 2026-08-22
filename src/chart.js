@@ -9,28 +9,36 @@
 // That is the core value of the tool (§2: "where did my week actually go — per
 // project, over time") reduced to decoration. This module puts it back.
 //
-// A braille graph cannot do this. Braille packs two samples per cell for
-// density, but colour is per character cell (§6.5's stated ceiling), so two
-// series crossing anywhere in the same cell cannot both keep their hue — and
-// the whole point of a multi-project chart is telling the lines apart. So a
-// series is identified three ways at once, the way plotted charts have always
-// done it: a hue, a MARKER glyph, and a LINE STYLE. Any one of the three
-// surviving is enough to follow a line, which matters because in a shared cell
-// only one of them can.
+// There are three families of terminal chart and this is deliberately the
+// third:
 //
-// btop's R2 discipline holds — the styles are a table, not a branch. They are
+//   asciichart  box-drawing segments (╭ ╰ ─ │ ╯) — genuinely smooth curves,
+//               and single-series only
+//   braille     2×4 dots per cell, the highest resolution there is (btop,
+//               ratatui, plotile) — but colour is per CELL, so two lines
+//               crossing in one cell cannot both keep their hue
+//   markers     one glyph per point, drawn densely (gnuplot's dumb terminal,
+//               plotext) — the only one of the three that carries several
+//               series at once, which is what a per-project chart is
+//
+// So a series is identified by a MARKER and a hue, and the line is drawn with
+// that marker repeated. Solid, not styled: the first attempt gave each series
+// a dash-dot "line style" — `+···`, `o···`, `x-·-` — which is three quarters
+// filler characters, and it read on screen as dotted leader lines rather than
+// as data. gnuplot draws `##########`, and that is why its lines look like
+// lines.
+//
+// btop's R2 discipline holds — the markers are a table, not a branch. They are
 // deliberately ASCII: `●▲■◆` are East-Asian-ambiguous width, so a terminal
 // that renders one double-wide pushes the box border off the right edge and
 // corrupts the frame. A prettier marker is not worth that.
 import { DIM, R } from './theme.js'
 import { fit } from './box.js'
 
-// Marker first, then the line style trailing it: solid, dashed, dotted,
-// dash-dot. A space in a pattern is a real gap — the line breaks there, which
-// is what keeps a dashed line dashed even where it runs vertically.
-export const STYLES = ['####', '*--*', '+···', 'x-·-', 'o···', '=-=-']
-export const MARKERS = STYLES.map(s => s[0])
-export const MAX_SERIES = STYLES.length
+// Shapes that stay distinct at one character: a solid block, a star, a cross,
+// a diagonal cross, a ring, a rule.
+export const MARKERS = ['#', '*', '+', 'x', 'o', '=']
+export const MAX_SERIES = MARKERS.length
 
 // Rows the block costs below the graph itself: the rule, the times, the legend.
 export const BELOW = 3
@@ -75,8 +83,8 @@ const tickCols = (width, ticks) =>
 
 // Draw `series` into a rows × width character grid.
 //
-// Each entry is { values, marker | pattern, color, value }. `values` is one
-// number per column; scaling is against `max`, shared across every series so
+// Each entry is { values, marker, color, value }. `values` is one number per
+// column; scaling is against `max`, shared across every series so
 // the lines stay comparable rather than each being normalised to its own peak.
 //
 // `pad` reserves columns on the right for each line's current value, printed
@@ -97,7 +105,7 @@ export function plot(series, { width, rows, max = 1, pad = 0 }) {
   const ends = new Array(series.length).fill(null)
 
   series.forEach((s, si) => {
-    const pat = s.pattern ?? `${s.marker ?? '#'}`
+    const glyph = s.marker ?? '#'
     const colour = s.color ?? ''
     let prev = null, end = null
     // A series with nothing in the window is not drawn at all. A series with
@@ -115,14 +123,12 @@ export function plot(series, { width, rows, max = 1, pad = 0 }) {
     const n = Math.min(span, s.values.length)
     for (let c = 0; c < n; c++) {
       const y = rowOf(s.values[c] ?? 0)
-      // The first column gets the MARKER, and after that the pattern runs.
-      const glyph = prev === null ? pat[0] : pat[c % pat.length]
       // Fill back to the previous column's level. Without this a steep change
       // draws two dots with a hole between them and reads as noise; with it,
       // it reads as a line, which is what the eye follows.
       const from = prev === null ? y : Math.min(prev, y)
       const to = prev === null ? y : Math.max(prev, y)
-      if (glyph !== ' ') for (let g = from; g <= to; g++) { ch[g][c] = glyph; co[g][c] = colour }
+      for (let g = from; g <= to; g++) { ch[g][c] = glyph; co[g][c] = colour }
       prev = y
       end = y
     }
