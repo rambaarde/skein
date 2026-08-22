@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.1](https://github.com/rambaarde/skein/compare/v0.18.0...v0.18.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **chart:** draw lines, not scattered dots ([20bea1b](https://github.com/rambaarde/skein/commit/20bea1be86be443bdb9a6d525c86492b82ec08a2))
+* **chart:** draw lines, not scattered dots ([#53](https://github.com/rambaarde/skein/issues/53)) ([68d9265](https://github.com/rambaarde/skein/commit/68d9265b293b5b0c41e24034e1cc7635907947d3))
+
 ## [0.18.0](https://github.com/rambaarde/skein/compare/v0.17.1...v0.18.0) (2026-08-22)
 
 
