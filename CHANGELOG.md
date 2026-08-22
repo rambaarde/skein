@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.1](https://github.com/rambaarde/skein/compare/v0.19.0...v0.19.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **chart:** draw a line as its marker, repeated ([15ca8fd](https://github.com/rambaarde/skein/commit/15ca8fd1291811c1cce395a7715eca73cf5e668c))
+* **chart:** draw a line as its marker, repeated ([#59](https://github.com/rambaarde/skein/issues/59)) ([9047478](https://github.com/rambaarde/skein/commit/904747829f2a566702fe7ae89e32079714aab891))
+
 ## [0.19.0](https://github.com/rambaarde/skein/compare/v0.18.1...v0.19.0) (2026-08-22)
 
 
