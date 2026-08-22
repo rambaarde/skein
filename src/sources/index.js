@@ -132,3 +132,58 @@ export function collect({ useCache = true, sinceMs = Date.now() - 30 * 86_400_00
   events.sort((a, b) => a.at - b.at)
   return { events, sessions, dirty }
 }
+
+// Why a store produced nothing.
+//
+// probe() says a store exists and holds files. That was enough to tell one
+// user his screen was not broken, and not enough to tell either of us WHY it
+// was empty -- we spent several rounds guessing from screenshots. This opens
+// the newest files a store has and reports what was actually in them: how many
+// records, what KINDS of record, whether a cwd was resolved, and how many edit
+// events came out.
+//
+// The record histogram is the part that catches format drift. An agent that
+// renames the event skein reads shows up here as a type nobody recognises,
+// rather than as an empty dashboard.
+export function diagnose({ now = Date.now(), sinceMs = now - 86_400_000, sample = 4 } = {}) {
+  const readers = { claude, codex, opencode }
+  return Object.entries(STORES).map(([agent, dir]) => {
+    const out = { agent, dir, found: existsSync(dir), files: 0, inWindow: 0, records: 0, events: 0, cwd: null, types: [] }
+    if (!out.found) return out
+    const all = listFiles(dir, agent === 'opencode' ? '.json' : '.jsonl')
+      .map(f => { try { return { f, at: statSync(f).mtimeMs } } catch { return null } })
+      .filter(Boolean)
+    out.files = all.length
+    const recent = all.filter(x => x.at >= sinceMs).sort((a, b) => b.at - a.at)
+    out.inWindow = recent.length
+
+    const types = new Map()
+    for (const { f } of recent.slice(0, sample)) {
+      let text
+      try { text = readFileSync(f, 'utf8') } catch { continue }
+      if (agent === 'opencode') {
+        out.records++
+        let d
+        try { d = JSON.parse(text) } catch { continue }
+        const k = d?.type === 'tool' ? `tool:${d.tool}` : String(d?.type)
+        types.set(k, (types.get(k) ?? 0) + 1)
+        if (opencode.parsePart(text, { file: f })) out.events++
+        continue
+      }
+      const lines = text.split('\n').filter(Boolean)
+      out.records += lines.length
+      for (const line of lines) {
+        let d
+        try { d = JSON.parse(line) } catch { continue }
+        const p = d.payload ?? d
+        const k = `${p.type ?? '(no type)'}${p.name ? `:${p.name}` : ''}`
+        types.set(k, (types.get(k) ?? 0) + 1)
+      }
+      const { events, meta } = readers[agent].parse(lines, { session: 'diagnose' })
+      out.events += events.length
+      out.cwd ??= meta.cwd ?? null
+    }
+    out.types = [...types].sort((a, b) => b[1] - a[1]).slice(0, 6).map(([type, n]) => ({ type, n }))
+    return out
+  })
+}
