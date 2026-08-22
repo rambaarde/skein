@@ -287,7 +287,15 @@ that rots.
 ## Design lineage
 
 Inspired by [agtop](https://github.com/ldegio/agtop), descended from
-[btop](https://github.com/aristocratos/btop).
+[btop](https://github.com/aristocratos/btop) — Copyright 2021 Aristocratos,
+Apache-2.0.
+
+skein takes three things from btop and no code: the braille and block symbol
+tables that pack two samples per character cell (asserted identical to btop's,
+character for character, in `test/render.test.js`), the border grammar — title
+in the top edge, controls in the bottom, a clock top-right — and the
+`theme[key]="#rrggbb"` file format, which is why any btop theme works here
+unported.
 
 agtop proved the category — 273 stars in five months for a single-file, zero-dep
 Node TUI. Its object is the **session**; skein's is the **project**, and that is a
