@@ -474,7 +474,14 @@ export function render(state, size) {
     // "0%" over two deployments and "0%" over thirty are different statements
     // and were rendering identically — the number was in the CLI door only,
     // which is exactly the second-class door D13 exists to prevent.
-    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${R}`)
+    //
+    // And every row gets its OWN trend, in the space the table was leaving
+    // black. The chart above compares the worst six; this answers the same
+    // question for the row you are actually looking at, which is the pattern
+    // the project table already uses for attention.
+    const fixed = nameW + 9 + 8 + 8 + 12 + 9 + 10 + 12
+    const trendW = Math.max(0, W - fixed - 2)
+    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${trendW >= 12 ? `  ${fit('FAILURE TREND', trendW - 2)}` : ''}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
     // `stats`, not `ranked`: the table is in the app's order so one press of
     // an arrow key moves exactly one row.
@@ -491,7 +498,20 @@ export function render(state, size) {
           // The count, and how many of them could actually be judged. The
           // newest one never can — nothing has shipped after it yet.
           `${fit((v.cfrOf ? `${v.cfrOf.judged}/${v.cfrOf.deployments}` : '—').padStart(8), 10)}` +
-          `${fit(humanMs(att(p)).padStart(9), 12)}`
+          `${fit(humanMs(att(p)).padStart(9), 12)}` +
+          // Colour runs cool to hot with the RATE, not with the row's own
+          // peak: this sparkline has an absolute meaning and 4% must not be
+          // painted like 90% because it happens to be that row's maximum.
+          (trendW >= 12 && v.cfrOf?.verdicts?.length
+            // Zero draws as empty, deliberately. Filling it with a baseline
+            // glyph was tried and made it worse: one text row is four braille
+            // levels, so a 17% rate and a drawn baseline land on the SAME
+            // level and become the same picture. The distinction it was meant
+            // to carry -- measured zero against nothing to judge -- is already
+            // in the two columns immediately to the left, `0% 4/5` against
+            // `— —`, and a row of dots against an empty one here.
+            ? `  ${graph(cfrSeries(v.cfrOf.verdicts, (trendW - 2) * 2, since, now), { width: trendW - 2, rows: 1, tier, lut: LUT.heat })[0]}${R}`
+            : trendW >= 12 ? `  ${DIM}${'·'.repeat(trendW - 2)}${R}` : '')
         : `${DIM}${'no git history'.padStart(7)}${R}`
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
       hit.rows.push({ y: V.y + 1 + rowsOut.length, index: projects.indexOf(p) })
@@ -883,7 +903,9 @@ export function render(state, size) {
     headRows.push(!any.length
       ? ` ${BOLD}no agent sessions found${R}${DIM} — skein reads these three places:${R}`
       : fresh.length
-        ? ` ${BOLD}sessions were written in this window, but none touched a project${R}`
+        ? (state.events?.length
+          ? ` ${BOLD}edits were recorded, but none of them landed in a project${R}`
+          : ` ${BOLD}sessions are being written, but none of them edited a file${R}`)
         : ` ${BOLD}nothing in the last ${lookback}${R}${DIM} — sessions exist, they are older than that${R}`)
     headRows.push('')
     for (const s of stores) {
@@ -899,12 +921,17 @@ export function render(state, size) {
     if (!any.length) {
       headRows.push(`   ${DIM}skein reads Claude Code, Codex and opencode. Other agents write${R}`)
       headRows.push(`   ${DIM}elsewhere, and skein cannot see what it cannot read.${R}`)
-    } else if (fresh.length) {
-      // Sessions that only ever touched scratch directories are dropped on
-      // purpose -- they are not projects -- so say that rather than leaving a
-      // reader to conclude the reader is broken.
+    } else if (fresh.length && state.events?.length) {
+      // Edits exist and none grouped: scratch paths, or work outside a repo.
       headRows.push(`   ${DIM}every edit was in a scratch path, or outside any git repository.${R}`)
       headRows.push(`   ${DIM}skein groups by git root; work with no repo lands in ${R}${BOLD}not in a repo${R}${DIM}.${R}`)
+    } else if (fresh.length) {
+      // No edits at all. Saying "every edit was in a scratch path" here is a
+      // claim about edits that do not exist -- which is what a real user was
+      // told while his agent was reading and running commands and had not yet
+      // written anything.
+      headRows.push(`   ${DIM}skein counts files WRITTEN, not sessions opened. An agent that is${R}`)
+      headRows.push(`   ${DIM}reading, searching or running commands has not edited anything yet.${R}`)
     } else {
       headRows.push(`   ${DIM}press ${R}${BOLD}a${R}${DIM} to widen the window — 6h · 24h · 7d · 30d${R}`)
     }
