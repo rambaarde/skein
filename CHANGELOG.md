@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.5.0](https://github.com/rambaarde/skein/compare/v0.4.0...v0.5.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** fill the screen, and put something in it that moves ([#8](https://github.com/rambaarde/skein/issues/8)) ([778d78e](https://github.com/rambaarde/skein/commit/778d78e1c334296500a8c6d1d49c333dbd208530))
+
 ## [0.4.0](https://github.com/rambaarde/skein/compare/v0.3.1...v0.4.0) (2026-08-22)
 
 
