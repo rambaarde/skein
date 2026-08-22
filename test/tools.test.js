@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { toolsOf, totalOf, shape, classify } from '../src/tools.js'
+import { toolsOf, totalOf, shape, classify, shortTool } from '../src/tools.js'
 
 const project = (name, sessionIds) => ({
   name,
@@ -99,4 +99,29 @@ test('an opencode part reports its tool whether or not it wrote anything', async
   assert.equal(toolOf(part('grep', 'running')), null, 'an incomplete call is not a call yet')
   assert.equal(toolOf('not json'), null)
   assert.equal(toolOf(JSON.stringify({ type: 'text' })), null)
+})
+
+test('an MCP tool is classified by its own name, not its server', () => {
+  // MCP tools arrive namespaced — mcp__plugin_trueline-mcp_mcp__trueline_read
+  // — so a pattern anchored at the start of the whole name never matched one,
+  // and every MCP call landed in 'other'. On a machine that reads and edits
+  // through an MCP server that is most of the session, and it made the
+  // read:write ratio describe the wrong thing entirely.
+  assert.equal(classify('mcp__plugin_trueline-mcp_mcp__trueline_read'), 'read')
+  assert.equal(classify('mcp__plugin_trueline-mcp_mcp__trueline_edit'), 'write')
+  assert.equal(classify('mcp__x__trueline_search'), 'read')
+  assert.equal(classify('mcp__x__trueline_outline'), 'read')
+  assert.equal(shortTool('mcp__plugin_x_mcp__trueline_edit'), 'trueline_edit', 'the server is not the tool')
+  assert.equal(shortTool('Bash'), 'Bash', 'an unnamespaced tool is left alone')
+})
+
+test('a verb must be the whole word, not a prefix of one', () => {
+  // Without a boundary `^edit` matches `editorconfig` and a config file
+  // becomes a write.
+  assert.equal(classify('editorconfig'), 'other')
+  assert.equal(classify('readme'), 'other')
+  assert.equal(classify('Edit'), 'write')
+  assert.equal(classify('Read'), 'read')
+  assert.equal(classify('NotebookEdit'), 'write')
+  assert.equal(classify('MultiEdit'), 'write')
 })
