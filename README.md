@@ -132,9 +132,9 @@ pressure, its files, its tool calls, its collisions.
 
 ## What the numbers mean
 
-Every term below is also in the tool: press `?` then `tab` for the metrics page,
-or run `skein glossary` (`--json` for agents). One list, three doors — they
-cannot drift apart.
+Every term below is also in the tool: press `m` for the menu and choose
+**METRICS**, or run `skein glossary` (`--json` for agents). One list, three
+doors — they cannot drift apart.
 
 ### Attention
 
@@ -229,6 +229,7 @@ answers.
 | `/` | filter by name |
 | `c` | only projects that collided |
 | `esc` | back one level, then quit |
+| `m` | the menu — METRICS · KEYS · QUIT, over a dimmed dashboard |
 | `?` | every key — then `tab` for what every number means |
 
 The mouse works too: rows, tabs, feed entries and the controls on the border are

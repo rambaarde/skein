@@ -22,6 +22,7 @@ import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWind
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, cfrSeries, bucket } from './delivery.js'
 import { GLOSSARY } from './glossary.js'
+import { banner, bannerWidth, ROWS as MENU_ROWS } from './menu.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -115,6 +116,89 @@ const wrap = (s, n) => {
   return out
 }
 
+// btop's three: OPTIONS, HELP, QUIT. skein has no options screen -- its
+// settings are the border controls, and duplicating them here would be a
+// second place to keep them correct. What it has instead is a vocabulary
+// nobody defined, so METRICS takes that slot.
+export const MENU = [
+  ['METRICS', 'what every number on these screens counts'],
+  ['KEYS', 'every key, and what the mouse can reach'],
+  ['QUIT', 'leave. skein never started anything, so nothing stops'],
+]
+
+// The dashboard, dimmed, with the menu standing on top of it.
+//
+// Dimmed rather than replaced, which is the whole point of btop's version: the
+// numbers are still there and still moving behind it, so opening the menu
+// never feels like leaving the tool. Composited by stripping the frame's own
+// colour and repainting it in one inactive tone -- the surface stays, so the
+// box keeps its background instead of showing the terminal's through it.
+function menuOverlay(frame, sel, w, h, hit) {
+  const lines = frame.split('\n')
+  // Five rows tall where there is room, one row tall where there is not. A
+  // banner that does not fit is not a smaller banner, it is a broken one --
+  // and a 60-column terminal still deserves a menu.
+  const wide = Math.max(...MENU.map(([word]) => bannerWidth(word)))
+  const big = w >= wide + 10 && h >= MENU.length * (MENU_ROWS + 1) + 4
+  const tall = big ? MENU_ROWS : 1
+  // The ground has to hold the HINT as well as the words. Sized to the words
+  // alone it clipped "leave. skein never started anything" to "leave. sks",
+  // which is not a shorter sentence, it is a different one.
+  const words = big ? wide : Math.max(...MENU.map(([word]) => word.length))
+  const bw = Math.min(Math.max(0, w - 8), Math.max(words, ...MENU.map(([, why]) => why.length)))
+
+  const block = []
+  const spans = []
+  MENU.forEach(([word], i) => {
+    if (i) block.push('')
+    spans.push({ i, at: block.length })
+    if (big) banner(word).forEach(r => block.push(r))
+    else block.push(word)
+  })
+  const hint = (MENU[sel]?.[1] ?? '').slice(0, bw)
+  block.push('')
+  block.push(hint)
+
+  const x = Math.max(0, Math.round((w - bw) / 2))
+  const y = Math.max(0, Math.round((h - block.length) / 2))
+  const back = `${THEME.surface}${THEME.inactive}`
+
+  // Each word is clickable over its full height -- the same rule the project
+  // table keeps, where the thing you can see is the thing you can hit.
+  spans.forEach(({ i, at }) => {
+    for (let r = 0; r < tall; r++) hit.rows.push({ y: y + at + r, index: i, menu: true })
+  })
+
+  // A solid ground under the whole block, two columns of air either side.
+  // Without it the letters interleave with whatever the dashboard was drawing
+  // there and neither is readable -- btop paints the same dark rectangle, and
+  // it is what makes a menu look like it is IN FRONT rather than mixed in.
+  const pad = 2
+  const x0 = Math.max(0, x - pad), x1 = Math.min(w, x + bw + pad)
+  const top = y - 1, bottom = y + block.length
+
+  return lines.map((line, row) => {
+    const plain = [...line.replace(/\x1b\[[0-9;]*m/g, '')]
+    while (plain.length < w) plain.push(' ')
+    if (row < top || row > bottom) return `${back}${plain.slice(0, w).join('')}${R}`
+
+    const b = block[row - y] ?? ''
+    const on = spans.find(sp => row - y >= sp.at && row - y < sp.at + tall)
+    const colour = row - y === block.length - 1
+      ? THEME.dim
+      : on?.i === sel ? `${BOLD}${THEME.hi}` : THEME.inactive
+    // Every word centred on the widest of them, so the column of words reads
+    // as one object rather than three left-aligned ones.
+    const glyphs = [...b]
+    const at = x0 + pad + Math.max(0, Math.round((bw - glyphs.length) / 2))
+    const ground = new Array(x1 - x0).fill(' ')
+    glyphs.forEach((g, i) => { if (at - x0 + i < ground.length) ground[at - x0 + i] = g })
+    const left = plain.slice(0, x0).join('')
+    const right = plain.slice(x1, w).join('')
+    return `${back}${left}${R}${THEME.surface}${colour}${ground.join('')}${R}${back}${right}${R}`
+  }).slice(0, h).join('\n')
+}
+
 function helpOverlay(w, h, page = 1) {
   const metrics = page === 2
   const b = box({
@@ -199,6 +283,21 @@ export function render(state, size) {
   hit.tags.length = 0
   hit.feed.length = 0
   hit.tabs.length = 0
+  // Below the hit map, not beside the help check: this is the sixth time a
+  // screen in this file has been dispatched above something it needs and
+  // thrown "cannot access before initialization". Anything that draws goes
+  // AFTER the shared setup, always.
+  //
+  // Drawn from the real frame rather than instead of it, so what stands behind
+  // the menu is the dashboard as it actually is this second.
+  if (state.menu != null) {
+    const frame = render({ ...state, menu: null }, size)
+    hit.rows.length = 0
+    hit.tags.length = 0
+    hit.feed.length = 0
+    hit.tabs.length = 0
+    return menuOverlay(frame, state.menu, w, h, hit)
+  }
   // The fullest session, by FRACTION rather than by token count. Ceilings
   // differ per agent — Codex states 258k, Claude runs to 1M — so the largest
   // absolute number is not the one nearest to compacting.
@@ -732,7 +831,10 @@ export function render(state, size) {
       TAG_KEY.set(s, key)
       return s
     }
-    const pinned = [mk('?', 'keys'), mk('q', 'quit')]
+    // `menu` is pinned where '? keys' was, because it is btop's one discoverable
+    // control and it leads to the keys anyway. 'q quit' stays beside it: a way
+    // out that needs a menu opened first is one step too many.
+    const pinned = [mk('m', 'menu'), mk('q', 'quit')]
     const optional = [
       mk('⏎', 'expand', '\r'),
       mk('s', state.sort ?? 'recent'),
@@ -740,6 +842,10 @@ export function render(state, size) {
       mk('a', lookback),
       mk('/', state.filter || 'filter'),
       mk('c', state.onlyColliding ? 'colliding' : 'all'),
+      // Last, not first: the menu leads here anyway, so '? keys' yields the
+      // border to the controls that state a CURRENT VALUE -- the window, the
+      // sort, the preset. A tag that reports something outranks a shortcut.
+      mk('?', 'keys'),
     ]
     const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '')
     const sepW = plain(TAG_SEP).length
@@ -1383,7 +1489,7 @@ export function build(windowMin, lookbackMs, now) {
 export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin } = {}) {
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
-  let sortIdx = 0, filter = '', typing = false, help = 0, onlyColliding = false, focus = null
+  let sortIdx = 0, filter = '', typing = false, help = 0, menu = null, onlyColliding = false, focus = null
   let preset = 0, tab = 0, feedTop = 0, page = null
   const expanded = new Set()
   const tier = tierFor()
@@ -1403,7 +1509,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab, feedTop, page,
+      sort: SORTS[sortIdx].label, filter, help, menu, onlyColliding, focus, preset, tab, feedTop, page,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -1507,6 +1613,15 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // be read as a burst of keystrokes.
     const ev = mouse.parseMouse(k)
     if (ev) {
+      // While the menu is up it owns the pointer, the same way it owns the
+      // keyboard. A click on a word chooses it; a click anywhere else closes,
+      // which is what clicking outside a menu means everywhere else.
+      if (menu !== null && ev.kind !== 'wheel') {
+        const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
+        if (row === null) { menu = null; draw(); return }
+        menu = row
+        return onData('\r')
+      }
       if (ev.kind === 'wheel') {
         // The wheel scrolls whatever is UNDER the pointer. It used to move the
         // project selection wherever you pointed it, which is why the activity
@@ -1559,6 +1674,24 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // mean. Anything else dismisses, as it always did.
     if (help) {
       help = (k === '\t' || k === '?' || k === 'h') ? (help === 1 ? 2 : 1) : 0
+      // Opened from the menu, closing goes back to the menu rather than all
+      // the way out -- one level at a time, the rule esc already keeps.
+      if (!help && menu !== null) menu = 0
+      draw(); return
+    }
+
+    // The menu is modal: arrows move, enter chooses, anything that means "out"
+    // is out. Every other key is swallowed, or a menu would be a screen you
+    // could accidentally type through.
+    if (menu !== null) {
+      if (k === '\x1b[B' || k === 'j') menu = (menu + 1) % MENU.length
+      else if (k === '\x1b[A' || k === 'k') menu = (menu + MENU.length - 1) % MENU.length
+      else if (k === '\r' || k === '\n') {
+        const chosen = MENU[menu]?.[0]
+        if (chosen === 'QUIT') return quit()
+        help = chosen === 'METRICS' ? 2 : 1
+      } else if (k === '\x03') return quit()
+      else if (k === '\x1b' || k === 'm' || k === 'q') menu = null
       draw(); return
     }
 
@@ -1570,6 +1703,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     if (k === '\x1b' && focus) { focus = null; draw(); return }
     if (k === '\x1b' && preset !== 0) { preset = 0; draw(); return }
     if (k === 'q' || k === '\x1b' || k === '\x03') return quit()
+    else if (k === 'm') menu = 0
     else if (k === '?' || k === 'h') help = 1
     else if (k === '\x1b[B' || k === 'j') sel = Math.min(state.projects.length - 1, sel + 1)
     else if (k === '\x1b[A' || k === 'k') sel = Math.max(0, sel - 1)
