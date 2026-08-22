@@ -11,6 +11,7 @@ import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
+import { PRESETS, NAMES } from './presets.js'
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
@@ -79,6 +80,8 @@ const KEYS = [
   ['a', 'cycle the window: 6h · 24h · 7d · 30d'],
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
+  ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
+  ['1-3', 'jump straight to a preset: all · watch · table'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
   ['?  h', 'this'],
@@ -118,9 +121,12 @@ export function render(state, size) {
 
   // btop's geometry, measured from a real capture: a full-width headline, a
   // left column, and a tall right column for the one view that is a long list.
-  const L = layout(w, h)
-  const listH = L.head.h, detailH = L.detail.h, feedH = L.feed.h
-  const listW = L.head.w, detailW = L.detail.w, feedW = L.feed.w
+  // A preset drops boxes; the survivors expand into what is left. Guard every
+  // read of a rect, because in preset 'table' there is no detail or feed at all.
+  const preset = PRESETS[state.preset ?? 0] ?? PRESETS[0]
+  const L = layout(w, h, preset.shown)
+  const listH = L.head.h, detailH = L.detail?.h ?? 0, feedH = L.feed?.h ?? 0
+  const listW = L.head.w, detailW = L.detail?.w ?? 0, feedW = L.feed?.w ?? 0
 
   // Columns are chosen to fit, not assumed. btop tiles fixed boxes because it
   // knows its own metrics; a project list does not know how wide a name is or
@@ -208,12 +214,33 @@ export function render(state, size) {
   // pulse advances every refresh, so an idle machine still shows a live tool.
   const pulse = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[(state.tick ?? 0) % 10]
   const clock = new Date(now).toTimeString().slice(0, 8)
-  const controls = w => (w >= 96
-    ? [tag('⏎', 'expand'), tag('s', state.sort ?? 'recent'), tag('/', state.filter || 'filter'),
-       tag('a', lookback), tag('c', state.onlyColliding ? 'colliding' : 'all'), tag('?', 'keys'), tag('q', 'quit')]
-    : detailW >= 70
-      ? [tag('s', state.sort ?? 'recent'), tag('a', lookback), tag('?', 'keys'), tag('q', 'quit')]
-      : [tag('?', 'keys'), tag('q', 'quit')]).join(TAG_SEP)
+  // Fitted to the budget rather than switched at two breakpoints, and the two
+  // escape hatches are PINNED. Adding one control used to push '? keys' off the
+  // end, which is precisely backwards: the least discoverable thing on screen
+  // is how to get help and how to get out, so those are the last to go.
+  const bare = s => s.replace(/\x1b\[[0-9;]*m/g, '')
+  const controls = w => {
+    const pinned = [tag('?', 'keys'), tag('q', 'quit')]
+    const optional = [
+      tag('⏎', 'expand'),
+      tag('s', state.sort ?? 'recent'),
+      tag('p', NAMES[state.preset ?? 0] ?? 'preset'),
+      tag('a', lookback),
+      tag('/', state.filter || 'filter'),
+      tag('c', state.onlyColliding ? 'colliding' : 'all'),
+    ]
+    const plain = bare
+    const sepW = plain(TAG_SEP).length
+    let used = pinned.reduce((n, s) => n + plain(s).length, 0) + sepW
+    const keep = []
+    for (const c of optional) {
+      const cost = plain(c).length + sepW
+      if (used + cost > w) break
+      used += cost
+      keep.push(c)
+    }
+    return [...keep, ...pinned].join(TAG_SEP)
+  }
 
   const headRows = []
   const headState = [
@@ -266,7 +293,22 @@ export function render(state, size) {
   const expandedRows = projects.reduce(
     (a, x) => a + (expanded.has(x.root ?? 'loose') ? Math.min(4, x.sessions) : 0), 0)
   const tableRows = Math.max(1, projects.length + expandedRows) + 2
-  const stripH = Math.max(0, Math.min(8, listH - tableRows - 2))
+
+  // The strip gets a floor, and the table yields to it.
+  //
+  // Before this the strip took whatever the table left over, so with twelve
+  // projects it got zero rows and the graph vanished outright — the same "where
+  // is the spike?" as the fixed window, arrived at from the other direction.
+  // The graph answers "is anything happening right now" and the table answers
+  // "where has my time gone"; a long list of the second must not silently
+  // delete the first. Four rows is enough to read a shape from.
+  const STRIP_MIN = 4
+  const stripH = listH - 2 <= STRIP_MIN + 3
+    ? Math.max(0, Math.min(8, listH - tableRows - 2))      // genuinely no room
+    : Math.max(STRIP_MIN, Math.min(8, listH - tableRows - 2))
+  // What the table can actually show once the strip has its floor. Rows beyond
+  // this are counted in the border rather than dropped in silence.
+  const tableBudget = Math.max(1, listH - stripH - 4)
   const gwLive = Math.max(20, listW - 24)
   // The span is chosen, not fixed. A 15m window is blank most of the time you
   // would actually look at it, because editing is bursty — "where is the
@@ -355,7 +397,12 @@ export function render(state, size) {
   hit.rows.length = 0
   hit.tags.length = 0
   hit.feed.length = 0
-  const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
+  // Scroll a window of exactly tableBudget rows, keeping the selection inside
+  // it. The old slice was sized off listH and so ignored the strip entirely,
+  // which is how the graph came to be squeezed out by a long project list.
+  const start = Math.max(0, Math.min(sel - Math.floor(tableBudget / 2), projects.length - tableBudget))
+  const view = projects.slice(Math.max(0, start), Math.max(0, start) + tableBudget)
+  const hidden = projects.length - view.length
   const offset = projects.indexOf(view[0] ?? projects[0])
   for (let i = 0; i < view.length && i < listH - 2; i++) {
     const p = view[i]
@@ -426,8 +473,21 @@ export function render(state, size) {
     }
   }
   const headPane = pane(L.head, {
-    title: 'skein', key: SUP[0], right: `${clock} ${DIM}${pulse}${R}`,
-    state: `${headState}  ${controls(listW)}`, rows: headRows,
+    title: 'skein', key: SUP[0],
+    // btop prints 'preset N' in the cpu box border. Same place, same reason:
+    // the layout you are looking at is state, and state belongs in the border.
+    right: `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`,
+    // controls() gets what is LEFT after the state text, not the full width.
+    // Handing it the whole width let the combined row overflow, and the pane
+    // trims from the end — which is exactly where the pinned '? keys' and
+    // 'q quit' sit, so pinning them meant nothing.
+    // Rows the budget could not fit are COUNTED, never silently dropped: a list
+    // that quietly ends at row nine reads as "you have nine projects".
+    state: (() => {
+      const s = hidden > 0 ? `${headState}${DIM} · ${hidden} more below${R}` : headState
+      return `${s}  ${controls(Math.max(18, listW - bare(s).length - 8))}`
+    })(),
+    rows: headRows,
   })
 
   // ---- detail: sessions under the selected project ------------------------
@@ -500,7 +560,7 @@ export function render(state, size) {
       }
     }
   }
-  const detailPane = pane(L.detail, {
+  const detailPane = L.detail && pane(L.detail, {
     title: focus
       ? `${projectName(focus.project ?? gitRoot(focus.path))} — ${short(focus.path, focus.project ?? gitRoot(focus.path)).split('/').pop()}`
       : p
@@ -537,7 +597,7 @@ export function render(state, size) {
     }
   }
 
-  const feedPane = pane(L.feed, {
+  const feedPane = L.feed && pane(L.feed, {
     title: 'activity', key: SUP[2],
     right: `${DIM}newest first${R}`,
     state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${R}`,
@@ -546,9 +606,9 @@ export function render(state, size) {
 
   return compose(h, [
     { rect: L.head, lines: headPane },
-    { rect: L.detail, lines: detailPane },
-    { rect: L.feed, lines: feedPane },
-  ])
+    L.detail && { rect: L.detail, lines: detailPane },
+    L.feed && { rect: L.feed, lines: feedPane },
+  ].filter(Boolean))
 }
 
 export function build(windowMin, lookbackMs, now) {
@@ -564,6 +624,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
+  let preset = 0
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -582,7 +643,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus,
+      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -717,6 +778,11 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     else if (k === 'c') { onlyColliding = !onlyColliding; sel = 0; reload() }
     else if (k === 'a') { lb = (lb + 1) % LOOKBACKS.length; reload() }
     else if (k === 'w') { windowMin = windowMin === 30 ? 60 : windowMin === 60 ? 10 : 30; reload() }
+    // btop: p and P step through presets, and each is numbered. A digit jumps
+    // straight to one, which is how you actually use them once you know them.
+    else if (k === 'p') preset = (preset + 1) % PRESETS.length
+    else if (k === 'P') preset = (preset - 1 + PRESETS.length) % PRESETS.length
+    else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) preset = Number(k) - 1
     else if (k === 'r') reload()
     else if (k === 'g') sel = 0
     else if (k === 'G') sel = Math.max(0, state.projects.length - 1)

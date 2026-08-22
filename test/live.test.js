@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS, SMOOTH_MS } from '../src/live.js'
+import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, WINDOW_MS, SMOOTH_MS } from '../src/live.js'
 
 const T = Date.parse('2026-08-22T13:00:00Z')
 const ev = (secsAgo, agent = 'claude', session = 's') => ({ at: T - secsAgo * 1000, agent, session })
@@ -81,4 +81,39 @@ test('a moving average makes a line, not a scatter of spikes', () => {
   // and it must decay rather than stop dead
   const peakAt = s.indexOf(Math.max(...s))
   assert.ok(s.slice(peakAt + 1).some(v => v > 0 && v < s[peakAt]), 'the hump should fall away')
+})
+
+test('running is not the same as writing', () => {
+  // skein said "0 sessions active - nothing is running" with an agent plainly
+  // running: it counted sessions that had WRITTEN A FILE recently, and an agent
+  // reading or thinking appends to its transcript without touching the repo.
+  const now = 1_000_000_000
+  const sessions = new Map([
+    ['thinking', { agent: 'claude', seen: now - 30_000 }],   // here, not writing
+    ['gone', { agent: 'codex', seen: now - 3 * 3600_000 }],  // long finished
+    ['unknown', { agent: 'opencode' }],                       // no mtime at all
+  ])
+  const live = liveSessions(sessions, { now })
+  assert.equal(live.length, 1)
+  assert.equal(live[0].agent, 'claude')
+  // And the two questions stay separate: nothing here wrote a file.
+  assert.equal(activeSessions([], { now }), 0)
+})
+
+test('the graph window widens rather than showing an honest blank', () => {
+  const now = 1_000_000_000
+  // Busy right now: stays at the live window, because it is live.
+  const busy = Array.from({ length: 40 }, (_, i) => ({ at: now - i * 10_000 }))
+  assert.equal(pickWindow(busy, { now }).label, '15m')
+  assert.equal(pickWindow(busy, { now }).widened, false)
+
+  // The actual complaint: last edit 16 minutes ago, so a 15m window is empty
+  // and correct and useless. Widen until there is a shape to draw.
+  const justMissed = Array.from({ length: 40 }, (_, i) => ({ at: now - 16 * 60_000 - i * 10_000 }))
+  const w = pickWindow(justMissed, { now })
+  assert.equal(w.label, '1h')
+  assert.equal(w.widened, true, 'and it must say so, or the axis changes meaning in silence')
+
+  // Nothing at all anywhere: falls to the widest rather than throwing.
+  assert.equal(pickWindow([], { now }).label, '24h')
 })

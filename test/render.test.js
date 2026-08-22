@@ -603,3 +603,53 @@ test('a home directory never reaches the screen', async () => {
   assert.doesNotMatch(short(`${HOME}\\Documents\\x.ts`, null), /\\/, 'nor via the home branch')
   assert.doesNotMatch(short(`${HOME}/Documents/x.ts`, null), /Users|home/i, 'a home is still hidden')
 })
+
+test('a long project list must not delete the graph', async () => {
+  // The other half of "where is the spike?". The strip took whatever the table
+  // left over, so with a dozen projects it got zero rows and the graph vanished
+  // — squeezed out rather than switched off, which reads as a broken tool.
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const projects = Array.from({ length: 20 }, (_, i) => ({
+    name: `proj-${i}`, root: `/w/proj-${i}`, sessions: 1, files: 3,
+    agents: ['claude'], attention: 60_000, last: now - i * 60_000,
+    events: [{ at: now - i * 60_000, agent: 'claude', path: `/w/proj-${i}/a.ts`, session: 's' }],
+  }))
+  const state = {
+    projects, sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    events: projects.flatMap(p => p.events),
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0,
+  }
+  const plain = render(state, { cols: 120, rows: 30, now }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(plain, /EDITS\/MIN/, 'the strip survives a long list')
+  assert.ok(plain.split('\n').filter(l => l.includes('┤')).length >= 3, 'and keeps enough rows to read a shape')
+  // Rows that did not fit are counted, never silently dropped.
+  assert.match(plain, /\d+ more below/)
+})
+
+test('presets change what is on screen, not just its size', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const base = {
+    projects: [{
+      name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'],
+      attention: 60_000, last: now,
+      events: [{ at: now, agent: 'claude', path: '/w/a/x.ts', session: 's' }],
+    }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], events: [],
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false,
+  }
+  const at = i => render({ ...base, preset: i }, { cols: 120, rows: 30, now }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(at(0), /activity/, 'preset 1 keeps the feed')
+  assert.match(at(0), /what an agent is told here|no project/, 'and the detail pane')
+  assert.match(at(1), /activity/, 'preset 2 keeps the feed')
+  assert.doesNotMatch(at(1), /what an agent is told here/, 'and drops detail entirely')
+  assert.doesNotMatch(at(2), /activity/, 'preset 3 is the table alone')
+
+  // btop prints the preset in the box border; so does skein.
+  assert.match(at(0), /preset 1 all/)
+  assert.match(at(2), /preset 3 table/)
+})
