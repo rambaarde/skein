@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.1](https://github.com/rambaarde/skein/compare/v0.28.0...v0.28.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the failure chart follows the cursor, and its colour is the verdict ([7f27fda](https://github.com/rambaarde/skein/commit/7f27fda24bdac59091bb00982b4b5b44baeb74ec))
+* **tui:** the failure chart follows the cursor, and its colour is the verdict ([#112](https://github.com/rambaarde/skein/issues/112)) ([6aba809](https://github.com/rambaarde/skein/commit/6aba8091706d1698775b4d5588187722e22230dc))
+
 ## [0.28.0](https://github.com/rambaarde/skein/compare/v0.27.2...v0.28.0) (2026-08-22)
 
 
