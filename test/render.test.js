@@ -1039,3 +1039,30 @@ test('the info pane is a live rolling graph, and it slides with now', async () =
   const b = frame(t0 + 120_000).slice(i, i + 10).join('\n')
   assert.notEqual(pane.slice(0, b.length), b, 'the series slides with now')
 })
+
+test('the velocity screen shows what a change failure rate was judged against', async () => {
+  // "0%" over two deployments and "0%" over thirty are entirely different
+  // statements, and they were rendering identically because the count lived in
+  // the CLI door only — the second-class door D13 exists to prevent.
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const H = 3_600_000
+  const events = [{ at: now - H, agent: 'claude', session: 's', path: '/w/a/f.ts', project: '/w/a' }]
+  const mk = (name, root) => ({ name, root, sessions: 1, files: 1, agents: ['claude'], last: now, events })
+  const plain = render({
+    projects: [mk('busy', '/w/busy'), mk('thin', '/w/thin')],
+    events, sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 30 * 86_400_000, now, lookback: '30d', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 3, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(plain, /CFR/, 'the rate is on the velocity screen')
+  assert.match(plain, /DEPLOYS/, 'and so is what it was judged against')
+  // Every row either carries both or neither: a rate with no denominator is
+  // the thing this test exists to prevent coming back.
+  for (const line of plain.split('\n')) {
+    if (/\d+%/.test(line) && line.includes('%')) {
+      assert.match(line, /\d+\/\d+|—/, `a rate without a denominator: ${line.trim()}`)
+    }
+  }
+})

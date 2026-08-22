@@ -246,17 +246,19 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         per_ship: v && v.perShip !== null ? humanMs(v.perShip) : null,
         cfr: v && v.cfr !== null ? `${Math.round(v.cfr * 100)}%` : null,
         deployments: v?.cfrOf ? v.cfrOf.deployments : null,
+        judged: v?.cfrOf ? v.cfrOf.judged : null,
         attention: humanMs(attentionOf(p.events)),
       }
     })
-    const FIELDS = ['project', 'landed', 'per_day', 'per_week', 'lead', 'per_ship', 'cfr', 'deployments', 'attention']
+    const FIELDS = ['project', 'landed', 'per_day', 'per_week', 'lead', 'per_ship', 'cfr', 'judged', 'deployments', 'attention']
     return {
       code: 0,
       text: out(opts, 'velocity', rows, FIELDS,
         () => table(rows.map(r => Object.fromEntries(FIELDS.map(k => [k, r[k] ?? '—']))), [
           { head: 'PROJECT', key: 'project' }, { head: 'LANDED', key: 'landed', right: true },
           { head: '/DAY', key: 'per_day', right: true }, { head: '/WEEK', key: 'per_week', right: true }, { head: 'LEAD', key: 'lead', right: true },
-          { head: 'ATTN/SHIP', key: 'per_ship', right: true }, { head: 'CFR', key: 'cfr', right: true }, { head: 'DEPLOYS', key: 'deployments', right: true },
+          { head: 'ATTN/SHIP', key: 'per_ship', right: true }, { head: 'CFR', key: 'cfr', right: true },
+          { head: 'JUDGED', key: 'judged', right: true }, { head: 'DEPLOYS', key: 'deployments', right: true },
           { head: 'ATTENTION', key: 'attention', right: true },
         ]) + '\n\nlanded = trunk commits, releases excluded · lead = first edit after the previous landing' +
              '\ncfr = deployments followed by a hotfix to what they shipped; needs two deployments to mean anything' +
