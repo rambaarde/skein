@@ -4,7 +4,7 @@
 // object is a PROJECT, and projects are a variable-length list with sessions
 // nested under them -- so we take btop's border grammar and its graph tables,
 // and leave its box-grid layout behind.
-import { collect } from './sources/index.js'
+import { collect, probe } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
@@ -15,6 +15,7 @@ import { PRESETS, NAMES } from './presets.js'
 import { TABS, TAB_TITLES, sessionsTab, filesTab, toolsTab, collisionsTab } from './tabs.js'
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
+import { HOME } from './paths.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
@@ -758,7 +759,11 @@ export function render(state, size) {
   // floor — five rows, where cumulative lines are near-horizontal and unread-
   // able. The rows the table then loses are counted in the border, which is
   // how the list already handles being longer than its pane.
-  const graphRows = room <= CHART_MIN
+  //
+  // And no chart at all when there is nothing to plot. An empty grid with an
+  // axis on it is the same furniture-over-a-void the column headers were, and
+  // it was eating the rows the explanation needs.
+  const graphRows = room <= CHART_MIN || !projects.length
     ? 0
     : Math.max(CHART_MIN, Math.min(CHART_MAX, Math.max(room - wantTable, Math.round(room * 0.6))))
   // What the table can actually show. Rows beyond this are counted in the
@@ -859,7 +864,55 @@ export function render(state, size) {
     headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
   }
 
+  // Nothing to show is a statement, not a blank.
+  //
+  // A first run with no data drew the column headers over an empty grid and
+  // said "0 projects" on the border, which reads as a broken program. It is
+  // the one moment a user cannot tell a bug from an empty machine, and the
+  // answer -- which stores exist, whether they hold anything, whether it is
+  // merely older than the window -- is two stats away.
+  if (!projects.length && !state.filter && !state.onlyColliding) {
+    const stores = probe({ now })
+    const any = stores.filter(s => s.found && s.files)
+    // Three different situations, and telling them apart is the whole point.
+    // "Sessions exist but they are old" and "sessions were written a minute
+    // ago and none of them touched a project" are opposite problems, and a
+    // single message for both would be wrong half the time.
+    const fresh = any.filter(s => s.newest >= since)
+    headRows.push('')
+    headRows.push(!any.length
+      ? ` ${BOLD}no agent sessions found${R}${DIM} — skein reads these three places:${R}`
+      : fresh.length
+        ? ` ${BOLD}sessions were written in this window, but none touched a project${R}`
+        : ` ${BOLD}nothing in the last ${lookback}${R}${DIM} — sessions exist, they are older than that${R}`)
+    headRows.push('')
+    for (const s of stores) {
+      const where = s.dir.startsWith(HOME) ? `~${s.dir.slice(HOME.length)}` : s.dir
+      const said = !s.found
+        ? `${DIM}not found${R}`
+        : !s.files
+          ? `${DIM}empty${R}`
+          : `${LUT.activity[60]}${s.files} file${s.files === 1 ? '' : 's'}${R}${DIM}, newest ${ago(s.newest, now)} ago${R}`
+      headRows.push(`   ${hue(s.agent)}${fit(s.agent, 10)}${R}${fit(where, Math.max(20, listW - 42))} ${said}`)
+    }
+    headRows.push('')
+    if (!any.length) {
+      headRows.push(`   ${DIM}skein reads Claude Code, Codex and opencode. Other agents write${R}`)
+      headRows.push(`   ${DIM}elsewhere, and skein cannot see what it cannot read.${R}`)
+    } else if (fresh.length) {
+      // Sessions that only ever touched scratch directories are dropped on
+      // purpose -- they are not projects -- so say that rather than leaving a
+      // reader to conclude the reader is broken.
+      headRows.push(`   ${DIM}every edit was in a scratch path, or outside any git repository.${R}`)
+      headRows.push(`   ${DIM}skein groups by git root; work with no repo lands in ${R}${BOLD}not in a repo${R}${DIM}.${R}`)
+    } else {
+      headRows.push(`   ${DIM}press ${R}${BOLD}a${R}${DIM} to widen the window — 6h · 24h · 7d · 30d${R}`)
+    }
+    headRows.push('')
+    headRows.push(`   ${DIM}XDG_DATA_HOME is honoured; set it and opencode moves with it.${R}`)
+  } else {
   headRows.push(`${THEME.header}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', ctx: '  CONTEXT', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
+  }
   const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
   const topAtt = Math.max(1, ...projects.map(att))
 

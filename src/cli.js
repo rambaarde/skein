@@ -1,4 +1,4 @@
-import { collect } from './sources/index.js'
+import { collect, probe } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName } from './project.js'
 import { toon, table, ago, short, trunc } from './format.js'
@@ -143,7 +143,21 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         { head: 'SESSIONS', key: 'sessions', right: true }, { head: 'FILES', key: 'files', right: true },
         { head: 'EDITS', key: 'edits', right: true }, { head: 'LAST', key: 'last', right: true },
       ]) + `\n\n${cs.length} collision${cs.length === 1 ? '' : 's'} in the window · skein collisions`,
-      `no agent activity in the last ${argvSince(opts)} (0 projects)`)
+      // The same three answers the TUI gives. D13 again: an empty state is a
+      // metric too, and "nothing here" without saying where it looked is the
+      // ambiguous blank AXI 5 exists to forbid.
+      (() => {
+        const stores = probe({ now })
+        const any = stores.filter(s => s.found && s.files)
+        const where = stores.map(s => `  ${s.agent.padEnd(9)} ${s.dir}  ${
+          !s.found ? 'not found' : !s.files ? 'empty' : `${s.files} files, newest ${ago(s.newest, now)} ago`}`).join('\n')
+        const head = !any.length
+          ? 'no agent sessions found (0 projects)'
+          : any.some(s => s.newest >= since)
+            ? 'sessions were written in this window, but none touched a project (0 projects)'
+            : `no agent activity in the last ${argvSince(opts)} (0 projects)`
+        return `${head}\n\nskein reads:\n${where}\n\nXDG_DATA_HOME is honoured; set it and opencode moves with it.`
+      })())
     return { code: 0, text }
   }
 

@@ -1066,3 +1066,30 @@ test('the velocity screen shows what a change failure rate was judged against', 
     }
   }
 })
+
+test('an empty screen says what skein looked for and what it found', async () => {
+  // A first run with no data drew column headers over an empty grid and said
+  // "0 projects". That reads as a broken program, and it is the one moment a
+  // user cannot tell a bug from an empty machine — reported by a real one, on
+  // Linux, running an agent skein does not read, with no way to discover that
+  // from the screen.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const plain = render({
+    projects: [], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: null,
+  }, { cols: 120, rows: 30 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  // Every store, named, whether or not it exists.
+  for (const agent of ['claude', 'codex', 'opencode']) assert.match(plain, new RegExp(agent))
+  assert.match(plain, /XDG_DATA_HOME/, 'and the environment variable that moves one of them')
+
+  // The column headers are furniture over a void when there is nothing to
+  // list, and the chart is an axis with nothing on it.
+  assert.doesNotMatch(plain, /PEAK/, 'no column headers over an empty table')
+  assert.doesNotMatch(plain, /attention · 24h/, 'and no chart plotting nothing')
+
+  // One of the three explanations, never a bare blank.
+  assert.match(plain, /no agent sessions found|none touched a project|sessions exist/)
+})
