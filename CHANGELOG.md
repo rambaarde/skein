@@ -1,5 +1,205 @@
 # Changelog
 
+## [0.30.0](https://github.com/rambaarde/skein/compare/v0.29.0...v0.30.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** btop's menu — one word on the border, over a dimmed dashboard ([1b07dc3](https://github.com/rambaarde/skein/commit/1b07dc3a057bc41aa9017caae8e4c66fe2f798e8))
+* **tui:** btop's menu — one word on the border, over a dimmed dashboard ([#124](https://github.com/rambaarde/skein/issues/124)) ([3e0b11f](https://github.com/rambaarde/skein/commit/3e0b11f9d1f993c44b75ac469256903b2730be34))
+
+## [0.29.0](https://github.com/rambaarde/skein/compare/v0.28.3...v0.29.0) (2026-08-22)
+
+
+### Features
+
+* say what every number means, in all three doors ([5b2b46b](https://github.com/rambaarde/skein/commit/5b2b46b21ad1aa5e8dd52b5b138aa88c705f4a37))
+* say what every number means, in all three doors ([#121](https://github.com/rambaarde/skein/issues/121)) ([f478f4a](https://github.com/rambaarde/skein/commit/f478f4a15b8875ef97839a63ccb241c7936f7677))
+
+## [0.28.3](https://github.com/rambaarde/skein/compare/v0.28.2...v0.28.3) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** a failure rate is red, and only the tone moves ([33bec92](https://github.com/rambaarde/skein/commit/33bec9259b20c8067bed2ebaacdf83fa257b8960))
+* **tui:** a failure rate is red, and only the tone moves ([#118](https://github.com/rambaarde/skein/issues/118)) ([f1f263f](https://github.com/rambaarde/skein/commit/f1f263f3bcd648e05f41ea6543b85ddb23ac1452))
+
+## [0.28.2](https://github.com/rambaarde/skein/compare/v0.28.1...v0.28.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** velocity on top, failure rate beside the row it belongs to ([0482558](https://github.com/rambaarde/skein/commit/0482558dac20d683bdb07304f3b07484e196c964))
+* **tui:** velocity on top, failure rate beside the row it belongs to ([#115](https://github.com/rambaarde/skein/issues/115)) ([23d69fe](https://github.com/rambaarde/skein/commit/23d69fea9e80a3c4e5d7c2c18c69acdab31bfdd9))
+
+## [0.28.1](https://github.com/rambaarde/skein/compare/v0.28.0...v0.28.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the failure chart follows the cursor, and its colour is the verdict ([7f27fda](https://github.com/rambaarde/skein/commit/7f27fda24bdac59091bb00982b4b5b44baeb74ec))
+* **tui:** the failure chart follows the cursor, and its colour is the verdict ([#112](https://github.com/rambaarde/skein/issues/112)) ([6aba809](https://github.com/rambaarde/skein/commit/6aba8091706d1698775b4d5588187722e22230dc))
+
+## [0.28.0](https://github.com/rambaarde/skein/compare/v0.27.2...v0.28.0) (2026-08-22)
+
+
+### Features
+
+* **cli:** skein doctor — why is my screen empty ([53ed775](https://github.com/rambaarde/skein/commit/53ed77530b0a63e14995c936b4d6725407bd6b9c))
+* **cli:** skein doctor — why is my screen empty ([#109](https://github.com/rambaarde/skein/issues/109)) ([9e2e25a](https://github.com/rambaarde/skein/commit/9e2e25aa60ca5c3e8e302481c63d4db92fbaca35))
+
+## [0.27.2](https://github.com/rambaarde/skein/compare/v0.27.1...v0.27.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **codex:** read the cwd it actually records, and the shell it actually uses ([#106](https://github.com/rambaarde/skein/issues/106)) ([90544ee](https://github.com/rambaarde/skein/commit/90544ee3100e03aba5357ef4decbf2cb6916cfb8))
+* **codex:** read the cwd it records and the shell it uses ([119ae42](https://github.com/rambaarde/skein/commit/119ae42d5d2f838a8d01d4ba81692cd99f8c5578))
+
+## [0.27.1](https://github.com/rambaarde/skein/compare/v0.27.0...v0.27.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **test:** main went red on Linux and Windows, and both were the tests ([d6ad6df](https://github.com/rambaarde/skein/commit/d6ad6df94724d088630551f5df5e96414c06898f))
+* **test:** main went red on Linux and Windows, and both were the tests ([#103](https://github.com/rambaarde/skein/issues/103)) ([0af3b00](https://github.com/rambaarde/skein/commit/0af3b007a33e218acb9e8f61a29de27fc8372ef4))
+
+## [0.27.0](https://github.com/rambaarde/skein/compare/v0.26.0...v0.27.0) (2026-08-22)
+
+
+### Features
+
+* **sandbox:** prove skein on Linux, against a hostile environment ([14ef2d0](https://github.com/rambaarde/skein/commit/14ef2d05c6382b5700806ce70878d7c686c27176))
+* **sandbox:** prove skein on Linux, against a hostile environment ([#100](https://github.com/rambaarde/skein/issues/100)) ([808c091](https://github.com/rambaarde/skein/commit/808c09165d0ad0480286ddbc69bfb6c63d50c3cb))
+
+## [0.26.0](https://github.com/rambaarde/skein/compare/v0.25.1...v0.26.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** an empty screen says what skein looked for, and honour XDG ([d69d832](https://github.com/rambaarde/skein/commit/d69d832d74635f96f11923fc8422091fa418a661))
+* **tui:** an empty screen says what skein looked for, and honour XDG ([#97](https://github.com/rambaarde/skein/issues/97)) ([81ec7d7](https://github.com/rambaarde/skein/commit/81ec7d76240dc8ff499986ed43d92f864f785cb7))
+
+## [0.25.1](https://github.com/rambaarde/skein/compare/v0.25.0...v0.25.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the x axis read backwards, and arrow keys skipped rows ([8d4ac8c](https://github.com/rambaarde/skein/commit/8d4ac8cab26653303d65f697adc98851eee660c7))
+* **tui:** the x axis read backwards, and arrow keys skipped rows ([#94](https://github.com/rambaarde/skein/issues/94)) ([767d9a5](https://github.com/rambaarde/skein/commit/767d9a527b6d2cd19024ba5587b29e20a6bb31e3))
+
+## [0.25.0](https://github.com/rambaarde/skein/compare/v0.24.1...v0.25.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** the velocity chart plots change failure rate, not landings ([66c6098](https://github.com/rambaarde/skein/commit/66c6098c948359fee34ac2811ae460170e9cf06a))
+* **tui:** the velocity chart plots change failure rate, not landings ([#91](https://github.com/rambaarde/skein/issues/91)) ([9f3f88a](https://github.com/rambaarde/skein/commit/9f3f88a1bf76d654b2fba3135b7ad84d608e3e30))
+
+## [0.24.1](https://github.com/rambaarde/skein/compare/v0.24.0...v0.24.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** put the denominator next to the change failure rate ([5dcba8d](https://github.com/rambaarde/skein/commit/5dcba8ddaf59fda3c6890ae162d22844fc037baa))
+* **tui:** put the denominator next to the change failure rate ([#88](https://github.com/rambaarde/skein/issues/88)) ([1bbb94a](https://github.com/rambaarde/skein/commit/1bbb94ac0c29db6aa344fe0f17720a6f5e0800e6))
+
+## [0.24.0](https://github.com/rambaarde/skein/compare/v0.23.1...v0.24.0) (2026-08-22)
+
+
+### Features
+
+* **delivery:** a real change failure rate, measured per deployment ([5f6615a](https://github.com/rambaarde/skein/commit/5f6615a0a1d0e186dd8c9b5c6ccf2d457cae9032))
+* **delivery:** a real change failure rate, measured per deployment ([#85](https://github.com/rambaarde/skein/issues/85)) ([b47a701](https://github.com/rambaarde/skein/commit/b47a701ba5209fb932418ef42058b9a710a5d511))
+
+## [0.23.1](https://github.com/rambaarde/skein/compare/v0.23.0...v0.23.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the live graph had a scale floor that flattened quiet projects ([da30bf8](https://github.com/rambaarde/skein/commit/da30bf826f6161412373a94c74e6a9354cefab1b))
+* **tui:** the live graph's scale floor flattened quiet projects ([51fdc60](https://github.com/rambaarde/skein/commit/51fdc600edfa1de909209476d996bf7c58d70012))
+
+## [0.23.0](https://github.com/rambaarde/skein/compare/v0.22.1...v0.23.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** a live rolling graph in the info pane ([15d7770](https://github.com/rambaarde/skein/commit/15d7770451e95756514258bcd9cc2bf22f4b899e))
+* **tui:** a live rolling graph in the info pane, btop's net box for one project ([#80](https://github.com/rambaarde/skein/issues/80)) ([d53179c](https://github.com/rambaarde/skein/commit/d53179cedf37d595914542d21191bdad4715d70d))
+
+## [0.22.1](https://github.com/rambaarde/skein/compare/v0.22.0...v0.22.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** rank the tools on the project page, and classify MCP calls correctly ([cc9aa1d](https://github.com/rambaarde/skein/commit/cc9aa1db53c18e8ce08578adaa4e277e7ca97a89))
+* **tui:** rank the tools on the project page, and classify MCP calls correctly ([#76](https://github.com/rambaarde/skein/issues/76)) ([3ccdc65](https://github.com/rambaarde/skein/commit/3ccdc659a4f9b8136ba2bdf8496b97f5a7e52088))
+
+## [0.22.0](https://github.com/rambaarde/skein/compare/v0.21.1...v0.22.0) (2026-08-22)
+
+
+### Features
+
+* **tools:** tool-call stats, a user-facing README, and a recorded demo ([ed65115](https://github.com/rambaarde/skein/commit/ed6511569127decbee4a733083356fbf82227b70))
+* **tools:** tool-call stats, a user-facing README, and a recorded demo ([#71](https://github.com/rambaarde/skein/issues/71)) ([6c9b19f](https://github.com/rambaarde/skein/commit/6c9b19f976d2e3416b73e0ac0c04ed190c43ebe3))
+
+## [0.21.1](https://github.com/rambaarde/skein/compare/v0.21.0...v0.21.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** light the selected line, and give the velocity preset a way out ([b29389c](https://github.com/rambaarde/skein/commit/b29389c8750627513e7b07af3502a1b2a1c4574c))
+* **tui:** light the selected line, and give the velocity preset a way out ([#68](https://github.com/rambaarde/skein/issues/68)) ([af7ccb6](https://github.com/rambaarde/skein/commit/af7ccb6c5ec81e86f36f4dc885b1b55fcf257b11))
+
+## [0.21.0](https://github.com/rambaarde/skein/compare/v0.20.0...v0.21.0) (2026-08-22)
+
+
+### Features
+
+* **chart:** draw the line in braille, one dot thick ([85c4d3b](https://github.com/rambaarde/skein/commit/85c4d3b6d4910424f1eeb418c9a6f8e35a7a0ecd))
+* **chart:** draw the line in braille, one dot thick ([#65](https://github.com/rambaarde/skein/issues/65)) ([29b38f2](https://github.com/rambaarde/skein/commit/29b38f24782d71d1135e7ec5dce51f8ec6711364))
+
+## [0.20.0](https://github.com/rambaarde/skein/compare/v0.19.1...v0.20.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** velocity — what landed, and how long it took ([ffd15fd](https://github.com/rambaarde/skein/commit/ffd15fd6cd4e65a9e209c0e0ad1b0e44e575c2c4))
+* **tui:** velocity — what landed, and how long it took ([#62](https://github.com/rambaarde/skein/issues/62)) ([5bc8c0d](https://github.com/rambaarde/skein/commit/5bc8c0d48bd6c62c6ca9a1e30bb18ea7790dd285))
+
+## [0.19.1](https://github.com/rambaarde/skein/compare/v0.19.0...v0.19.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **chart:** draw a line as its marker, repeated ([15ca8fd](https://github.com/rambaarde/skein/commit/15ca8fd1291811c1cce395a7715eca73cf5e668c))
+* **chart:** draw a line as its marker, repeated ([#59](https://github.com/rambaarde/skein/issues/59)) ([9047478](https://github.com/rambaarde/skein/commit/904747829f2a566702fe7ae89e32079714aab891))
+
+## [0.19.0](https://github.com/rambaarde/skein/compare/v0.18.1...v0.19.0) (2026-08-22)
+
+
+### Features
+
+* **chart:** plot attention as a running total, not per slice ([e580314](https://github.com/rambaarde/skein/commit/e5803148eaff63dbd749b0cdd808c525b50757ad))
+* **chart:** plot attention as a running total, not per slice ([#56](https://github.com/rambaarde/skein/issues/56)) ([d6b8df4](https://github.com/rambaarde/skein/commit/d6b8df4ab03a78dca11f1cd7e646b32b366273d7))
+
+## [0.18.1](https://github.com/rambaarde/skein/compare/v0.18.0...v0.18.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **chart:** draw lines, not scattered dots ([20bea1b](https://github.com/rambaarde/skein/commit/20bea1be86be443bdb9a6d525c86492b82ec08a2))
+* **chart:** draw lines, not scattered dots ([#53](https://github.com/rambaarde/skein/issues/53)) ([68d9265](https://github.com/rambaarde/skein/commit/68d9265b293b5b0c41e24034e1cc7635907947d3))
+
+## [0.18.0](https://github.com/rambaarde/skein/compare/v0.17.1...v0.18.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** the headline is a chart per project ([6482685](https://github.com/rambaarde/skein/commit/64826854daa8bb6664043f49ac7d659ec0e66e81))
+* **tui:** the headline is a chart per project ([#50](https://github.com/rambaarde/skein/issues/50)) ([ec71eb8](https://github.com/rambaarde/skein/commit/ec71eb893bb076abc5b3e2bccfcccbbf77ae24dd))
+
 ## [0.17.1](https://github.com/rambaarde/skein/compare/v0.17.0...v0.17.1) (2026-08-22)
 
 
