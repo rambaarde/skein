@@ -92,6 +92,37 @@ for (const p of PROJECTS) {
   }
 }
 
+// Two agents in atlas-api RIGHT NOW, minutes apart. Without this the sandbox
+// cannot demonstrate the flagship: `skein who` and `skein hook` are both scoped
+// to the last thirty minutes, so a fixture whose newest edit is an hour old
+// shows an empty screen for the one feature that matters.
+{
+  const root = join(REPOS, 'atlas-api')
+  const slug = root.replace(/\//g, '-')
+  const live = [
+    ['fixture-live-claude', 'claude', 'main', 'src/auth/middleware.ts', 4],
+    ['fixture-live-codex', 'codex', 'feat/rate-limit', 'src/auth/session.ts', 1],
+  ]
+  for (const [id, agent, branch, file, minsAgo] of live) {
+    if (agent === 'claude') {
+      write(join(claudeDir, slug, `${id}.jsonl`), [
+        { type: 'user', cwd: root, gitBranch: branch, sessionId: id, timestamp: iso(NOW - 25 * MIN) },
+        { type: 'ai-title', aiTitle: 'Rotate the session expiry header', sessionId: id },
+        { type: 'file-history-delta', trackingPath: join(root, file), timestamp: iso(NOW - minsAgo * MIN) },
+      ])
+    } else {
+      const d = new Date(NOW - 25 * MIN)
+      const pad = n => String(n).padStart(2, '0')
+      write(join(HOME, '.codex', 'sessions', String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()),
+        `rollout-live-${id}.jsonl`), [
+        { timestamp: iso(NOW - 25 * MIN), type: 'session_meta', payload: { type: 'session_meta', cwd: root } },
+        { timestamp: iso(NOW - minsAgo * MIN), type: 'event_msg',
+          payload: { type: 'patch_apply_end', success: true, changes: { [join(root, file)]: { type: 'update' } } } },
+      ])
+    }
+  }
+}
+
 // ---- codex: ~/.codex/sessions/YYYY/MM/DD/rollout-*.jsonl -------------------
 for (const p of PROJECTS.slice(0, 3)) {
   const root = join(REPOS, p.name)

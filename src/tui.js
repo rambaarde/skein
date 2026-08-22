@@ -159,7 +159,7 @@ export function render(state, size) {
       for (const s of kids) {
         const meta = state.sessions.get(s.session)
         const label = trunc(meta?.title, 34) ?? `${DIM}—${R}`
-        out.push(b.row(`   ${DIM}└${R} ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(meta?.branch ?? `${DIM}—${R}`, 16)} ${fit(label, Math.max(0, w - 37))}${ago(s.at, now).padStart(5)}`))
+        out.push(b.row(`   ${DIM}└${R} ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(meta?.branch ?? `${DIM}—${R}`, 16)} ${fit(label, Math.max(0, w - 39))}${ago(s.at, now).padStart(5)}`))
       }
     }
   }

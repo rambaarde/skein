@@ -24,7 +24,15 @@ export function box({ w, title = '', state = '', rounded = true, key = '' }) {
   return {
     top: `${DIM}${c.tl}${R}${head}${DIM}${pad(w - 2 - width(head))}${c.tr}${R}`,
     bottom: `${DIM}${c.bl}${R}${foot}${DIM}${pad(w - 2 - width(foot))}${c.br}${R}`,
-    row: inner => `${DIM}${c.v}${R}${inner}${' '.repeat(Math.max(0, w - 2 - width(inner)))}${DIM}${c.v}${R}`,
+    // A row that is too long is a bug in the caller, but it must not be
+    // allowed to push the right border off the screen and corrupt the frame.
+    // Pad short, truncate long, never overflow.
+    row: inner => {
+      const room = w - 2
+      const over = width(inner) - room
+      const body = over > 0 ? fit(inner.replace(/\x1b\[[0-9;]*m/g, ''), room) : inner
+      return `${DIM}${c.v}${R}${body}${' '.repeat(Math.max(0, room - width(body)))}${DIM}${c.v}${R}`
+    },
   }
 }
 
