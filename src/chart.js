@@ -42,53 +42,31 @@ const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v))
 // A ceiling a human recognises. Scaling straight to the observed peak gave an
 // axis reading 187% 169% 150% 131% — ten true numbers, none of them round, and
 // none of them any easier to read a value against than no scale at all.
-//
-// Above 100% is not a bug and must not be clamped away: attention is summed
-// per session, so a slice where two sessions both worked really is 200%. That
-// is the tool's whole subject.
-const NICE = [0.002, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.2, 0.25, 0.5, 0.75, 1, 1.5, 2, 3, 4, 6, 8, 12, 16, 24, 32]
-export const niceMax = v => NICE.find(n => n >= v - 1e-9) ?? Math.ceil(v)   // epsilon: a peak of exactly 1 arrives as 1.0000000001
+const M = 60_000, H = 3_600_000
+export const DURATIONS = [
+  5 * M, 10 * M, 15 * M, 20 * M, 30 * M, 45 * M, H, 1.5 * H, 2 * H, 3 * H, 4 * H, 6 * H,
+  8 * H, 12 * H, 18 * H, 24 * H, 36 * H, 48 * H, 72 * H, 120 * H, 240 * H,
+]
+export const niceMax = (v, ladder = DURATIONS) =>
+  ladder.find(n => n >= v - 1e-9) ?? Math.ceil(v)
 
-// A curve, rather than a picket fence.
+// Running total, which is what makes this a chart of lines rather than of
+// humps on a floor.
 //
-// `live.js` already worked this out for the old graph and the lesson did not
-// get carried across: "CPU% is not a count of anything that happened in the
-// last seven seconds; it is an AVERAGE over an interval, which is why btop's
-// line is continuous." Attention bucketed at eleven minutes across a day is
-// mostly zeros with a few full buckets, so it draws as isolated columns — the
-// chart came out as scattered dots where it should read as lines crossing.
+// Attention landing IN each slice is zero for most of any day, so plotting it
+// directly can only ever draw a flat line along the bottom with an occasional
+// bump — two rounds of trying to make that read as lines proved it cannot,
+// because the shape is in the data and not in the rendering.
 //
-// Averaging each point with its neighbours is what turns the same data into a
-// slope. The window is centred, not trailing: this is a retrospective chart,
-// so there is no reason to make a burst appear later than it happened.
-//
-// The weights are triangular rather than flat. A box average over a lone spike
-// gives every point in the window the same value, so the burst comes out as a
-// plateau with no peak — and with the window shrunk at the edges, the point
-// NEXT to the spike came out higher than the spike itself. Triangular weights
-// make a burst a hump that peaks where the burst actually was.
-//
-// Out-of-range neighbours clamp to the end value rather than to zero, so the
-// right-hand edge keeps its level. Padding with zeros would fade whatever is
-// happening right now, which is the one part nobody wants faded.
-export function smooth(values, k) {
-  if (!(k > 1) || values.length < 2) return values
-  const half = Math.floor(k / 2), last = values.length - 1
-  return values.map((_, i) => {
-    let sum = 0, wsum = 0
-    for (let d = -half; d <= half; d++) {
-      const w = half + 1 - Math.abs(d)
-      sum += values[clamp(i + d, 0, last)] * w
-      wsum += w
-    }
-    return sum / wsum
-  })
+// A running total is nonzero everywhere once work has started, every series
+// sits at its own height, and the lines fan out and end at their own totals.
+// It also answers the actual question better: thesis §2 asks where the week
+// WENT, and a curve that climbs steeply while you were in a repo and runs flat
+// while you were not says exactly that, with the day's total as its height.
+export const cumulative = values => {
+  let run = 0
+  return values.map(v => (run += v))
 }
-
-// How wide that window should be for a given number of columns. Wide enough to
-// join a burst into a hump, narrow enough that two bursts an hour apart stay
-// two humps.
-export const smoothing = buckets => Math.max(3, Math.round(buckets / 18))
 
 // Where the axis ticks fall. Shared by the rule and its labels, so a time can
 // never end up printed under the wrong tick.
@@ -256,10 +234,9 @@ export function legend(series, { width }) {
 // repaint the chart in a different set of colours.
 export function chart(series, {
   width, rows, max, since, now, lead = 6, pad = 6, top = -1, caption = '',
-  // Whole percents down to 5%, then a decimal — a wide window puts every
-  // gradation under one percent, and an axis reading 1% 1% 1% 0% 0% is not a
-  // scale, it is the same number five times.
-  fmt = v => (v < 0.05 ? `${(v * 100).toFixed(1)}%` : `${Math.round(v * 100)}%`),
+  // The axis is whatever the caller's values are. Both of skein's charts plot
+  // milliseconds, so both pass humanMs.
+  fmt = String,
 }) {
   const order = series.map((_, i) => i).sort((a, b) => (a === top ? 1 : 0) - (b === top ? 1 : 0))
   const drawn = order.map(i => series[i]).filter(s => s && s.values?.length)
