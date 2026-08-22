@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.1](https://github.com/rambaarde/skein/compare/v0.13.0...v0.13.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the control row rendered as 'U U U' in ordinary fonts ([#32](https://github.com/rambaarde/skein/issues/32)) ([da31c28](https://github.com/rambaarde/skein/commit/da31c285578375843a24db5b88484627b7bab55b))
+
 ## [0.13.0](https://github.com/rambaarde/skein/compare/v0.12.0...v0.13.0) (2026-08-22)
 
 
