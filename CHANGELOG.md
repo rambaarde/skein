@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.0](https://github.com/rambaarde/skein/compare/v0.30.0...v0.31.0) (2026-08-22)
+
+
+### Features
+
+* the command is `skeins`, the name people already installed ([905f3f8](https://github.com/rambaarde/skein/commit/905f3f8227abe87312573cec830ffd5ae8754220))
+* the command is `skeins`, the name people already installed ([#127](https://github.com/rambaarde/skein/issues/127)) ([f44f61f](https://github.com/rambaarde/skein/commit/f44f61f98c8adddddee0c2b35f1b12fcce79e25b))
+
 ## [0.30.0](https://github.com/rambaarde/skein/compare/v0.29.0...v0.30.0) (2026-08-22)
 
 
