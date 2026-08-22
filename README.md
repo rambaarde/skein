@@ -33,7 +33,7 @@ skein                  # the dashboard
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-174%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-190%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -196,9 +196,19 @@ cd ../skein-sandbox && ./skein
 ```
 
 That builds a throwaway world — five git repositories with a month of commits,
-fixture sessions for all three agents, and one deliberate collision — and runs
-skein against a fake `HOME`, so none of your own work is read. Delete the folder
-when you are done.
+fixture sessions for all three agents, and one deliberate collision — and pins
+`HOME`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME` and `CLAUDE_CONFIG_DIR` inside it, so
+none of your own work is read. Delete the folder when you are done.
+
+On Linux, or to check skein against paths that are not the defaults:
+
+```sh
+sh tools/linux-check.sh
+```
+
+That runs the same world inside a container with `XDG_DATA_HOME` and
+`CLAUDE_CONFIG_DIR` pointed somewhere no default would put them, and reads it
+back. skein honours both, and `~/.codex` where Codex documents it.
 
 ## Themes are btop's, unmodified
 
