@@ -447,7 +447,11 @@ export function render(state, size) {
     // A rate over a window shorter than a week is a projection, not a
     // measurement, so the column says which one it is.
     const weekly = (now - since) >= 7 * 86_400_000
-    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  ATTENTION', 12)}${R}`)
+    // DEPLOYS sits beside CFR because it is what makes CFR mean anything.
+    // "0%" over two deployments and "0%" over thirty are different statements
+    // and were rendering identically — the number was in the CLI door only,
+    // which is exactly the second-class door D13 exists to prevent.
+    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
     for (const { p, v } of ranked.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
       const on = p === projects[sel]
@@ -459,6 +463,9 @@ export function render(state, size) {
           `${fit((v.lead === null ? '—' : humanMs(v.lead)).padStart(6), 8)}` +
           `${fit((v.perShip === null ? '—' : humanMs(v.perShip)).padStart(9), 12)}` +
           `${v.cfr === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.heat[Math.round(v.cfr * 100)]}${`${Math.round(v.cfr * 100)}%`.padStart(7)}${R}`}  ` +
+          // The count, and how many of them could actually be judged. The
+          // newest one never can — nothing has shipped after it yet.
+          `${fit((v.cfrOf ? `${v.cfrOf.judged}/${v.cfrOf.deployments}` : '—').padStart(8), 10)}` +
           `${fit(humanMs(att(p)).padStart(9), 12)}`
         : `${DIM}${'no git history'.padStart(7)}${R}`
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
