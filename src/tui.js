@@ -19,7 +19,7 @@ import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
-import { velocity, landings, bucket } from './delivery.js'
+import { velocity, landings, cfrSeries } from './delivery.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -417,29 +417,44 @@ export function render(state, size) {
       v: velocity(p.root, p.events ?? [], { since, now, attention: att(p) }),
       ships: landings(p.root, { since }),
     }))
-    // A project with no git history is not a line with nothing in it — it is
-    // a project this chart cannot speak about. It stays out of the legend
-    // rather than appearing there with a blank marker.
-    const ranked = [...stats].sort((a, b) => (b.v?.landed ?? -1) - (a.v?.landed ?? -1))
-    const lines = ranked.filter(s => s.ships).slice(0, MAX_SERIES).map((s, i) => ({
+    // The chart plots CHANGE FAILURE RATE, not cumulative landings.
+    //
+    // Of the four numbers on this screen it is the only one that answers "is
+    // this getting better or worse", and a single percentage cannot show that.
+    // Landed and /day are already in the table and read fine as numbers; a
+    // rate needs a shape.
+    //
+    // A project with fewer than two deployments is not a flat line at zero —
+    // it is a project this chart cannot speak about, and it stays out of the
+    // legend rather than appearing there claiming a perfect record.
+    const ranked = [...stats].sort((a, b) => (b.v?.cfr ?? -1) - (a.v?.cfr ?? -1))
+    const judged = ranked.filter(s => s.v?.cfrOf?.verdicts?.length)
+    const lines = judged.slice(0, MAX_SERIES).map((s, i) => ({
       label: s.p.name,
       marker: MARKERS[i],
       color: lineHue(i),
-      value: String(s.v.landed),
-      values: cumulative(bucket(s.ships.filter(x => !x.release).map(x => x.at), cols, since, now)),
+      value: `${Math.round(s.v.cfr * 100)}%`,
+      values: cfrSeries(s.v.cfrOf.verdicts, cols, since, now),
     }))
     const rowsOut = []
-    if (ranked.some(s => s.ships)) {
+    if (lines.length) {
       rowsOut.push(...chart(lines, {
         width: Math.max(24, V.w - 11), rows: rowsV,
-        max: Math.max(1, ...lines.flatMap(s => s.values)),
+        // Always the full scale. A failure rate read against its own peak
+        // makes 4% look like a catastrophe and 90% look like a plateau; the
+        // whole point of the number is where it sits between none and all.
+        max: 1,
         since, now, lead: 6, pad: 7, tier,
-        fmt: v => String(Math.round(v)),
-        caption: `landed · ${lookback}`,
+        fmt: v => `${Math.round(v * 100)}%`,
+        caption: `change failure · ${lookback}`,
         focus: lines.findIndex(l => l.label === projects[sel]?.name),
       }))
     } else {
-      rowsOut.push(` ${DIM}no git history in any of these projects${R}`)
+      rowsOut.push(` ${DIM}no project here has two deployments to compare${R}`)
+      rowsOut.push('')
+      rowsOut.push(` ${DIM}a change failure rate is the share of deployments whose next${R}`)
+      rowsOut.push(` ${DIM}shipment repaired what they shipped — it needs a second one${R}`)
+      rowsOut.push(` ${DIM}to compare against, and a tag or a release commit to see them.${R}`)
     }
     rowsOut.push('')
     const W = V.w - 2
