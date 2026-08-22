@@ -9,7 +9,7 @@ import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
-import { box, tag, fit, width } from './box.js'
+import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import * as mouse from './mouse.js'
 import { ago, short, trunc } from './format.js'
@@ -190,7 +190,7 @@ export function render(state, size) {
        tag('a', lookback), tag('c', state.onlyColliding ? 'colliding' : 'all'), tag('?', 'keys'), tag('q', 'quit')]
     : detailW >= 70
       ? [tag('s', state.sort ?? 'recent'), tag('a', lookback), tag('?', 'keys'), tag('q', 'quit')]
-      : [tag('?', 'keys'), tag('q', 'quit')]).join('')
+      : [tag('?', 'keys'), tag('q', 'quit')]).join(TAG_SEP)
 
   const headRows = []
   const headState = [

@@ -81,7 +81,7 @@ uninstalled the first time it is wrong.
 │ ▸ notify-svc    —                              codex+opencode       2     18     28m ■·······     · ⣈⡃⡇⡈⣉⡀⠛⣃⣛⣨⢀⠀⠈⣟    0%     2h          │
 │ ▸ docs-site     —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⢠⢸⢰⢰⣴⢰⢠⢰⣤⢸    0%     9h          │
 │ ▸ not in a repo —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣈⣀⡁⡉⡛⢘⢙⣍⣝⣌⣯⡇    0%     1d          │
-╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────────────────────────╯
+╰─ 6 projects · 3 collisions · 30d · by recent  ⏎ expand · s recent · / filter · a 30d · c all · ? keys · q quit ──────────────────────────╯
 ╭─ atlas-api — what an agent is told here² ───────────────╮╭─ activity³ ──────────────────────────────────────────────────── newest first ─╮
 │ 3 other agents active in this repo                      ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
 │   claude   editing src/mod0.ts                 8s       ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│

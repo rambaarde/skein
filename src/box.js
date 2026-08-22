@@ -11,13 +11,18 @@ const SQUARE = { tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│' 
 
 export const width = s => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length
 
-// btop hangs labelled controls off the border rather than listing keys in a
-// footer: ┘filter└ ┘tree└ ┘- 2000ms +└. The bracket says "this is a thing you
-// press", which a comma-separated key list never does.
-// btop highlights the key letter inside each border control — that is what
-// makes a row of them scannable rather than a line of noise. Same here.
+// btop hangs labelled controls off its border with ┘…└ brackets. Copied
+// faithfully, those brackets rendered as detached vertical ticks in a terminal
+// whose font does not join box-drawing to a horizontal rule — the row read as
+// "U U U" rather than as a set of controls, and it was the single most
+// complained-about thing on the screen.
+//
+// So: keep btop's idea, drop its glyphs. The key is highlighted and bold, the
+// label is dim, and a middle dot separates them. That reads correctly in every
+// font, which the brackets did not.
 export const tag = (key, label) =>
-  `${THEME.box}┘${R}${BOLD}${THEME.hi}${key}${R}${THEME.box} ${label}└${R}`
+  `${BOLD}${THEME.hi}${key}${R}${THEME.dim} ${label}${R}`
+export const TAG_SEP = ` ${'·'} `
 
 export function box({ w, title = '', state = '', right = '', rounded = true, key = '' }) {
   const c = rounded ? ROUND : SQUARE

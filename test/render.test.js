@@ -200,10 +200,13 @@ test('controls hang off the border showing their current value', async () => {
     sort: 'edits', filter: '', onlyColliding: false,
   }
   const plain = render(state, { cols: 110, rows: 16 }).replace(/\x1b\[[0-9;]*m/g, '')
-  // btop's convention: ┘key label└ — the bracket says "press this"
-  assert.match(plain, /┘s edits└/, 'the sort tag should show the ACTIVE sort')
-  assert.match(plain, /┘a 7d└/, 'the window tag should show the ACTIVE window')
-  assert.match(plain, /┘\? keys└/)
+  // btop brackets these with ┘…└; copied faithfully they rendered as detached
+  // ticks in fonts that do not join box-drawing to a rule. Same idea, plain
+  // glyphs: highlighted key, dim label, middle-dot separated.
+  assert.match(plain, /s edits/, 'the sort tag should show the ACTIVE sort')
+  assert.match(plain, /a 7d/, 'the window tag should show the ACTIVE window')
+  assert.match(plain, /\? keys/)
+  assert.doesNotMatch(plain, /[┘└]/, 'no box-drawing brackets in the control row')
 })
 
 test('btop theme files are read as-is', async () => {
