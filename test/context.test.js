@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { contextOf, highWater, humanTokens } from '../src/context.js'
+import { contextOf, highWater, limitOf, humanTokens } from '../src/context.js'
 
 test('context is what the model had to read, cache included', () => {
   // Cached tokens still occupy the window; counting only fresh input would
@@ -48,14 +48,21 @@ test('cost is deliberately absent', async () => {
   assert.doesNotMatch(code, /\d+\s*\/\s*1_?000_?000\s*\*/, 'no rate arithmetic either')
 })
 
-test('a stated limit beats an inferred one', () => {
-  // Codex reports model_context_window outright. Claude does not, so its
-  // sessions fall back to observation — but when a real number is on offer,
-  // guessing from a high-water mark is strictly worse.
-  const stated = new Map([['a', { context: 30_000, limit: 258_400 }]])
-  assert.equal(highWater(stated), 258_400)
-  const observed = new Map([['a', { context: 952_000 }]])
-  assert.equal(highWater(observed), 1_000_000)
+test('a ceiling belongs to a session, not to the machine', () => {
+  // Codex states model_context_window (258k); Claude states nothing and runs
+  // to 1M. Sharing one ceiling between them made a 995k Claude session read as
+  // 385% of a Codex window — so each session is scaled against its own.
+  const mixed = new Map([
+    ['codex', { context: 30_000, limit: 258_400 }],
+    ['claude', { context: 952_000 }],
+  ])
+  const fallback = highWater(mixed)
+  assert.equal(fallback, 1_000_000, 'a bounded Codex session must not cap Claude')
+  assert.equal(limitOf(mixed.get('codex'), fallback), 258_400, 'stated wins for the session that states it')
+  assert.equal(limitOf(mixed.get('claude'), fallback), 1_000_000, 'observed for the one that does not')
+  for (const s of mixed.values()) {
+    assert.ok(s.context / limitOf(s, fallback) <= 1, 'no session ever exceeds its own ceiling')
+  }
 })
 
 test('a cumulative total is not window occupancy', () => {

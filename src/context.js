@@ -26,15 +26,15 @@ export const contextOf = usage => {
 // ever run reached 999k, that is the ceiling worth drawing against — and it
 // self-corrects the day you move to a bigger or smaller window, which a
 // hardcoded table would not.
+// The fallback ceiling, for sessions whose agent does not state a window.
+// Only sessions without a stated limit inform it: a Codex session bounded at
+// 258k says nothing about how large a Claude window gets.
 export function highWater(sessions) {
-  // A stated limit beats an inferred one. Codex reports model_context_window
-  // outright; Claude does not, so its sessions fall back to observation.
-  let stated = 0
-  for (const s of sessions.values()) stated = Math.max(stated, s.limit ?? 0)
-  if (stated) return stated
-
   let max = 0
-  for (const s of sessions.values()) max = Math.max(max, s.context ?? 0)
+  for (const s of sessions.values()) {
+    if (s.limit) continue
+    max = Math.max(max, s.context ?? 0)
+  }
   // Round up to something a person recognises, so the gauge does not rescale
   // every time a single request nudges the record.
   for (const step of [64_000, 128_000, 200_000, 400_000, 1_000_000, 2_000_000]) {
@@ -47,3 +47,8 @@ export const humanTokens = n =>
   n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M`
     : n >= 1_000 ? `${Math.round(n / 1_000)}k`
       : String(n)
+
+// A ceiling is a property of the session, not of the machine. Codex states
+// model_context_window; Claude does not. Sharing one number between them made
+// a 995k Claude session read as 385% of a Codex window.
+export const limitOf = (session, fallback) => session?.limit || fallback

@@ -6,7 +6,12 @@
 import { readFileSync, writeFileSync, mkdirSync, renameSync } from 'node:fs'
 import { SKEIN_DIR, CACHE_FILE } from './paths.js'
 
-const VERSION = 1
+// Bump this whenever the SHAPE of what gets cached changes — not just when the
+// cache format does. A fix to how a token count is derived is invisible to a
+// user whose cache still holds the number the old code computed; the file has
+// not grown, so it is never re-read. v2: Codex context stopped double-counting
+// cached_input_tokens, which is a subset of input_tokens rather than a sibling.
+const VERSION = 2
 
 export function load() {
   try {
