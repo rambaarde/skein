@@ -25,7 +25,7 @@ const slash = s => s.replace(/\\/g, '/')
 
 export const short = (p, root) => {
   // Normalise BEFORE relative(), not after: the separator is a property of the
-  // string, not of the host, and skein reads transcripts written on machines
+  // string, not of the host, and skeins reads transcripts written on machines
   // other than this one. Doing it here also means the behaviour is testable on
   // any platform instead of only on the one that produced the bug.
   const q = slash(p)

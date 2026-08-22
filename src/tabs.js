@@ -3,11 +3,11 @@
 // agtop puts a tab bar on its lower panel — Info · Performance · Processes ·
 // Tool Activity · Cost · Config — and that shape is right: one pane, several
 // questions, switched rather than tiled. Read from its published screenshots
-// and README only. agtop is GPL-2.0 and skein is not, so its source stays
+// and README only. agtop is GPL-2.0 and skeins is not, so its source stays
 // unread and nothing here is ported from it.
 //
-// What skein does NOT copy is Cost. agtop gets prices by fetching LiteLLM's
-// table at runtime and caching it for a day. skein has no dependencies and
+// What skeins does NOT copy is Cost. agtop gets prices by fetching LiteLLM's
+// table at runtime and caching it for a day. skeins has no dependencies and
 // makes no network calls, and a price table that ships in the binary is wrong
 // the first time a rate changes — a confidently wrong dollar figure is worse
 // than no dollar figure. Context pressure is the honest version of that column:
@@ -153,7 +153,7 @@ export function collisionsTab(p, ctx) {
   return out
 }
 
-// What the pane's border says for each tab. The border is skein's metadata
+// What the pane's border says for each tab. The border is skeins's metadata
 // line, so it has to describe what is actually under it — it kept claiming
 // "what an agent is told here" while the file list was on screen.
 export const TAB_TITLES = [

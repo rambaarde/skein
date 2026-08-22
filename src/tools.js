@@ -1,18 +1,18 @@
 // What the agents actually did, as opposed to what they left behind.
 //
-// skein has always counted FILES CHANGED, because that is what the collision
+// skeins has always counted FILES CHANGED, because that is what the collision
 // primitive needs. But a session is mostly reads, searches and shell commands:
 // the writes are the visible residue of the work, not the work. A project that
 // shows nine files touched can be nine minutes of editing or four hours of
 // reading the codebase to find the nine.
 //
-// Every agent already states this on disk and skein was walking straight past
+// Every agent already states this on disk and skeins was walking straight past
 // it -- the claude reader iterated every tool_use block and kept only the ones
 // that wrote a file.
 //
-// Read from the transcripts, not from agtop. agtop is GPL-2.0 and skein is
+// Read from the transcripts, not from agtop. agtop is GPL-2.0 and skeins is
 // Apache-2.0, so its source stays unread (founder thesis R8); the agents write
-// these records for themselves and reading them is the same thing skein has
+// these records for themselves and reading them is the same thing skeins has
 // done since the first commit.
 
 // A session's tally is a plain object so it survives JSON round-tripping

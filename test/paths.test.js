@@ -35,7 +35,7 @@ test('a relative or empty override is ignored, not obeyed', () => {
 
 test('the resolver is shared, so the fixture and the reader cannot disagree', () => {
   // tools/sandbox.mjs builds its world through this same function. It used to
-  // hardcode ~/.local/share while skein had learned to honour XDG_DATA_HOME --
+  // hardcode ~/.local/share while skeins had learned to honour XDG_DATA_HOME --
   // the identical duplication, one layer down, which would have made the
   // sandbox silently test nothing.
   const env = { XDG_DATA_HOME: join('/x'), CLAUDE_CONFIG_DIR: join('/c') }

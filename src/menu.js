@@ -1,6 +1,6 @@
 // btop's menu, and the reason it is a menu rather than another key.
 //
-// Everything skein can do was already reachable and none of it was findable:
+// Everything skeins can do was already reachable and none of it was findable:
 // the controls live on a border, the help lives behind '?', and a reader who
 // does not already know that '?' is a key never presses it. btop solves this
 // with one word on the box border -- `menu` -- which dims the whole dashboard

@@ -52,11 +52,11 @@ test('an empty toon list is still a definitive statement', () => {
 })
 
 test('the border carries title and state, costing no interior row', () => {
-  const b = box({ w: 40, title: 'skein', state: '3 projects' })
+  const b = box({ w: 40, title: 'skeins', state: '3 projects' })
   assert.equal(width(b.top), 40)
   assert.equal(width(b.bottom), 40)
   assert.equal(width(b.row('hi')), 40)
-  assert.match(b.top, /skein/)
+  assert.match(b.top, /skeins/)
   assert.match(b.bottom, /3 projects/)
 })
 
@@ -144,7 +144,7 @@ test('a COLLISIONS header never appears with no room for a row', async () => {
 
 test('the TUI boots without throwing', async () => {
   // It did not, once: the refresh scheduler was called a few lines above where
-  // it was declared, so `skein` crashed on launch with a temporal-dead-zone
+  // it was declared, so `skeins` crashed on launch with a temporal-dead-zone
   // ReferenceError. Every unit test passed, because none of them started it.
   const { start } = await import('../src/tui.js')
   const { PassThrough } = await import('node:stream')
@@ -154,7 +154,7 @@ test('the TUI boots without throwing', async () => {
   out.on('data', d => { painted += d.toString() })
   assert.doesNotThrow(() => start({ stdout: out, stdin: inp }))
   await new Promise(r => setTimeout(r, 50))
-  assert.match(painted, /skein/, 'the first frame should have been painted')
+  assert.match(painted, /skeins/, 'the first frame should have been painted')
   assert.match(painted, /\x1b\[\?1049h/, 'it should switch to the alternate screen')
 })
 
@@ -206,7 +206,7 @@ test('controls hang off the border showing their current value', async () => {
   assert.match(plain, /s edits/, 'the sort tag should show the ACTIVE sort')
   assert.match(plain, /a 7d/, 'the window tag should show the ACTIVE window')
   // btop pins ONE word on the border -- `menu` -- and everything else is
-  // behind it. skein pins that plus the way out, and lets '? keys' yield to
+  // behind it. skeins pins that plus the way out, and lets '? keys' yield to
   // the tags that state a current value when the border runs short.
   assert.match(plain, /m menu/, 'the menu is pinned')
   assert.match(plain, /q quit/, 'so is the way out')
@@ -684,7 +684,7 @@ test('presets change what is on screen, not just its size', async () => {
   assert.doesNotMatch(at(1), /what an agent is told here/, 'and drops detail entirely')
   assert.doesNotMatch(at(2), /activity/, 'preset 3 is the table alone')
 
-  // btop prints the preset in the box border; so does skein.
+  // btop prints the preset in the box border; so does skeins.
   assert.match(at(0), /preset 1 all/)
   assert.match(at(2), /preset 3 table/)
 })
@@ -726,7 +726,7 @@ test('the frame is not one grey box — each pane owns its outline', async () =>
   }
   const raw = render(state, { cols: 120, rows: 30, now })
   // btop gives cpu_box, mem_box, net_box and proc_box four separate theme keys
-  // (design language R6). skein had one DIM for all three panes.
+  // (design language R6). skeins had one DIM for all three panes.
   for (const [name, colour] of [['head', THEME.boxHead], ['detail', THEME.boxDetail], ['feed', THEME.boxFeed]]) {
     assert.ok(raw.includes(colour), `${name} draws in its own colour`)
   }
@@ -854,18 +854,18 @@ test('a keypress is on screen in the next frame, not the next poll', async () =>
   // Runs in a subprocess against a FIXTURE home. The first version of this test
   // drove the real TUI against whatever was in ~/.claude, which passed on the
   // machine that wrote it and failed on every CI runner, because a runner has
-  // no sessions and so no project for Enter to open. skein's own rule is to
+  // no sessions and so no project for Enter to open. skeins's own rule is to
   // test against fixtures and never against real history; this is why.
   const { execFileSync } = await import('node:child_process')
   const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs')
   const { join } = await import('node:path')
 
-  // NOT under os.tmpdir(). skein's noise filter drops anything beginning /tmp,
+  // NOT under os.tmpdir(). skeins's noise filter drops anything beginning /tmp,
   // /private/tmp or /var — and macOS mkdtemp hands back /var/folders/..., so a
   // fixture there produces zero projects and the test fails for a reason that
   // has nothing to do with what it is testing. Under the repo it looks like
   // ordinary work on every platform.
-  const home = mkdtempSync(join(process.cwd(), '.skein-test-home-'))
+  const home = mkdtempSync(join(process.cwd(), '.skeins-test-home-'))
   const repo = join(home, 'work', 'demo')
   const dir = join(home, '.claude', 'projects', 'demo')
   mkdirSync(dir, { recursive: true })
@@ -888,7 +888,7 @@ test('a keypress is on screen in the next frame, not the next poll', async () =>
   // a helper living there is executed as a test with no arguments and fails.
   const driver = new URL('../tools/drive-tui.mjs', import.meta.url)
   const raw = execFileSync(process.execPath, [driver.pathname.replace(/^\/([A-Za-z]:)/, '$1'), mod],
-    { env: { ...process.env, HOME: home, USERPROFILE: home, SKEIN_HOME: join(home, '.skein') },
+    { env: { ...process.env, HOME: home, USERPROFILE: home, SKEIN_HOME: join(home, '.skeins') },
       encoding: 'utf8', timeout: 30_000 })
   rmSync(home, { recursive: true, force: true })
   const marker = raw.match(/@@(.*)@@/)
@@ -1073,11 +1073,11 @@ test('the velocity screen shows what a change failure rate was judged against', 
   }
 })
 
-test('an empty screen says what skein looked for and what it found', async () => {
+test('an empty screen says what skeins looked for and what it found', async () => {
   // A first run with no data drew column headers over an empty grid and said
   // "0 projects". That reads as a broken program, and it is the one moment a
   // user cannot tell a bug from an empty machine — reported by a real one, on
-  // Linux, running an agent skein does not read, with no way to discover that
+  // Linux, running an agent skeins does not read, with no way to discover that
   // from the screen.
   const { render } = await import('../src/tui.js')
   const now = Date.now()
@@ -1109,7 +1109,7 @@ test('an empty screen says what skein looked for and what it found', async () =>
   assert.match(plain, /none of them edited a file/,
     'fresh sessions and no events is "nothing was written", not "it went somewhere odd"')
   assert.match(plain, /30 files/, 'and the counts come from the probe it was given')
-  assert.match(plain, /skein doctor/, 'with the command that explains the rest')
+  assert.match(plain, /skeins doctor/, 'with the command that explains the rest')
 })
 
 test('the failure chart follows the cursor, and its colour is the verdict', async () => {
@@ -1201,5 +1201,5 @@ test('the menu stands in front of the dashboard, not instead of it', async () =>
   const small = frame(2, 70, 20)
   for (const [word] of MENU) assert.ok(small.includes(word), `${word} survives a small terminal`)
   // The hint is not clipped mid-word by a ground sized to the words alone.
-  assert.match(small, /leave\. skein never started anything/)
+  assert.match(small, /leave\. skeins never started anything/)
 })

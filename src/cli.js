@@ -4,6 +4,7 @@ import { byProject, gitRoot, projectName } from './project.js'
 import { toon, table, ago, short, trunc } from './format.js'
 import { hookLine } from './hook.js'
 import { isAbsolute, join } from 'node:path'
+import { envVar } from './paths.js'
 import { install } from './install.js'
 import { listThemes, setTheme, setOpaque, setTransparent } from './theme.js'
 import { velocity } from './delivery.js'
@@ -11,31 +12,31 @@ import { toolsOf, totalOf, classify } from './tools.js'
 import { attentionOf, humanMs } from './attention.js'
 import { GLOSSARY } from './glossary.js'
 
-const HELP = `skein — every agent running across every repository, grouped by project.
+const HELP = `skeins — every agent running across every repository, grouped by project.
 
-  skein                     projects with agents active now
-  skein ls                  one line per project
-  skein who [path]          who else is in this repo, or in one file
-  skein collisions          recent same-file overlaps
-  skein velocity            what landed, how long it took, what failed
-  skein tools               which tools the agents actually called
-  skein glossary            what every number on these screens counts
-  skein doctor              why is my screen empty
-  skein hook                print the ambient line and exit
-  skein themes              list the btop themes it can find
-  skein install             wire the hook into your agents
+  skeins                     projects with agents active now
+  skeins ls                  one line per project
+  skeins who [path]          who else is in this repo, or in one file
+  skeins collisions          recent same-file overlaps
+  skeins velocity            what landed, how long it took, what failed
+  skeins tools               which tools the agents actually called
+  skeins glossary            what every number on these screens counts
+  skeins doctor              why is my screen empty
+  skeins hook                print the ambient line and exit
+  skeins themes              list the btop themes it can find
+  skeins install             wire the hook into your agents
 
   --json                   machine-readable
   --toon                   token-efficient, for agents
   --since <30d|24h|90m>    lookback window            (default 30d)
   --window <minutes>       collision window           (default ${WINDOW_MIN})
-  --theme <name|path>      any btop .theme file — skein themes lists them
+  --theme <name|path>      any btop .theme file — skeins themes lists them
   --opaque [#rrggbb]       background colour (default: black)
   --transparent            inherit the terminal background instead
   --all                    every project, not just the active ones
   --help                   this
 
-skein reports. It never starts, stops, routes or blocks anything.`
+skeins reports. It never starts, stops, routes or blocks anything.`
 
 const DURATION = /^(\d+)([mhd])$/
 const parseSince = s => {
@@ -85,7 +86,7 @@ const out = (opts, name, rows, fields, human, emptyMsg) => {
 
 export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false } = {}) {
   const opts = parseArgs(argv)
-  if (opts.error) return { code: 1, err: `skein: ${opts.error}\ntry: skein --help` }
+  if (opts.error) return { code: 1, err: `skeins: ${opts.error}\ntry: skeins --help` }
   if (opts.help) return { code: 0, text: HELP }
 
   // A TUI when a human is looking, text when anything else is (PRD D9, AXI 6).
@@ -94,15 +95,15 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   const since = now - opts.since
 
   // A theme is a rendering choice, so it is applied before anything draws.
-  const wanted = opts.theme ?? process.env.SKEIN_THEME
+  const wanted = opts.theme ?? envVar('THEME')
   if (wanted && !setTheme(wanted).name) {
-    return { code: 1, err: `skein: no theme called "${wanted}"\ntry: skein themes` }
+    return { code: 1, err: `skeins: no theme called "${wanted}"\ntry: skeins themes` }
   }
   // After the theme, so it overrides a palette's own main_bg on request.
-  if (opts.transparent || process.env.SKEIN_TRANSPARENT) setTransparent()
-  const opaque = opts.opaque ?? process.env.SKEIN_OPAQUE
+  if (opts.transparent || envVar('TRANSPARENT')) setTransparent()
+  const opaque = opts.opaque ?? envVar('OPAQUE')
   if (opaque && !setOpaque(opaque === '1' || opaque === 'true' ? '#000000' : opaque)) {
-    return { code: 1, err: `skein: --opaque expects a colour like #000000` }
+    return { code: 1, err: `skeins: --opaque expects a colour like #000000` }
   }
 
   if (cmd === 'themes') {
@@ -111,13 +112,13 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
       code: 0,
       text: out(opts, 'themes', rows, ['theme', 'file'],
         () => table(rows, [{ head: 'THEME', key: 'theme' }, { head: 'FILE', key: 'file' }]) +
-              `\n\n${rows.length} themes · skein --theme <name> · btop's own files, read as-is`,
+              `\n\n${rows.length} themes · skeins --theme <name> · btop's own files, read as-is`,
         `no btop themes found (0 themes) · install btop, or pass a path to a .theme file`),
     }
   }
 
   // D13: a definition that lives only in the TUI is a definition the person
-  // piping skein never sees, and the agent reading it never sees at all. One
+  // piping skeins never sees, and the agent reading it never sees at all. One
   // array, three doors -- so they cannot drift into disagreeing.
   if (cmd === 'glossary') {
     const rows = GLOSSARY.filter(([term]) => term).map(([term, means]) => ({ term, means }))
@@ -132,7 +133,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   if (cmd === 'install') return install(opts._.slice(1))
   if (cmd === 'tui') return { code: 0, tui: true }
   if (cmd === 'hook') {
-    const line = hookLine({ cwd, session: process.env.SKEIN_SESSION ?? null, now })
+    const line = hookLine({ cwd, session: envVar('SESSION') ?? null, now })
     return { code: 0, text: line ?? '' }          // silence when alone (Q7)
   }
 
@@ -160,7 +161,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         { head: 'PROJECT', key: 'project' }, { head: 'AGENTS', key: 'agents' },
         { head: 'SESSIONS', key: 'sessions', right: true }, { head: 'FILES', key: 'files', right: true },
         { head: 'EDITS', key: 'edits', right: true }, { head: 'LAST', key: 'last', right: true },
-      ]) + `\n\n${cs.length} collision${cs.length === 1 ? '' : 's'} in the window · skein collisions`,
+      ]) + `\n\n${cs.length} collision${cs.length === 1 ? '' : 's'} in the window · skeins collisions`,
       // The same three answers the TUI gives. D13 again: an empty state is a
       // metric too, and "nothing here" without saying where it looked is the
       // ambiguous blank AXI 5 exists to forbid.
@@ -181,7 +182,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
 
   if (cmd === 'who') {
     const path = opts._[1] ? (isAbsolute(opts._[1]) ? opts._[1] : join(cwd, opts._[1])) : null
-    const rows = who(recent, sessions, { root, path, activeMin: opts.window, self: process.env.SKEIN_SESSION ?? null, now })
+    const rows = who(recent, sessions, { root, path, activeMin: opts.window, self: envVar('SESSION') ?? null, now })
       .map(o => ({ agent: o.agent, kind: o.kind, file: short(o.path, root), branch: o.branch ?? '', title: trunc(o.title, 40) ?? '', ago: ago(o.at, now) }))
     return {
       code: 0,
@@ -242,7 +243,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
       records: d.found ? d.records : null,
       edits: d.found ? d.events : null,
       cwd_resolved: d.found && d.inWindow ? d.cwd !== null : null,
-      // The histogram is what catches an agent renaming the record skein
+      // The histogram is what catches an agent renaming the record skeins
       // reads: it turns an empty dashboard into a type nobody recognises.
       records_seen: d.types.map(t => `${t.type}×${t.n}`).join(' '),
     }))
@@ -260,7 +261,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         }).join('\n\n') +
         `\n\n${total} edit${total === 1 ? '' : 's'} in the last ${argvSince(opts)}` +
         (total ? '' : '\n\nskein counts files WRITTEN. Reading, searching and running commands are not edits.') +
-        '\nA record type skein does not recognise means the agent changed its format — please report it.',
+        '\nA record type skeins does not recognise means the agent changed its format — please report it.',
         'no agent stores found at all'),
     }
   }
@@ -338,7 +339,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         `no projects with git history in the last ${argvSince(opts)} (0 projects)`),
     }
   }
-  return { code: 1, err: `skein: unknown command "${cmd}"\ntry: skein --help` }
+  return { code: 1, err: `skeins: unknown command "${cmd}"\ntry: skeins --help` }
 }
 
 const argvSince = opts => {

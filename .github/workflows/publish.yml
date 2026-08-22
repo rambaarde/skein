@@ -98,7 +98,8 @@ jobs:
             for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
               if (Object.keys(pkg[field] ?? {}).length) fail(`a ${field} entry appeared`);
             }
-            if (pkg.bin?.skein !== "bin/skein.js") fail("the bin mapping is not skein → bin/skein.js");
+            if (pkg.bin?.skeins !== "bin/skeins.js") fail("the bin mapping is not skeins → bin/skeins.js");
+            if (pkg.bin?.skein !== "bin/skeins.js") fail("the skein alias must still point at bin/skeins.js");
             // Provenance is checked by the registry only AFTER the bundle is
             // signed and uploaded, and it reports a mismatch as a 422 that
             // reads like an auth problem. Asking here turns that into a plain
@@ -130,7 +131,7 @@ jobs:
           npm install "skeins@$VERSION" --prefer-online
           # Run the installed binary, not the checkout: bin paths are the thing
           # most likely to be right in the repo and wrong once packaged.
-          ./node_modules/.bin/skein --help | head -1
+          ./node_modules/.bin/skeins --help | head -1
           # The hook is the product, and it must exit 0 from anywhere.
-          (cd / && "$WORK/node_modules/.bin/skein" hook)
+          (cd / && "$WORK/node_modules/.bin/skeins" hook)
           echo "ok: skeins@$VERSION installs and runs"

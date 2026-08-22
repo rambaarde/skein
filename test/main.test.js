@@ -7,7 +7,7 @@ const sink = () => { const w = { out: '' }; w.write = s => { w.out += s }; retur
 test('launching the TUI must NOT exit — this is the whole bug', async () => {
   // start() returns the moment the first frame is painted; the TUI lives on the
   // event loop. A trailing process.exit() therefore killed it instantly, and
-  // skein drew one frame and dropped back to the shell.
+  // skeins drew one frame and dropped back to the shell.
   let exited = null, started = false
   await main({
     argv: [], tty: true, stdout: sink(), stderr: sink(),

@@ -34,7 +34,7 @@ test('the hit map answers which row a y landed on', () => {
 
 test('tracking is turned off again on the way out', () => {
   // Leaving it on means the terminal keeps emitting escape sequences into the
-  // shell after skein exits, which looks like the shell is broken.
+  // shell after skeins exits, which looks like the shell is broken.
   for (const mode of ['1000', '1002', '1006']) {
     assert.ok(ON.includes(`?${mode}h`), `enable ${mode}`)
     assert.ok(OFF.includes(`?${mode}l`), `disable ${mode}`)

@@ -1,6 +1,6 @@
 <div align="center">
 
-# skein
+# skeins
 
 **Every agent running across every repository, grouped by project — and a
 read-only door so the agents can check who else is in a file before they write
@@ -13,7 +13,7 @@ Neither agent could have known. Both behaved correctly.
 
 Most agent dashboards scope to the **session**. You do not work in sessions — you
 work in projects, and the collisions that cost you happen *between* sessions,
-where a session-shaped tool cannot look. skein's unit is the **project**, and the
+where a session-shaped tool cannot look. skeins's unit is the **project**, and the
 agents can consult it themselves.
 
 No daemon. No account. No telemetry. Nothing leaves the machine.
@@ -26,20 +26,20 @@ No daemon. No account. No telemetry. Nothing leaves the machine.
 
 ```sh
 npm i -g skeins
-skein install          # wires the hook into claude, codex and opencode
-skein                  # the dashboard
+skeins install          # wires the hook into claude, codex and opencode
+skeins                  # the dashboard
 ```
 
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-192%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-195%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
 
-<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/demo.gif" alt="skein running against fixture projects" width="900">
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/demo.gif" alt="skeins running against fixture projects" width="900">
 
 </div>
 
@@ -57,8 +57,8 @@ writes, without anyone asking for it:
   codex    editing  src/auth/session.ts      (1m ago)
 ```
 
-`skein install` wires that into Claude Code, Codex and opencode. The agent is
-told and decides for itself; nothing is blocked, queued or claimed. If skein
+`skeins install` wires that into Claude Code, Codex and opencode. The agent is
+told and decides for itself; nothing is blocked, queued or claimed. If skeins
 breaks, the hook exits 0 and says nothing.
 
 ---
@@ -66,7 +66,7 @@ breaks, the hook exits 0 and says nothing.
 ## The dashboard
 
 ```
-╭─ skein¹ ────────────────────────────────────────────────────────────────────────────────────────────────────── preset 1 all  22:20:00 ⠸ ─╮
+╭─ skeins¹ ───────────────────────────────────────────────────────────────────────────────────────────────────── preset 1 all  22:20:00 ⠸ ─╮
 │ 3h00  ┤                                                                                                                                  │
 │ 2h45  ┤                                                                                                               ⣀⣀⡤⠤⠤⠤⠖⠒⠋⠉⠉ 2h46   │
 │ 2h30  ┤                                                                                                     ⣀⣀⣀⣀⡤⠤⠤⠖⠋⠉⠁                  │
@@ -133,26 +133,26 @@ pressure, its files, its tool calls, its collisions.
 ## What the numbers mean
 
 Every term below is also in the tool: press `m` for the menu and choose
-**METRICS**, or run `skein glossary` (`--json` for agents). One list, three
+**METRICS**, or run `skeins glossary` (`--json` for agents). One list, three
 doors — they cannot drift apart.
 
 ### Attention
 
 **ATTENTION** is wall-clock time an agent spent *editing* a project. Gaps longer
 than a few minutes are not counted, so it is time worked, not time elapsed.
-Everything else on the velocity screen is git's; this is the half only skein has.
+Everything else on the velocity screen is git's; this is the half only skeins has.
 
 ### Velocity, for one developer
 
 DORA is an org metric and half of it does not survive being pointed at one
-person. skein ships the part that does, and names the part it cannot:
+person. skeins ships the part that does, and names the part it cannot:
 
 | | |
 |---|---|
 | **LANDED** | commits on the trunk's first-parent line (`main`, `master`, `develop`) inside the window. Release commits excluded — they are bookkeeping, not work |
 | **/DAY** · **/WEEK** | landed divided by the window. Under seven days the column reads `/DAY`, because a weekly rate extrapolated from two days is a projection, not a measurement |
 | **LEAD** | median time from the first edit made *after the previous landing* until this one lands — from when you started, which git cannot see through a squash merge |
-| **ATTN/SHIP** | attention divided by landings: what one shipped change cost in agent time. The join no other tool can make — skein knows the time, git knows what came out of it |
+| **ATTN/SHIP** | attention divided by landings: what one shipped change cost in agent time. The join no other tool can make — skeins knows the time, git knows what came out of it |
 | ~~MTTR~~ | mean time to restore needs incident data a laptop does not have. Absent, not faked |
 | ~~deploy frequency~~ | for one developer that is the **LANDED** column. Not printed twice |
 
@@ -193,22 +193,27 @@ that rather than claiming two agents.
 
 ## Commands
 
+The command is `skeins`. `skein` still works — it is what `skeins install`
+wrote into three agents' settings files, and a name that vanishes breaks every
+one of them silently. Environment variables read `SKEINS_*` first and still
+honour `SKEIN_*`.
+
 A tty gets the TUI; a pipe gets text. **No metric exists in only one door** —
 anything the chart shows, the CLI answers, and the reverse.
 
 ```
-skein                     the dashboard
-skein ls                  one line per project
-skein who [path]          who else is in this repo, or in one file
-skein collisions          recent same-file overlaps
-skein velocity            what landed, how long it took, what failed
-skein tools               what the agents called, not only what they wrote
-skein glossary            what every number on these screens counts
-skein doctor              why is my screen empty: what each store held, and
-                          what skein could read out of it
-skein hook                the ambient line, for a session-start hook
-skein install             wire the hook into every agent it finds
-skein --json | --toon     machine-readable
+skeins                     the dashboard
+skeins ls                  one line per project
+skeins who [path]          who else is in this repo, or in one file
+skeins collisions          recent same-file overlaps
+skeins velocity            what landed, how long it took, what failed
+skeins tools               what the agents called, not only what they wrote
+skeins glossary            what every number on these screens counts
+skeins doctor              why is my screen empty: what each store held, and
+                          what skeins could read out of it
+skeins hook                the ambient line, for a session-start hook
+skeins install             wire the hook into every agent it finds
+skeins --json | --toon     machine-readable
 ```
 
 Absence is an explicit `null`, never an omitted key or a zero standing in for
@@ -241,7 +246,7 @@ all clickable.
 
 ```sh
 node tools/sandbox.mjs
-cd ../skein-sandbox && ./skein
+cd ../skeins-sandbox && ./skeins
 ```
 
 That builds a throwaway world — five git repositories with a month of commits,
@@ -249,7 +254,7 @@ fixture sessions for all three agents, and one deliberate collision — and pins
 `HOME`, `XDG_DATA_HOME`, `XDG_CONFIG_HOME` and `CLAUDE_CONFIG_DIR` inside it, so
 none of your own work is read. Delete the folder when you are done.
 
-On Linux, or to check skein against paths that are not the defaults:
+On Linux, or to check skeins against paths that are not the defaults:
 
 ```sh
 sh tools/linux-check.sh
@@ -257,21 +262,21 @@ sh tools/linux-check.sh
 
 That runs the same world inside a container with `XDG_DATA_HOME` and
 `CLAUDE_CONFIG_DIR` pointed somewhere no default would put them, and reads it
-back. skein honours both, and `~/.codex` where Codex documents it.
+back. skeins honours both, and `~/.codex` where Codex documents it.
 
 ## Themes are btop's, unmodified
 
 ```sh
-skein --theme tokyo-night        # any .theme file btop can read
-skein --themes                   # list what is installed
+skeins --theme tokyo-night        # any .theme file btop can read
+skeins --themes                   # list what is installed
 ```
 
-skein reads btop's own theme format from btop's own directories. A theme changes
+skeins reads btop's own theme format from btop's own directories. A theme changes
 colour and never layout; a test asserts exactly that.
 
 ---
 
-## What skein will not do
+## What skeins will not do
 
 Binding, and each one is either something an incumbent does well or something
 that rots.
@@ -282,7 +287,7 @@ that rots.
 - **Locks, claims or leases.** The same thing wearing a filesystem hat.
 - **Cost.** Neither agent records a price, so a cost column means shipping a rate
   table and being silently wrong the day it drifts. *Context pressure* is the
-  honest version and skein does show it — how full a session's window is now is
+  honest version and skeins does show it — how full a session's window is now is
   an operational state, like memory pressure, not a receipt.
 - **Process trees and CPU gauges.** agtop's are good, and it is three platforms
   of `ps` pain.
@@ -290,7 +295,7 @@ that rots.
 - **Anything hosted or shared.** Paths and titles carry client names.
 - **Telemetry.** Absent, not off-by-default.
 
-**Read-only, always.** The one path skein writes is its own cache in `~/.skein`,
+**Read-only, always.** The one path skeins writes is its own cache in `~/.skeins`,
 and CI greps the source to keep it that way.
 
 ## Licence

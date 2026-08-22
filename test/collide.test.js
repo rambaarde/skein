@@ -56,7 +56,7 @@ test('who is scoped to the repo you are standing in', () => {
 
 test('one file named two ways is still one file', async () => {
   // On Windows two agents can record C:\r\x.ts and C:/r/x.ts for the same file.
-  // Compared raw that is a collision skein misses, which is the expensive way
+  // Compared raw that is a collision skeins misses, which is the expensive way
   // to be wrong.
   const { canon } = await import('../src/collide.js')
   assert.equal(canon('/r/x.ts'), canon('\\r\\x.ts'))

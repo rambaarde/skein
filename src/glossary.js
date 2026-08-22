@@ -9,14 +9,14 @@
 // NOT counted, because that is the half a reader cannot infer from the screen.
 //
 // Its own module, not the TUI's, because D13 says no metric may exist in only
-// one door: the TUI draws it, `skein glossary` prints it, and neither can
+// one door: the TUI draws it, `skeins glossary` prints it, and neither can
 // drift away from the other.
 export const GLOSSARY = [
   ['attention', 'wall-clock time an agent spent editing this project. Gaps longer than a few minutes are not counted, so it is time worked, not time elapsed.'],
   ['landed', 'commits on the trunk (main, master, develop) first-parent line inside the window. Release commits are excluded -- they are bookkeeping, not work.'],
   ['/day  /week', 'landed divided by the window. Over a window shorter than a week the column says /DAY, because a weekly rate from two days is a projection.'],
   ['lead', 'median time from the first edit made after the previous landing until this one lands. "I started on this, and this is when it shipped."'],
-  ['attn/ship', 'attention divided by landings: how much agent time one shipped change cost. The join no other tool can make -- skein knows the time, git knows what came out of it.'],
+  ['attn/ship', 'attention divided by landings: how much agent time one shipped change cost. The join no other tool can make -- skeins knows the time, git knows what came out of it.'],
   ['deployment', 'a version tag. Where a repo tags nothing, a release commit instead -- never both, or release-please counts one publish twice.'],
   ['deploys n/m', 'm deployments in the window, n of them judged. The newest can never be judged: nothing has shipped after it yet.'],
   ['CFR', 'change failure rate -- the share of judged deployments whose NEXT deployment carried a fix or revert touching a file that deployment shipped.'],

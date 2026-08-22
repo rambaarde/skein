@@ -17,14 +17,14 @@ const inHome = (home, src) =>
     { env: { ...process.env, SKEIN_HOME: home }, encoding: 'utf8' }))
 
 const seed = (version, files) => {
-  const home = mkdtempSync(join(tmpdir(), 'skein-cache-'))
+  const home = mkdtempSync(join(tmpdir(), 'skeins-cache-'))
   mkdirSync(home, { recursive: true })
   writeFileSync(join(home, 'cache.json'), JSON.stringify({ version, files }))
   return home
 }
 
 test('a cache written by an older version is discarded, not trusted', () => {
-  // This is how a parsing fix reaches someone who already ran skein. Their
+  // This is how a parsing fix reaches someone who already ran skeins. Their
   // transcripts have not changed, so nothing is re-read and they keep whatever
   // the old code derived. The Codex double-count survived three verification
   // runs this way, until the cache was cleared by hand — which no user will do.
