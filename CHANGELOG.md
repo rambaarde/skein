@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.1](https://github.com/rambaarde/skein/compare/v0.25.0...v0.25.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the x axis read backwards, and arrow keys skipped rows ([8d4ac8c](https://github.com/rambaarde/skein/commit/8d4ac8cab26653303d65f697adc98851eee660c7))
+* **tui:** the x axis read backwards, and arrow keys skipped rows ([#94](https://github.com/rambaarde/skein/issues/94)) ([767d9a5](https://github.com/rambaarde/skein/commit/767d9a527b6d2cd19024ba5587b29e20a6bb31e3))
+
 ## [0.25.0](https://github.com/rambaarde/skein/compare/v0.24.1...v0.25.0) (2026-08-22)
 
 
