@@ -83,6 +83,9 @@ const KEYS = [
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
   ['1-3', 'jump straight to a preset: all · watch · table'],
+  ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
+  ['space', 'peek at a project inline without leaving the list'],
+  ['esc', 'back one level: page, then detail, then quit'],
   ['tab', 'switch the detail pane: info · sessions · files · collisions'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
@@ -167,6 +170,131 @@ export function render(state, size) {
     }
   }
 
+  // ---- the project page --------------------------------------------------
+  //
+  // A drill-down, not an expansion. Two inline rows under a project could show
+  // a session id and a timestamp; the question "what happened in this repo" needs
+  // a screen. Enter or a click opens it, esc closes it, and it reuses the same
+  // helpers as the list so the two cannot disagree about what a number means.
+  function projectPage(p) {
+    const m = metaOf(p)
+    const A = layout.page ? null : null
+    // Geometry: a tall headline with the graph, then three boxes across, then
+    // collisions along the bottom if there are any.
+    const collsHere = colls.filter(c => c.project === p.root)
+    // The graph is capped rather than given whatever is left. Twenty-three
+    // gradations is not more information than ten — it is the same shape with a
+    // finer ruler, and it was eating the panes that carry the actual detail.
+    const GRAPH_MAX = 10
+    const collH = collsHere.length ? Math.min(Math.max(4, collsHere.length + 3), Math.floor(h * 0.3)) : 0
+    const rowsP = Math.max(2, Math.min(GRAPH_MAX, h - collH - 14))
+    const headHp = rowsP + 3
+    const lowerH = h - headHp - collH
+    const third = Math.floor(w / 3)
+    const rects = {
+      head: { x: 0, y: 0, w, h: headHp },
+      agents: { x: 0, y: headHp, w: third, h: lowerH },
+      sessions: { x: third, y: headHp, w: third, h: lowerH },
+      files: { x: third * 2, y: headHp, w: w - third * 2, h: lowerH },
+      colls: { x: 0, y: headHp + lowerH, w, h: collH },
+    }
+
+    // --- the headline: this project's own rate graph, full width
+    const gwP = Math.max(20, w - 12)
+    const span = pickWindow(p.events ?? [], { now })
+    const series = rateSeries(p.events ?? [], gwP * 2, { now, windowMs: span.windowMs })
+    const peakP = Math.max(0.01, ...series)
+    const g = graph(series.map(v => v / peakP), { width: gwP, rows: rowsP, tier, lut: LUT.activity })
+    const rows = []
+    // A gradation that repeats the one above it is not a gradation. With a peak
+    // below one, ten rows all round to the same couple of values — so a label
+    // is drawn only where it differs from the last one printed.
+    let lastLabel = null
+    g.forEach((line, i) => {
+      const value = (peakP * (g.length - i)) / g.length
+      const raw = i === g.length - 1 ? '0' : value >= 10 ? String(Math.round(value)) : value.toFixed(peakP < 2 ? 2 : 1)
+      const label = raw === lastLabel ? '' : raw
+      if (label) lastLabel = raw
+      rows.push(` ${DIM}${fit(label, 6)}${R}${DIM}┤${R}${line}${R}`)
+    })
+    const agentRates = byAgent(p.events ?? [], { now, windowMs: span.windowMs })
+    rows.push(` ${DIM}${fit(`EDITS/MIN · ${span.label}`, 18)}${R}${BOLD}${fit(`peak ${peakP.toFixed(1)}`, 11)}${R}` +
+      agentRates.slice(0, 3).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / peakP, 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  '))
+
+    const totalAll = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
+    const stats = [
+      `${humanMs(att(p))} attention`,
+      `${Math.round((att(p) / totalAll) * 100)}% of all`,
+      `${p.sessions} session${p.sessions === 1 ? '' : 's'}`,
+      `${p.files} file${p.files === 1 ? '' : 's'}`,
+      collsHere.length ? `${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : 'no collisions',
+    ].join(`${DIM} · ${R}`)
+
+    // --- agents: btop's per-core list, but the cores are agents
+    const perAgent = (p.agents ?? []).map(a => {
+      const ev = (p.events ?? []).filter(e => e.agent === a)
+      return { agent: a, n: ev.length, at: Math.max(0, ...ev.map(e => e.at)), files: new Set(ev.map(e => e.path)).size }
+    }).sort((x, y) => y.n - x.n)
+    const totalN = Math.max(1, perAgent.reduce((s, a) => s + a.n, 0))
+    const aw = rects.agents.w - 2
+    const agentRows = []
+    for (const a of perAgent) {
+      // Share of this project's edits, not of the busiest agent: on a page
+      // about one repo the question is who did the work here.
+      const frac = a.n / totalN
+      agentRows.push(` ${hue(a.agent)}${fit(a.agent, 10)}${R}${meter(frac, 8, LUT.activity)} ${BOLD}${String(Math.round(frac * 100)).padStart(3)}%${R}`)
+      agentRows.push(`   ${DIM}${fit(`${a.n} edit${a.n === 1 ? '' : 's'}`, 12)}${fit(`${a.files} file${a.files === 1 ? '' : 's'}`, 11)}last ${ago(a.at, now)}${R}`)
+      agentRows.push('')
+    }
+    if (!agentRows.length) agentRows.push(` ${DIM}no agents in this window${R}`)
+    else {
+      agentRows.pop()
+      // Collisions are a property of a PAIR of agents, so they belong here.
+      if (collsHere.length && perAgent.length > 1) {
+        agentRows.push('')
+        agentRows.push(` ${LUT.heat[90]}${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}${R}${DIM} between them${R}`)
+      }
+    }
+
+    // --- sessions and files reuse the tab bodies, so a number cannot mean one
+    // thing on the page and another in the pane.
+    const F = { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling }
+    const tctx = k => ({ state, now, detailW: rects[k].w - 2, detailH: rects[k].h, collsHere, lookback, F })
+    const sessRows = sessionsTab(p, tctx('sessions'))
+    const fileRows = filesTab(p, tctx('files'))
+
+    const panes = [
+      { rect: rects.head, lines: pane(rects.head, {
+        title: `${p.name}${m.branch ? ` — ${m.branch}` : ''}`, key: SUP[0], line: THEME.boxHead,
+        right: `${DIM}esc to go back${R}  ${clock}`,
+        state: `${stats}  ${tag('esc', 'back')}${TAG_SEP}${tag('tab', 'panes')}${TAG_SEP}${tag('q', 'quit')}`,
+        rows,
+      }) },
+      { rect: rects.agents, lines: pane(rects.agents, { title: 'agents', line: THEME.boxDetail, rows: agentRows,
+        state: `${DIM}${perAgent.length} in ${lookback}${R}` }) },
+      { rect: rects.sessions, lines: pane(rects.sessions, { title: 'sessions', line: THEME.boxDetail, rows: sessRows }) },
+      { rect: rects.files, lines: pane(rects.files, { title: 'files', line: THEME.boxFeed, rows: fileRows,
+        state: `${DIM}${p.files} touched${R}` }) },
+    ]
+    if (collH > 0) {
+      panes.push({ rect: rects.colls, lines: pane(rects.colls, {
+        title: 'collisions', line: LUT.heat[90],
+        // A collision is between two SESSIONS, and they are frequently the same
+        // agent — the record carries a and b, each with its own agent and
+        // session. Calling every one of them "two agents" is wrong on a project
+        // whose agent list has one entry, which is most of them.
+        state: `${DIM}two sessions editing one file close enough together to overwrite each other${R}`,
+        rows: collsHere.slice(0, Math.max(1, collH - 2)).map(c => {
+          const pair = c.a?.agent === c.b?.agent
+            ? `${hue(c.a?.agent)}2 × ${c.a?.agent}${R}`
+            : `${hue(c.a?.agent)}${c.a?.agent}${R}${DIM} ↔ ${R}${hue(c.b?.agent)}${c.b?.agent}${R}`
+          return ` ${LUT.heat[90]}·${R} ${fit(short(c.path, c.project), Math.max(10, w - 46))}${fit(pair, 22)}${DIM}${fit(`${c.gapMin}m apart`, 12)}${ago(c.at, now).padStart(5)}${R}`
+        }),
+      }) })
+    }
+    return compose(h, panes)
+  }
+
   const plan = (() => {
     // The name column is sized to the longest NAME, not to whatever is left
     // over. Giving it the slack put nine characters of nothing in every row and
@@ -216,6 +344,17 @@ export function render(state, size) {
   // pulse advances every refresh, so an idle machine still shows a live tool.
   const pulse = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[(state.tick ?? 0) % 10]
   const clock = new Date(now).toTimeString().slice(0, 8)
+
+  // Dispatched here and not earlier: projectPage reads `clock`, and a function
+  // declaration hoists while a const does not. Calling it above this line threw
+  // "Cannot access 'clock' before initialization" — the same trap this file has
+  // hit before by putting a helper where it reads best rather than after what
+  // it depends on.
+  if (state.page) {
+    const target = projects.find(x => (x.root ?? x.name) === state.page)
+    if (target) return projectPage(target)
+  }
+
   // Fitted to the budget rather than switched at two breakpoints, and the two
   // escape hatches are PINNED. Adding one control used to push '? keys' off the
   // end, which is precisely backwards: the least discoverable thing on screen
@@ -731,7 +870,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
-  let preset = 0, tab = 0, feedTop = 0
+  let preset = 0, tab = 0, feedTop = 0, page = null
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -750,7 +889,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab, feedTop,
+      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab, feedTop, page,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -856,14 +995,10 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
         const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
         if (row !== null) {
           focus = null
-          // Clicking the row you are on expands it, the way a file tree does.
-          if (row === sel) {
-            const p = state.projects[sel]
-            if (p) {
-              const id = p.root ?? 'loose'
-              expanded.has(id) ? expanded.delete(id) : expanded.add(id)
-            }
-          } else sel = row
+          // Clicking the row you are on opens it. It used to expand inline,
+          // which is what the page replaces.
+          if (row === sel) { page = current()?.root ?? current()?.name ?? null; draw(); return }
+          sel = row
         }
       }
       draw()
@@ -884,12 +1019,21 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
 
     if (help) { help = false; draw(); return }          // any key dismisses it
 
+    // esc unwinds one level at a time: page, then focus, then quit.
+    if (k === '\x1b' && page) { page = null; draw(); return }
     if (k === '\x1b' && focus) { focus = null; draw(); return }
     if (k === 'q' || k === '\x1b' || k === '\x03') return quit()
     else if (k === '?' || k === 'h') help = true
     else if (k === '\x1b[B' || k === 'j') sel = Math.min(state.projects.length - 1, sel + 1)
     else if (k === '\x1b[A' || k === 'k') sel = Math.max(0, sel - 1)
-    else if (k === '\r' || k === '\n' || k === ' ') {
+    // Enter opens the project's own page; space keeps the inline peek. Two
+    // rows under a row can show a session and a timestamp — "what happened in
+    // this repo" needs a screen, not an expansion.
+    else if (k === '\r' || k === '\n') {
+      const p = current()
+      if (p) { page = p.root ?? p.name; focus = null }
+    }
+    else if (k === ' ') {
       const p = current()
       if (p) {
         const id = p.root ?? 'loose'

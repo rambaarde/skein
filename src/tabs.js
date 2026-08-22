@@ -57,13 +57,17 @@ export function filesTab(p, ctx) {
 
   const rows = [...counts.entries()].sort((a, b) => b[1].n - a[1].n)
   const top = Math.max(1, ...rows.map(([, c]) => c.n))
-  const out = [` ${DIM}${fit('FILE', Math.max(8, detailW - 26))}${fit('EDITS', 13)}${'LAST'.padStart(5)}${R}`]
+  // A bare digit after the count read as part of the count — '7 2' looked like
+  // a number, not "two agents touched this". It gets a header now.
+  const nameW = Math.max(8, detailW - 25)
+  const out = [` ${DIM}${fit('FILE', nameW)} ${fit('EDITS', 10)} ${fit('AG', 3)}${'LAST'.padStart(5)}${R}`]
   for (const [path, c] of rows.slice(0, Math.max(1, detailH - 4))) {
     // Bar relative to the busiest file, so "hot" is a comparison and not a
     // number you have to hold in your head.
     const bar = meter(c.n / top, 6, LUT.activity)
-    const who = c.agents.size > 1 ? `${LUT.heat[70]}${c.agents.size}${R}` : ` `
-    out.push(` ${fit(short(path, p.root), Math.max(8, detailW - 26))}${bar} ${String(c.n).padStart(3)} ${who}${DIM}${ago(c.at, now).padStart(5)}${R}`)
+    // More than one agent in one file is the thing worth noticing here.
+    const who = c.agents.size > 1 ? `${LUT.heat[70]}${String(c.agents.size).padEnd(3)}${R}` : '   '
+    out.push(` ${fit(short(path, p.root), nameW)} ${bar} ${String(c.n).padStart(3)} ${who}${DIM}${ago(c.at, now).padStart(5)}${R}`)
   }
   return out
 }
@@ -76,15 +80,20 @@ export function collisionsTab(p, ctx) {
     return [
       ` ${DIM}no collisions here in ${lookback}.${R}`,
       '',
-      ` ${DIM}a collision is two agents editing the same${R}`,
-      ` ${DIM}file close enough together to overwrite${R}`,
-      ` ${DIM}each other's work.${R}`,
+      ` ${DIM}a collision is two SESSIONS editing the${R}`,
+      ` ${DIM}same file close enough together to${R}`,
+      ` ${DIM}overwrite each other — often the same${R}`,
+      ` ${DIM}agent in two windows, which is still a${R}`,
+      ` ${DIM}lost edit.${R}`,
     ]
   }
   const out = [` ${DIM}${fit('FILE', Math.max(8, detailW - 24))}${fit('APART', 11)}${'WHEN'.padStart(5)}${R}`]
   for (const c of collsHere.slice(0, Math.max(1, detailH - 4))) {
     out.push(` ${LUT.heat[90]}·${R} ${fit(short(c.path, c.project), Math.max(8, detailW - 26))}${DIM}${fit(`${c.gapMin}m`, 11)}${ago(c.at, now).padStart(5)}${R}`)
-    if (c.agents) out.push(`   ${DIM}${fit(c.agents.join(' and '), Math.max(8, detailW - 6))}${R}`)
+    // Name the two sides. c.agents never existed on the record, so this line
+    // silently rendered nothing at all.
+    const pair = c.a?.agent === c.b?.agent ? `2 × ${c.a?.agent}` : `${c.a?.agent} ↔ ${c.b?.agent}`
+    if (c.a) out.push(`   ${DIM}${fit(pair, Math.max(8, detailW - 6))}${R}`)
   }
   return out
 }

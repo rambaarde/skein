@@ -759,3 +759,48 @@ test('a label that looks like a control is one', async () => {
   assert.ok(expand, 'expand dispatches Enter')
   assert.match(raw, /⏎/, 'and displays a glyph, not the byte')
 })
+
+test('a project opens its own page, not two inline rows', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const events = Array.from({ length: 40 }, (_, i) => ({
+    at: now - i * 90_000, agent: i % 5 ? 'claude' : 'codex',
+    path: `/w/a/src/f${i % 7}.ts`, session: `s${i % 3}`,
+  }))
+  const p = { name: 'a', root: '/w/a', sessions: 3, files: 7, agents: ['claude', 'codex'],
+              attention: 3600_000, last: now, events }
+  const base = {
+    projects: [p, { name: 'b', root: '/w/b', sessions: 1, files: 1, agents: ['claude'],
+                    attention: 1, last: now, events: [{ at: now, agent: 'claude', path: '/w/b/x.ts', session: 'z' }] }],
+    sessions: new Map([['s0', { agent: 'claude', context: 120_000, title: 'a session', branch: 'main' }]]),
+    sel: 0, expanded: new Set(),
+    colls: [{ path: '/w/a/src/f1.ts', project: '/w/a', gapMin: 12, at: now,
+              a: { agent: 'claude', session: 's0' }, b: { agent: 'codex', session: 's1' } }],
+    events, tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0,
+  }
+  const list = render({ ...base, page: null }, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
+  const page = render({ ...base, page: '/w/a' }, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(list, /activity/, 'the list is unchanged')
+  assert.doesNotMatch(page, /activity/, 'the page replaces the whole screen')
+
+  // Everything the question "what happened in this repo" needs, on one screen.
+  for (const box of ['agents', 'sessions', 'files', 'collisions']) {
+    assert.match(page, new RegExp(box), `the page has a ${box} box`)
+  }
+  assert.match(page, /EDITS\/MIN/, 'and this project\'s own graph')
+  assert.match(page, /esc/, 'and says how to get back')
+  assert.match(page, /claude ↔ codex/, 'collisions name both sides')
+
+  // The frame invariants still hold on this second screen.
+  for (const line of page.split('\n')) {
+    assert.equal([...line].length, 140)
+  }
+  assert.equal(page.split('\n').length, 42)
+  assert.equal(page.match(/[\x00-\x09\x0b-\x1a]/g), null, 'no control characters')
+
+  // An unknown page id falls back to the list rather than a blank screen.
+  const missing = render({ ...base, page: '/w/nope' }, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(missing, /activity/)
+})

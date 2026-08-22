@@ -111,6 +111,11 @@ identical to btop's, character for character.
 `↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
 `a` window · `c` collisions only · `?` all keys · `q` quit
 
+**Press `⏎` on a project** and it opens its own page: that project's rate graph,
+who worked in it and how much, every session with its context, the hottest files,
+and the collisions with both sides named. `esc` comes back. `space` still peeks
+inline without leaving the list.
+
 **Presets** (`p`, or `1`-`3`) change *what is on screen*, not its size — btop's
 idea, and its config format: `all` · `watch` (feed full width) · `table` (the
 project list alone). **Tabs** (`tab`) switch the detail pane between `info`,
