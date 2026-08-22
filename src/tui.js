@@ -280,7 +280,7 @@ export function render(state, size) {
       `${p.files} file${p.files === 1 ? '' : 's'}`,
       vp ? `${vp.landed} landed` : null,
       vp && vp.lead !== null ? `${humanMs(vp.lead)} lead` : null,
-      vp && vp.rework !== null ? `${Math.round(vp.rework * 100)}% rework` : null,
+      vp && vp.cfr !== null ? `${Math.round(vp.cfr * 100)}% fail` : null,
       collsHere.length ? `${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : 'no collisions',
     ].filter(Boolean).join(`${DIM} · ${R}`)
 
@@ -447,7 +447,7 @@ export function render(state, size) {
     // A rate over a window shorter than a week is a projection, not a
     // measurement, so the column says which one it is.
     const weekly = (now - since) >= 7 * 86_400_000
-    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('  REWORK', 9)}${fit('  ATTENTION', 12)}${R}`)
+    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  ATTENTION', 12)}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
     for (const { p, v } of ranked.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
       const on = p === projects[sel]
@@ -458,7 +458,7 @@ export function render(state, size) {
           `${fit((weekly ? v.perWeek : v.perDay).toFixed(1).padStart(6), 8)}` +
           `${fit((v.lead === null ? '—' : humanMs(v.lead)).padStart(6), 8)}` +
           `${fit((v.perShip === null ? '—' : humanMs(v.perShip)).padStart(9), 12)}` +
-          `${v.rework === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.heat[Math.round(v.rework * 100)]}${`${Math.round(v.rework * 100)}%`.padStart(7)}${R}`}  ` +
+          `${v.cfr === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.heat[Math.round(v.cfr * 100)]}${`${Math.round(v.cfr * 100)}%`.padStart(7)}${R}`}  ` +
           `${fit(humanMs(att(p)).padStart(9), 12)}`
         : `${DIM}${'no git history'.padStart(7)}${R}`
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
@@ -488,7 +488,7 @@ export function render(state, size) {
       // dashboard, so a reader with no controls on the border has no way to
       // discover that p or 1 goes back — the screen reads as a dead end.
       state: (() => {
-        const note = `${DIM}${anyGit}/${projects.length} in git · landed excludes releases · rework proxies change-failure${R}`
+        const note = `${DIM}${anyGit}/${projects.length} in git · landed excludes releases · CFR = deployments hotfixed · no MTTR without incidents${R}`
         // The two escape hatches are PINNED and everything else yields to
         // them, the same rule the headline keeps: the least discoverable
         // things on screen are how to get help and how to get out, so they
