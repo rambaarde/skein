@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.8.0](https://github.com/rambaarde/skein/compare/v0.7.0...v0.8.0) (2026-08-22)
+
+
+### Features
+
+* measure attention, and show the line an agent is actually told ([#14](https://github.com/rambaarde/skein/issues/14)) ([ada0857](https://github.com/rambaarde/skein/commit/ada0857b055d82b1babcd3c8ef72c93bf01bbea3))
+
 ## [0.7.0](https://github.com/rambaarde/skein/compare/v0.6.0...v0.7.0) (2026-08-22)
 
 
