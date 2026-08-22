@@ -68,7 +68,7 @@ uninstalled the first time it is wrong.
 ```
 ╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
 │ EDITS/MIN                                                                            peak 1.0                        │
-│ 0.0                                                                                  15m window                      │
+│ 0.4                                                             ⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶    ⣶ 15m window                      │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │ PROJECT      AGENTS            SESS  FILES    TIME    SHARE  COLL ATTENTION (30d)                                LAST│
 │ ▸ atlas-api  claude+codex         8     75    2h46 ■■■·····     2 ⢠⡆⣰⢀⡆⣴⢠⡇⣠⢠⣄⣠⢀⣄⣦⢠⡄⣄⣠⡄⣆⣦⢀⡇⣴⢠⡆⣰⢰⣄⣴⣠⣆⣠⣠⣄⣴⣠⣤⣦⣤⣠⣆⣠     8s│
@@ -80,18 +80,18 @@ uninstalled the first time it is wrong.
 │                                                                                                                      │
 ╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────╯
 ╭─ atlas-api — what an agent is told here² ──────╮╭─ activity³ ───────────────────────────────────────── newest first ─╮
-│ nobody else is in this repo — an agent starting││                                                                    │
-│ here right now would be told nothing.          ││                                                                    │
-│                                                ││                                                                    │
-│ COLLISIONS                                     ││                                                                    │
-│ · src/auth/session.ts 20m apart    40m         ││                                                                    │
-│ · src/mod47.ts        10m apart     9d         ││                                                                    │
-│                                                ││                                                                    │
-│                                                ││                                                                    │
-│                                                ││                                                                    │
-│                                                ││                                                                    │
-│                                                ││                                                                    │
-╰─ 8 sessions · 2 collisions ────────────────────╯╰─ 0 edits in 30d ───────────────────────────────────────────────────╯
+│ 3 other agents active in this repo             ││ 22:19:52 claude    atlas-api       src/mod0.ts                   8s│
+│   claude   editing src/mod0.ts        8s       ││ 22:16:00 claude    atlas-web       src/mod0.ts                   4m│
+│   codex    editing src/mod59.ts      19m       ││ 22:01:23 codex     atlas-api       src/mod59.ts                 19m│
+│   codex    editing src/auth/sessio…  20m       ││ 22:00:00 codex     atlas-api       src/auth/session.ts          20m│
+│                                                ││ 21:58:00 claude    checkout        src/mod0.ts                  22m│
+│ COLLISIONS                                     ││ 21:45:57 claude    checkout        src/mod8.ts                  34m│
+│ · src/auth/session.ts 20m apart    40m         ││ 21:40:00 claude    atlas-api       src/auth/session.ts          40m│
+│ · src/mod47.ts        10m apart     9d         ││ 20:47:00 claude    checkout        src/mod25.ts                  2h│
+│                                                ││ 20:34:53 codex     atlas-web       src/mod16.ts                  2h│
+│                                                ││ 20:20:00 opencode  notify-svc      src/mod1.ts                   2h│
+│                                                ││ 20:20:00 opencode  notify-svc      src/mod3.ts                   2h│
+╰─ 8 sessions · 2 collisions ────────────────────╯╰─ 836 edits in 30d ─────────────────────────────────────────────────╯
 ```
 
 <p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>

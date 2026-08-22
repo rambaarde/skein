@@ -194,8 +194,11 @@ export function render(state, size) {
   const gwLive = Math.max(20, listW - 46)
   const live = rateSeries(stream0, gwLive * 2, { now })
   const peak = Math.max(1, ...live)
-  const rows2 = graph(live.map(v => (v === 0 ? 0 : Math.max(0.2, Math.sqrt(v / peak)))),
-                      { width: gwLive, rows: 2, tier, lut: LUT.activity })
+  // Linear, and no floor. The sqrt-and-floor scaling exists for the ATTENTION
+  // strip, where buckets are sparse and a quiet one would otherwise vanish
+  // beside a busy one. This series is a moving average, so it is already
+  // continuous — flooring it just pins the whole line to the top.
+  const rows2 = graph(live.map(v => v / peak), { width: gwLive, rows: 2, tier, lut: LUT.activity })
   const rate = ratePerMin(stream0, { now })
   const agents = byAgent(stream0, { now })
   const nSess = activeSessions(stream0, { now })
