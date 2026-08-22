@@ -8,7 +8,7 @@ import { collect } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot } from './project.js'
 import { graph, tierFor } from './symbols.js'
-import { LUT, hue, R, DIM, BOLD, REV, SUP } from './theme.js'
+import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, fit, width } from './box.js'
 import { ago, short, trunc } from './format.js'
 
@@ -150,7 +150,8 @@ export function render(state, size) {
     // colour leaves gaps wherever a reset lands, so the row drops its hues for
     // the one frame it is selected -- readable on any theme by definition.
     const plain = line.replace(/\x1b\[[0-9;]*m/g, '')
-    out.push(b.row(on ? `${REV}${plain}${' '.repeat(Math.max(0, w - 2 - width(plain)))}${R}` : line))
+    const sel_ = `${THEME.selBg}${THEME.selFg}`
+    out.push(b.row(on ? `${sel_}${plain}${' '.repeat(Math.max(0, w - 2 - width(plain)))}${R}` : line))
 
     // Expanded projects list their sessions inline, which is design-language
     // D2 answered: expand-on-demand rather than a fixed-height sub-table.

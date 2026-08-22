@@ -5,6 +5,7 @@ import { toon, table, ago, short, trunc } from './format.js'
 import { hookLine } from './hook.js'
 import { isAbsolute, join } from 'node:path'
 import { install } from './install.js'
+import { listThemes, setTheme } from './theme.js'
 
 const HELP = `skein — every agent running across every repository, grouped by project.
 
@@ -13,12 +14,14 @@ const HELP = `skein — every agent running across every repository, grouped by 
   skein who [path]          who else is in this repo, or in one file
   skein collisions          recent same-file overlaps
   skein hook                print the ambient line and exit
+  skein themes              list the btop themes it can find
   skein install             wire the hook into your agents
 
   --json                   machine-readable
   --toon                   token-efficient, for agents
   --since <30d|24h|90m>    lookback window            (default 30d)
   --window <minutes>       collision window           (default ${WINDOW_MIN})
+  --theme <name|path>      any btop .theme file — skein themes lists them
   --all                    every project, not just the active ones
   --help                   this
 
@@ -39,6 +42,10 @@ export function parseArgs(argv) {
     if (a === '--json') opts.json = true
     else if (a === '--toon') opts.toon = true
     else if (a === '--all') opts.all = true
+    else if (a === '--theme') {
+      opts.theme = argv[++i]
+      if (!opts.theme) return { error: `--theme expects a theme name or a path to a .theme file` }
+    }
     else if (a === '--help' || a === '-h') opts.help = true
     else if (a === '--since') {
       const v = parseSince(argv[++i])
@@ -69,6 +76,23 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   // The CLI must never render escape codes into a pipe.
   const cmd = opts._[0] ?? (tty && !opts.json && !opts.toon ? 'tui' : 'rollup')
   const since = now - opts.since
+
+  // A theme is a rendering choice, so it is applied before anything draws.
+  const wanted = opts.theme ?? process.env.SKEIN_THEME
+  if (wanted && !setTheme(wanted).name) {
+    return { code: 1, err: `skein: no theme called "${wanted}"\ntry: skein themes` }
+  }
+
+  if (cmd === 'themes') {
+    const rows = listThemes().map(t => ({ theme: t.name, file: t.path.replace(process.env.HOME ?? '\u0000', '~') }))
+    return {
+      code: 0,
+      text: out(opts, 'themes', rows, ['theme', 'file'],
+        () => table(rows, [{ head: 'THEME', key: 'theme' }, { head: 'FILE', key: 'file' }]) +
+              `\n\n${rows.length} themes · skein --theme <name> · btop's own files, read as-is`,
+        `no btop themes found (0 themes) · install btop, or pass a path to a .theme file`),
+    }
+  }
 
   if (cmd === 'install') return install(opts._.slice(1))
   if (cmd === 'tui') return { code: 0, tui: true }

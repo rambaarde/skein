@@ -108,6 +108,20 @@ when nothing changes — **0.11% of one core idle**, measured over thirty second
 The pulse in the border slows with it, so a lazy pulse means a quiet machine
 rather than a stalled program.
 
+### Themes are btop's, unmodified
+
+```sh
+skein themes                    # every .theme skein can find
+skein --theme tokyo-night
+```
+
+skein reads **btop's own `.theme` files** and looks in btop's own directories,
+so a palette you already use in btop works here with no porting — 36 of them
+ship with btop, and the community has written many more. `theme[main_bg]=""`
+still means *inherit the terminal*, which is the default and the fallback for
+any key a theme leaves out. A theme changes colour and never layout; a test
+asserts exactly that.
+
 ### Try it without showing it your history
 
 ```sh
