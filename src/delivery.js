@@ -31,7 +31,13 @@ export const TRUNKS = ['main', 'master', 'develop', 'trunk']
 // it doubles every number, and it is not a change — it is the same change
 // being versioned.
 export const RELEASE = /^chore(\([^)]*\))?!?:\s*release\b/i
-export const REWORK = /^(fix|revert)(\([^)]*\))?!?:/i
+export const HOTFIX = /^(fix|revert)(\([^)]*\))?!?:/i
+
+// A deployment is a version tag, or -- in a repo that tags nothing -- a
+// release commit. Tags are preferred where they exist: measured across this
+// machine, four of eleven repositories tag and only one has release-bot
+// commits, and a tag is the thing that actually went out.
+export const VERSION_TAG = /^v?\d+\.\d+/
 
 // A landing changes a ref, so the newest mtime across the ref stores is enough
 // to know whether the answer can have changed. Without this, six projects on a
@@ -79,8 +85,8 @@ function gitLog(root, trunk, since) {
     const raw = execFileSync('git', [
       'log', '--first-parent', trunk,
       `--since=${new Date(since).toISOString()}`,
-      '--format=%ct%x00%s',
-    ], { cwd: root, encoding: 'utf8', timeout: 5_000, maxBuffer: 4 << 20, stdio: ['ignore', 'pipe', 'ignore'] })
+      '--format=%ct%x00%s', '--name-only',
+    ], { cwd: root, encoding: 'utf8', timeout: 5_000, maxBuffer: 8 << 20, stdio: ['ignore', 'pipe', 'ignore'] })
     return parse(raw)
   } catch {
     // A repo mid-rebase, a git that is not installed, a submodule with no
@@ -89,14 +95,28 @@ function gitLog(root, trunk, since) {
   }
 }
 
+// `git log --name-only` writes the header line, then the paths that commit
+// touched, then a blank.
+//
+// The files are what makes a change failure rate possible at all. Without
+// them, "was this deployment hotfixed" collapses to "did a fix happen
+// afterwards" — which on any repository actually being worked on is always
+// yes. Measured on this one: 92% by that rule, against 30% when the hotfix
+// has to touch what the deployment shipped.
 export function parse(raw) {
   const out = []
+  let cur = null
   for (const line of String(raw).split('\n')) {
-    if (!line) continue
-    const [ct, subject = ''] = line.split('\0')
-    const at = Number(ct) * 1000
-    if (!Number.isFinite(at) || !at) continue
-    out.push({ at, subject, release: RELEASE.test(subject), rework: REWORK.test(subject) })
+    if (line.includes('\0')) {
+      const [ct, subject = ''] = line.split('\0')
+      const at = Number(ct) * 1000
+      cur = Number.isFinite(at) && at
+        ? { at, subject, files: [], release: RELEASE.test(subject), hotfix: HOTFIX.test(subject) }
+        : null
+      if (cur) out.push(cur)
+      continue
+    }
+    if (cur && line.trim()) cur.files.push(line.trim())
   }
   return out
 }
@@ -127,13 +147,75 @@ export function leadTimes(ships, events, since) {
   return out
 }
 
-// The four numbers, per project. `attention` comes from the caller because it
-// is already computed for the table and must not be able to disagree with it.
-export function velocity(root, events, { since, now, attention = 0, ships = null } = {}) {
+// When something actually went out.
+//
+// A version tag first, a release commit only where the repo tags nothing.
+// Measured across this machine: four of eleven repositories tag, and one has
+// release-bot commits — and a tag is the thing that actually shipped, where a
+// release commit is a repo's bookkeeping about it. Taking both would count
+// release-please twice, since it writes a commit AND a tag for one publish.
+export function deployments(root, { since, all = null, run = gitTags } = {}) {
+  const tags = (run(root) ?? []).filter(t => t.at >= since).sort((a, b) => a.at - b.at)
+  if (tags.length) return tags
+  const rel = (all ?? []).filter(s => s.release).map(s => ({ at: s.at, name: s.subject }))
+  return rel.sort((a, b) => a.at - b.at)
+}
+
+function gitTags(root) {
+  try {
+    const raw = execFileSync('git', ['tag', '--format=%(creatordate:unix) %(refname:short)'],
+      { cwd: root, encoding: 'utf8', timeout: 5_000, maxBuffer: 4 << 20, stdio: ['ignore', 'pipe', 'ignore'] })
+    return raw.split('\n').filter(Boolean).map(l => {
+      const i = l.indexOf(' ')
+      return { at: Number(l.slice(0, i)) * 1000, name: l.slice(i + 1) }
+    }).filter(t => Number.isFinite(t.at) && t.at && VERSION_TAG.test(t.name))
+  } catch { return null }
+}
+
+// Change failure rate, measured against DEPLOYMENTS rather than commits.
+//
+// A deployment ships everything landed since the previous one. It FAILED if
+// the next batch contains a hotfix touching a file it shipped -- something
+// went out, and the next thing that went out was a repair to it.
+//
+// The three rules that make this a measurement rather than a mood:
+//
+//   The unit is the deployment. A fix that lands before the next release means
+//   nothing ever shipped broken, and counting it made every fast repository
+//   look broken -- 92% on this one, against 30% by this definition.
+//
+//   The hotfix has to touch what the deployment shipped. "A fix happened
+//   afterwards" is true of every repository being worked on.
+//
+//   The newest deployment CANNOT be judged: nothing has shipped after it yet.
+//   It leaves the denominator rather than counting as a success, or every
+//   release would improve the number for a day and then not.
+export function failureRate(all, deploys) {
+  if (!all || !deploys || deploys.length < 2) return null
+  const landed = all.filter(s => !s.release).sort((a, b) => a.at - b.at)
+  const batches = []
+  let prev = -Infinity
+  for (const d of deploys) {
+    batches.push({ at: d.at, shipped: new Set(landed.filter(s => s.at > prev && s.at <= d.at).flatMap(s => s.files)) })
+    prev = d.at
+  }
+  let failed = 0
+  for (let i = 0; i < batches.length - 1; i++) {
+    const after = landed.filter(s => s.hotfix && s.at > batches[i].at && s.at <= batches[i + 1].at)
+    if (after.some(s => s.files.some(f => batches[i].shipped.has(f)))) failed++
+  }
+  const judged = batches.length - 1
+  return { rate: failed / judged, failed, judged, deployments: deploys.length }
+}
+
+// The numbers, per project. `attention` comes from the caller because it is
+// already computed for the table and must not be able to disagree with it.
+export function velocity(root, events, { since, now, attention = 0, ships = null, deploys = null } = {}) {
   const all = ships ?? landings(root, { since })
   if (!all) return null
   const landed = all.filter(s => !s.release)
   const days = Math.max(1, (now - since) / 86_400_000)
+  const cfr = failureRate(all, deploys ?? deployments(root, { since, all }))
   return {
     landed: landed.length,
     days,
@@ -147,7 +229,11 @@ export function velocity(root, events, { since, now, attention = 0, ships = null
     // Hours per landing is the join no other tool can make: skein knows the
     // attention, git knows what came out of it.
     perShip: landed.length ? Math.round(attention / landed.length) : null,
-    rework: landed.length ? landed.filter(s => s.rework).length / landed.length : null,
+    // null, not zero, when there are fewer than two deployments to compare.
+    // A repository that never ships has no change failure rate -- that is a
+    // different statement from "it never fails".
+    cfr: cfr ? cfr.rate : null,
+    cfrOf: cfr,
     releases: all.length - landed.length,
   }
 }
