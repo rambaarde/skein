@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.7.0](https://github.com/rambaarde/skein/compare/v0.6.0...v0.7.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** btop's two-column layout, measured from btop ([#12](https://github.com/rambaarde/skein/issues/12)) ([7dff7d0](https://github.com/rambaarde/skein/commit/7dff7d080f072951122d13c615a0fa10fb91a3c8))
+
 ## [0.6.0](https://github.com/rambaarde/skein/compare/v0.5.0...v0.6.0) (2026-08-22)
 
 
