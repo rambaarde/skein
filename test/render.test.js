@@ -1075,8 +1075,15 @@ test('an empty screen says what skein looked for and what it found', async () =>
   // from the screen.
   const { render } = await import('../src/tui.js')
   const now = Date.now()
+  // A FIXTURE probe, not the real machine: reading ~/.claude here would make
+  // this pass or fail depending on what happened to be written while it ran.
+  const stores = [
+    { agent: 'claude', dir: '/h/.claude/projects', found: false, files: 0, newest: 0 },
+    { agent: 'codex', dir: '/h/.codex/sessions', found: true, files: 30, newest: now - 1000 },
+    { agent: 'opencode', dir: '/h/.local/share/opencode/storage', found: true, files: 1548, newest: now - 1000 },
+  ]
   const plain = render({
-    projects: [], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    projects: [], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [], stores,
     tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
     sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: null,
   }, { cols: 120, rows: 30 }).replace(/\x1b\[[0-9;]*m/g, '')
@@ -1093,7 +1100,10 @@ test('an empty screen says what skein looked for and what it found', async () =>
   // One of the explanations, never a bare blank. They are distinct on purpose:
   // "no edits at all" and "edits that landed nowhere" are opposite problems,
   // and a real user was told the second while the truth was the first.
-  assert.match(plain, /no agent sessions found|none of them edited a file|landed in a project|sessions exist/)
+  assert.match(plain, /none of them edited a file/,
+    'fresh sessions and no events is "nothing was written", not "it went somewhere odd"')
+  assert.match(plain, /30 files/, 'and the counts come from the probe it was given')
+  assert.match(plain, /skein doctor/, 'with the command that explains the rest')
 })
 
 test('every velocity row carries its own failure trend', async () => {

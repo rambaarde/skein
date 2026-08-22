@@ -158,6 +158,8 @@ skein who [path]          who else is in this repo, or in one file
 skein collisions          recent same-file overlaps
 skein velocity            what landed, and how long it took
 skein tools               what the agents called, not only what they wrote
+skein doctor              why is my screen empty: what each store held, and
+                          what skein could read out of it
 skein hook                the ambient line, for a session-start hook
 skein install             wire the hook into every agent it finds
 skein --json | --toon     machine-readable
