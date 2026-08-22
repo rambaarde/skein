@@ -257,7 +257,7 @@ export function render(state, size) {
       }))
     const scaleP = niceMax(Math.max(60_000, ...perAgentLines.flatMap(s => s.values)))
     const rows = perAgentLines.length
-      ? chart(perAgentLines, { width: gwP, rows: rowsP, max: scaleP, since, now, lead: 6, pad: VALWP, fmt: humanMs, caption: `attention · ${lookback}` })
+      ? chart(perAgentLines, { width: gwP, rows: rowsP, max: scaleP, since, now, lead: 6, pad: VALWP, fmt: humanMs, tier, caption: `attention · ${lookback}` })
       : [` ${DIM}no activity in ${lookback}${R}`]
 
     const totalAll = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
@@ -396,7 +396,7 @@ export function render(state, size) {
       rowsOut.push(...chart(lines, {
         width: Math.max(24, V.w - 11), rows: rowsV,
         max: Math.max(1, ...lines.flatMap(s => s.values)),
-        since, now, lead: 6, pad: 7,
+        since, now, lead: 6, pad: 7, tier,
         fmt: v => String(Math.round(v)),
         caption: `landed · ${lookback}`,
         top: ranked.findIndex(s => s.p === projects[sel]),
@@ -687,7 +687,7 @@ export function render(state, size) {
     const scale = niceMax(Math.max(60_000, ...chartSeries.flatMap(s => s.values)))
     headRows.push(...chart(chartSeries, {
       width: gwChart, rows: graphRows, max: scale, since, now, lead: 6, pad: VALW,
-      fmt: humanMs,
+      fmt: humanMs, tier,
       caption: `attention · ${lookback}`,
       // The project under the cursor wins any cell it shares, so moving the
       // selection reads its line out of the tangle.
