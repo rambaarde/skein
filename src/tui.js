@@ -15,7 +15,7 @@ import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
-import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from './live.js'
+import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER, WINDOW_MS } from './live.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -268,7 +268,11 @@ export function render(state, size) {
   const tableRows = Math.max(1, projects.length + expandedRows) + 2
   const stripH = Math.max(0, Math.min(8, listH - tableRows - 2))
   const gwLive = Math.max(20, listW - 24)
-  const live = rateSeries(stream0, gwLive * 2, { now })
+  // The span is chosen, not fixed. A 15m window is blank most of the time you
+  // would actually look at it, because editing is bursty — "where is the
+  // spike?" was answered by "your last edit was sixteen minutes ago".
+  const span = pickWindow(stream0, { now })
+  const live = rateSeries(stream0, gwLive * 2, { now, windowMs: span.windowMs })
   const peak = Math.max(1, ...live)
   const graphRows = Math.max(1, stripH - 1)
   // Linear, and no floor. The sqrt-and-floor scaling exists for the per-project
@@ -279,6 +283,10 @@ export function render(state, size) {
   const rate = ratePerMin(stream0, { now })
   const agents = byAgent(stream0, { now })
   const nSess = activeSessions(stream0, { now })
+  // Two different questions. nLive is "is anyone here" (transcript touched);
+  // nSess is "is work landing" (a file written). Reporting only the second one
+  // said "nothing is running" while an agent was plainly running.
+  const nLive = liveSessions(state.sessions, { now }).length
 
   if (stripH > 0) {
     // The scale sits on the graph, so a spike can be read as a value rather
@@ -292,11 +300,49 @@ export function render(state, size) {
       const label = rowsN.length <= 2 && i > 0 ? '0' : value >= 10 ? String(Math.round(value)) : value.toFixed(1)
       headRows.push(` ${DIM}${fit(i === rowsN.length - 1 ? '0' : label, 6)}${R}${DIM}┤${R}${line}${R}`)
     })
-    headRows.push(` ${DIM}${fit(`EDITS/MIN · ${Math.round(WINDOW_MS / 60000)}m`, 18)}${R}${BOLD}${fit(`now ${rate.toFixed(1)}`, 10)}${R}` +
-      `${DIM}${fit(`${nSess} session${nSess === 1 ? '' : 's'} active`, 20)}${R}` +
-      (agents.length
-        ? agents.slice(0, 3).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, peak), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  ')
-        : `${DIM}nothing is running${R}`))
+    // Built from (plain, painted) pairs: fit() counts characters, and every
+    // one of these segments carries colour, so padding them as raw strings
+    // measures the escape sequences too and blows a hole in the row.
+    const seg = []
+    const push = (plain, painted, pad = 0) =>
+      seg.push({ plain, painted, w: Math.max(plain.length, pad) })
+
+    // The span is stated because it moves. A graph whose meaning changes
+    // silently is worse than an empty one.
+    push(`EDITS/MIN · ${span.label}`, `${DIM}EDITS/MIN · ${R}${BOLD}${span.label}${R}`, 18)
+    push(`now ${rate.toFixed(1)}`, `${BOLD}now ${rate.toFixed(1)}${R}`, 10)
+
+    // "0 sessions active" beside a running agent is the tool calling itself
+    // broken. Who is HERE comes first, then whether they are writing anything.
+    if (nLive) {
+      const tail = nSess ? `, ${nSess} editing` : ', idle'
+      push(`${nLive} live${tail}`, `${LUT.activity[80]}${nLive} live${R}${DIM}${tail}${R}`, 20)
+    } else {
+      push('nobody running', `${DIM}nobody running${R}`, 20)
+    }
+
+    if (span.widened) {
+      const q = `quiet ${LADDER[0][1]}`
+      push(q, `${DIM}${q}${R}`, q.length + 2)
+    }
+
+    if (agents.length) {
+      for (const a of agents.slice(0, 3)) {
+        const plain = `${a.agent} ------ ${a.rate.toFixed(1)}`
+        push(plain, `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, peak), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`, plain.length + 2)
+      }
+    } else {
+      push('no file written just now', `${DIM}no file written just now${R}`)
+    }
+
+    let used = 1
+    let strip = ' '
+    for (const s of seg) {
+      if (used + s.w > listW - 2) break
+      strip += s.painted + ' '.repeat(Math.max(0, s.w - s.plain.length))
+      used += s.w
+    }
+    headRows.push(strip)
     headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
   }
 

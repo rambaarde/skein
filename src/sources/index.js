@@ -39,9 +39,13 @@ export function collect({ useCache = true, sinceMs = Date.now() - 30 * 86_400_00
     const key = file
     const prev = cache.files[key]
     if (!prev && st.mtimeMs < sinceMs) return   // too old to matter, never opened
+    // The transcript's mtime is the only honest liveness signal we have. A
+    // session that is thinking, reading, or waiting on you appends messages
+    // without writing a single file, so counting edits reported "nothing is
+    // running" at the exact moment an agent was running. Carry the mtime.
     if (fresh(prev, st)) {
       for (const e of prev.events) events.push(e)
-      if (prev.meta) sessions.set(sessionId, { agent: prev.meta.agent, ...prev.meta })
+      if (prev.meta) sessions.set(sessionId, { agent: prev.meta.agent, ...prev.meta, seen: st.mtimeMs })
       return
     }
     // Append-only fast path: parse only the new tail, keep what we had.
@@ -53,7 +57,7 @@ export function collect({ useCache = true, sinceMs = Date.now() - 30 * 86_400_00
     dirty = true
     cache.files[key] = { size: st.size, mtimeMs: st.mtimeMs, events: merged, meta: { ...meta, agent: reader.AGENT } }
     for (const e of merged) events.push(e)
-    sessions.set(sessionId, { agent: reader.AGENT, ...meta })
+    sessions.set(sessionId, { agent: reader.AGENT, ...meta, seen: st.mtimeMs })
   }
 
   if (existsSync(STORES.claude))
