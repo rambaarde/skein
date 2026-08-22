@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from '../src/live.js'
+import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS, SMOOTH_MS } from '../src/live.js'
 
 const T = Date.parse('2026-08-22T13:00:00Z')
 const ev = (secsAgo, agent = 'claude', session = 's') => ({ at: T - secsAgo * 1000, agent, session })
@@ -21,17 +21,25 @@ test('the newest sample is on the right', () => {
   assert.equal(s.slice(0, -1).every(v => v === 0), true)
 })
 
-test('anything outside the window is not in it', () => {
-  const old = ev(WINDOW_MS / 1000 + 60)
-  assert.equal(rateSeries([old], 20, { now: T }).every(v => v === 0), true)
+test('anything genuinely outside the window is not in it', () => {
+  // Each sample averages over the preceding SMOOTH_MS, so an event a little
+  // before the window edge legitimately feeds the earliest samples — that is
+  // what a moving average is. Only something older than window + smoothing is
+  // properly gone.
+  const gone = ev((WINDOW_MS + SMOOTH_MS) / 1000 + 60)
+  assert.equal(rateSeries([gone], 20, { now: T }).every(v => v === 0), true)
+  const justInside = ev(WINDOW_MS / 1000 - 10)
+  assert.ok(rateSeries([justInside], 20, { now: T }).some(v => v > 0))
 })
 
 test('the axis is a rate, so it does not change meaning with the window', () => {
-  // Two edits in a slot one minute wide is 2/min however many slots there are.
-  const oneMinute = 60_000
+  // Two edits inside a one-minute averaging window is 2/min, however many
+  // samples the series is drawn with.
   const events = [ev(5), ev(10)]
-  const s = rateSeries(events, 1, { now: T, windowMs: oneMinute })
-  assert.equal(Math.round(s[0]), 2)
+  for (const samples of [1, 10, 100]) {
+    const s = rateSeries(events, samples, { now: T, windowMs: 60_000, smoothMs: 60_000 })
+    assert.equal(Math.round(s.at(-1)), 2, `${samples} samples should still read 2/min`)
+  }
 })
 
 test('agents are the cores: who is working, and how hard', () => {
@@ -50,4 +58,27 @@ test('an idle machine reports zero rather than throwing', () => {
 test('active sessions counts sessions, not edits', () => {
   const events = [ev(5, 'claude', 'a'), ev(6, 'claude', 'a'), ev(7, 'codex', 'b')]
   assert.equal(activeSessions(events, { now: T }), 2)
+})
+
+test('a moving average makes a line, not a scatter of spikes', () => {
+  // The bug this replaces: a bucket count at seven-second resolution left 97%
+  // of the graph empty, so it drew as isolated ticks rather than a curve.
+  // Older than the averaging window, so the hump has had time to rise AND fall
+  // inside the visible span. A burst inside the last three minutes is still
+  // being averaged and correctly reads flat to the right edge.
+  const burst = Array.from({ length: 12 }, (_, i) => ev(600 - i * 2))
+  const s = rateSeries(burst, 100, { now: T })
+
+  // The property that separates a line from a scatter is CONTIGUITY: the
+  // non-zero samples must be consecutive, because neighbouring samples share
+  // almost all of their averaging window. A bucket count gave isolated ticks
+  // with gaps between them.
+  const idx = s.map((v, i) => (v > 0 ? i : -1)).filter(i => i >= 0)
+  assert.ok(idx.length > 5, `expected a run of samples, got ${idx.length}`)
+  const gaps = idx.slice(1).filter((v, i) => v !== idx[i] + 1)
+  assert.equal(gaps.length, 0, 'the run must have no holes in it')
+
+  // and it must decay rather than stop dead
+  const peakAt = s.indexOf(Math.max(...s))
+  assert.ok(s.slice(peakAt + 1).some(v => v > 0 && v < s[peakAt]), 'the hump should fall away')
 })

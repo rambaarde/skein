@@ -85,7 +85,9 @@ const projects = [...byProject(events).values()].sort((a, b) => b.last - a.last)
 const colls = collisions(events, sessions, { windowMin: 30, since })
 
 const frame = render(
-  { projects, sessions, sel: 0, expanded: new Set(), colls, tier: 'braille', since, now: NOW, lookback: '30d', windowMin: 30, tick: 3 },
+  // events is what the live strip and the activity feed read; without it the
+  // README screenshot showed two empty panes.
+  { events, projects, sessions, sel: 0, expanded: new Set(), colls, tier: 'braille', since, now: NOW, lookback: '30d', windowMin: 30, tick: 3 },
   { cols: 120, rows: 26 },
 )
 process.stdout.write(frame.replace(/\x1b\[[0-9;]*m/g, '') + '\n')
