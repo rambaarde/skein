@@ -83,3 +83,51 @@ export function byAgent(events, { now = Date.now(), windowMs = 5 * 60_000 } = {}
 
 export const activeSessions = (events, { now = Date.now(), windowMs = 5 * 60_000 } = {}) =>
   new Set(events.filter(e => e.at >= now - windowMs).map(e => e.session)).size
+
+// A fixed live window is blank most of the time you would actually look at it.
+//
+// btop's CPU graph always has data because CPU always samples. Editing is
+// bursty: you type for ten minutes, then read for twenty, then think. Open
+// skein during the reading part and a 15m window is honestly, uselessly empty —
+// "where is the spike?" is answered by "your last edit was 16 minutes ago".
+//
+// So the window is chosen, not fixed: the narrowest span that actually holds
+// enough activity to draw. When you are working it stays at 15m and stays live;
+// when you are not it widens far enough back to show what you just did. The
+// header always states which span is on screen, because a graph whose meaning
+// silently changes is worse than an empty one.
+export const LADDER = [
+  [15 * 60_000, '15m'],
+  [60 * 60_000, '1h'],
+  [6 * 3600_000, '6h'],
+  [24 * 3600_000, '24h'],
+]
+
+// Below this a window has too few points to make a shape rather than a spike.
+export const ENOUGH = 12
+
+export function pickWindow(events, { now = Date.now(), ladder = LADDER } = {}) {
+  const at = events.map(e => e.at).filter(t => t && t <= now)
+  for (const [ms, label] of ladder) {
+    const n = at.filter(t => t >= now - ms).length
+    if (n >= ENOUGH) return { windowMs: ms, label, widened: ms !== ladder[0][0], events: n }
+  }
+  const [ms, label] = ladder[ladder.length - 1]
+  return { windowMs: ms, label, widened: true, events: at.filter(t => t >= now - ms).length }
+}
+
+// Running, as opposed to typing.
+//
+// activeSessions() counts sessions that WROTE A FILE recently, and that is not
+// what "is anything running" means: an agent reading, thinking, or waiting on
+// you appends to its transcript without touching your repo. skein reported
+// "0 sessions active · nothing is running" while an agent was demonstrably
+// running, because it had not saved anything in five minutes.
+//
+// The transcript mtime is the signal. Both numbers are worth showing — one is
+// "someone is here", the other is "work is landing" — but they are different
+// questions and conflating them made the honest one wrong.
+export const LIVE_MS = 5 * 60_000
+
+export const liveSessions = (sessions, { now = Date.now(), windowMs = LIVE_MS } = {}) =>
+  [...(sessions?.values?.() ?? [])].filter(s => s.seen && s.seen >= now - windowMs && s.seen <= now + 60_000)

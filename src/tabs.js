@@ -1,0 +1,100 @@
+// The detail pane's tabs.
+//
+// agtop puts a tab bar on its lower panel — Info · Performance · Processes ·
+// Tool Activity · Cost · Config — and that shape is right: one pane, several
+// questions, switched rather than tiled. Read from its published screenshots
+// and README only. agtop is GPL-2.0 and skein is not, so its source stays
+// unread and nothing here is ported from it.
+//
+// What skein does NOT copy is Cost. agtop gets prices by fetching LiteLLM's
+// table at runtime and caching it for a day. skein has no dependencies and
+// makes no network calls, and a price table that ships in the binary is wrong
+// the first time a rate changes — a confidently wrong dollar figure is worse
+// than no dollar figure. Context pressure is the honest version of that column:
+// it is measured from your own transcripts and it is the thing that actually
+// bites, because a full window compacts and loses the thread.
+export const TABS = ['info', 'sessions', 'files', 'collisions']
+
+// Everything below returns an array of already-rendered strings, the same
+// contract the pane already had. Each takes one context object so the tab
+// bodies stay independent of how the renderer happens to be structured today.
+export function sessionsTab(p, ctx) {
+  const { state, now, detailW, detailH, F } = ctx
+  const { fit, hue, ago, trunc, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling } = F
+  const out = []
+  const ids = [...new Map((p.events ?? []).map(e => [e.session, e])).values()].sort((a, b) => b.at - a.at)
+  if (!ids.length) return [` ${DIM}no sessions in this window${R}`]
+
+  out.push(` ${DIM}${fit('AGENT', 9)}${fit('CONTEXT', 15)}${fit('MODEL', 14)}${'LAST'.padStart(5)}${R}`)
+  for (const e of ids.slice(0, Math.max(1, detailH - 4))) {
+    const s = state.sessions?.get(e.session)
+    const tokens = s?.context ?? 0
+    const cap = limitOf(s, ceiling)
+    const frac = tokens ? Math.min(1, tokens / cap) : 0
+    const gauge = tokens
+      ? `${meter(frac, 5, LUT.heat)} ${LUT.heat[Math.round(frac * 100)]}${humanTokens(tokens).padStart(6)}${R}`
+      : `${DIM}${'—'.padStart(12)}${R}`
+    out.push(` ${hue(e.agent)}${fit(e.agent, 9)}${R}${fit(gauge, 15)}${DIM}${fit(trunc(s?.model, 13) ?? '—', 14)}${ago(e.at, now).padStart(5)}${R}`)
+    // The title is what you actually recognise a session by, so it gets its own
+    // line rather than being truncated into a column.
+    if (s?.title) out.push(`   ${DIM}${trunc(s.title, Math.max(8, detailW - 6))}${R}`)
+  }
+  return out
+}
+
+export function filesTab(p, ctx) {
+  const { now, detailW, detailH, F } = ctx
+  const { fit, hue, ago, short, DIM, R, LUT, meter } = F
+  const counts = new Map()
+  for (const e of p.events ?? []) {
+    const k = e.path
+    if (!k) continue
+    const c = counts.get(k) ?? { n: 0, at: 0, agents: new Set() }
+    c.n++; c.at = Math.max(c.at, e.at); c.agents.add(e.agent)
+    counts.set(k, c)
+  }
+  if (!counts.size) return [` ${DIM}no files touched in this window${R}`]
+
+  const rows = [...counts.entries()].sort((a, b) => b[1].n - a[1].n)
+  const top = Math.max(1, ...rows.map(([, c]) => c.n))
+  const out = [` ${DIM}${fit('FILE', Math.max(8, detailW - 26))}${fit('EDITS', 13)}${'LAST'.padStart(5)}${R}`]
+  for (const [path, c] of rows.slice(0, Math.max(1, detailH - 4))) {
+    // Bar relative to the busiest file, so "hot" is a comparison and not a
+    // number you have to hold in your head.
+    const bar = meter(c.n / top, 6, LUT.activity)
+    const who = c.agents.size > 1 ? `${LUT.heat[70]}${c.agents.size}${R}` : ` `
+    out.push(` ${fit(short(path, p.root), Math.max(8, detailW - 26))}${bar} ${String(c.n).padStart(3)} ${who}${DIM}${ago(c.at, now).padStart(5)}${R}`)
+  }
+  return out
+}
+
+export function collisionsTab(p, ctx) {
+  const { collsHere, now, detailW, detailH, lookback, F } = ctx
+  const { fit, short, ago, DIM, R, BOLD, LUT } = F
+  if (!collsHere.length) {
+    // A bare zero reads as a broken panel. Say what was checked.
+    return [
+      ` ${DIM}no collisions here in ${lookback}.${R}`,
+      '',
+      ` ${DIM}a collision is two agents editing the same${R}`,
+      ` ${DIM}file close enough together to overwrite${R}`,
+      ` ${DIM}each other's work.${R}`,
+    ]
+  }
+  const out = [` ${DIM}${fit('FILE', Math.max(8, detailW - 24))}${fit('APART', 11)}${'WHEN'.padStart(5)}${R}`]
+  for (const c of collsHere.slice(0, Math.max(1, detailH - 4))) {
+    out.push(` ${LUT.heat[90]}·${R} ${fit(short(c.path, c.project), Math.max(8, detailW - 26))}${DIM}${fit(`${c.gapMin}m`, 11)}${ago(c.at, now).padStart(5)}${R}`)
+    if (c.agents) out.push(`   ${DIM}${fit(c.agents.join(' and '), Math.max(8, detailW - 6))}${R}`)
+  }
+  return out
+}
+
+// What the pane's border says for each tab. The border is skein's metadata
+// line, so it has to describe what is actually under it — it kept claiming
+// "what an agent is told here" while the file list was on screen.
+export const TAB_TITLES = [
+  'what an agent is told here',
+  'sessions and their context',
+  'files, hottest first',
+  'collisions',
+]

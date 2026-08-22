@@ -11,11 +11,13 @@ import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
+import { PRESETS, NAMES } from './presets.js'
+import { TABS, TAB_TITLES, sessionsTab, filesTab, collisionsTab } from './tabs.js'
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
-import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from './live.js'
+import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER, WINDOW_MS } from './live.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -79,6 +81,9 @@ const KEYS = [
   ['a', 'cycle the window: 6h · 24h · 7d · 30d'],
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
+  ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
+  ['1-3', 'jump straight to a preset: all · watch · table'],
+  ['tab', 'switch the detail pane: info · sessions · files · collisions'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
   ['?  h', 'this'],
@@ -118,9 +123,12 @@ export function render(state, size) {
 
   // btop's geometry, measured from a real capture: a full-width headline, a
   // left column, and a tall right column for the one view that is a long list.
-  const L = layout(w, h)
-  const listH = L.head.h, detailH = L.detail.h, feedH = L.feed.h
-  const listW = L.head.w, detailW = L.detail.w, feedW = L.feed.w
+  // A preset drops boxes; the survivors expand into what is left. Guard every
+  // read of a rect, because in preset 'table' there is no detail or feed at all.
+  const preset = PRESETS[state.preset ?? 0] ?? PRESETS[0]
+  const L = layout(w, h, preset.shown)
+  const listH = L.head.h, detailH = L.detail?.h ?? 0, feedH = L.feed?.h ?? 0
+  const listW = L.head.w, detailW = L.detail?.w ?? 0, feedW = L.feed?.w ?? 0
 
   // Columns are chosen to fit, not assumed. btop tiles fixed boxes because it
   // knows its own metrics; a project list does not know how wide a name is or
@@ -208,12 +216,33 @@ export function render(state, size) {
   // pulse advances every refresh, so an idle machine still shows a live tool.
   const pulse = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[(state.tick ?? 0) % 10]
   const clock = new Date(now).toTimeString().slice(0, 8)
-  const controls = w => (w >= 96
-    ? [tag('⏎', 'expand'), tag('s', state.sort ?? 'recent'), tag('/', state.filter || 'filter'),
-       tag('a', lookback), tag('c', state.onlyColliding ? 'colliding' : 'all'), tag('?', 'keys'), tag('q', 'quit')]
-    : detailW >= 70
-      ? [tag('s', state.sort ?? 'recent'), tag('a', lookback), tag('?', 'keys'), tag('q', 'quit')]
-      : [tag('?', 'keys'), tag('q', 'quit')]).join(TAG_SEP)
+  // Fitted to the budget rather than switched at two breakpoints, and the two
+  // escape hatches are PINNED. Adding one control used to push '? keys' off the
+  // end, which is precisely backwards: the least discoverable thing on screen
+  // is how to get help and how to get out, so those are the last to go.
+  const bare = s => s.replace(/\x1b\[[0-9;]*m/g, '')
+  const controls = w => {
+    const pinned = [tag('?', 'keys'), tag('q', 'quit')]
+    const optional = [
+      tag('⏎', 'expand'),
+      tag('s', state.sort ?? 'recent'),
+      tag('p', NAMES[state.preset ?? 0] ?? 'preset'),
+      tag('a', lookback),
+      tag('/', state.filter || 'filter'),
+      tag('c', state.onlyColliding ? 'colliding' : 'all'),
+    ]
+    const plain = bare
+    const sepW = plain(TAG_SEP).length
+    let used = pinned.reduce((n, s) => n + plain(s).length, 0) + sepW
+    const keep = []
+    for (const c of optional) {
+      const cost = plain(c).length + sepW
+      if (used + cost > w) break
+      used += cost
+      keep.push(c)
+    }
+    return [...keep, ...pinned].join(TAG_SEP)
+  }
 
   const headRows = []
   const headState = [
@@ -266,9 +295,28 @@ export function render(state, size) {
   const expandedRows = projects.reduce(
     (a, x) => a + (expanded.has(x.root ?? 'loose') ? Math.min(4, x.sessions) : 0), 0)
   const tableRows = Math.max(1, projects.length + expandedRows) + 2
-  const stripH = Math.max(0, Math.min(8, listH - tableRows - 2))
+
+  // The strip gets a floor, and the table yields to it.
+  //
+  // Before this the strip took whatever the table left over, so with twelve
+  // projects it got zero rows and the graph vanished outright — the same "where
+  // is the spike?" as the fixed window, arrived at from the other direction.
+  // The graph answers "is anything happening right now" and the table answers
+  // "where has my time gone"; a long list of the second must not silently
+  // delete the first. Four rows is enough to read a shape from.
+  const STRIP_MIN = 4
+  const stripH = listH - 2 <= STRIP_MIN + 3
+    ? Math.max(0, Math.min(8, listH - tableRows - 2))      // genuinely no room
+    : Math.max(STRIP_MIN, Math.min(8, listH - tableRows - 2))
+  // What the table can actually show once the strip has its floor. Rows beyond
+  // this are counted in the border rather than dropped in silence.
+  const tableBudget = Math.max(1, listH - stripH - 4)
   const gwLive = Math.max(20, listW - 24)
-  const live = rateSeries(stream0, gwLive * 2, { now })
+  // The span is chosen, not fixed. A 15m window is blank most of the time you
+  // would actually look at it, because editing is bursty — "where is the
+  // spike?" was answered by "your last edit was sixteen minutes ago".
+  const span = pickWindow(stream0, { now })
+  const live = rateSeries(stream0, gwLive * 2, { now, windowMs: span.windowMs })
   const peak = Math.max(1, ...live)
   const graphRows = Math.max(1, stripH - 1)
   // Linear, and no floor. The sqrt-and-floor scaling exists for the per-project
@@ -279,6 +327,10 @@ export function render(state, size) {
   const rate = ratePerMin(stream0, { now })
   const agents = byAgent(stream0, { now })
   const nSess = activeSessions(stream0, { now })
+  // Two different questions. nLive is "is anyone here" (transcript touched);
+  // nSess is "is work landing" (a file written). Reporting only the second one
+  // said "nothing is running" while an agent was plainly running.
+  const nLive = liveSessions(state.sessions, { now }).length
 
   if (stripH > 0) {
     // The scale sits on the graph, so a spike can be read as a value rather
@@ -292,11 +344,49 @@ export function render(state, size) {
       const label = rowsN.length <= 2 && i > 0 ? '0' : value >= 10 ? String(Math.round(value)) : value.toFixed(1)
       headRows.push(` ${DIM}${fit(i === rowsN.length - 1 ? '0' : label, 6)}${R}${DIM}┤${R}${line}${R}`)
     })
-    headRows.push(` ${DIM}${fit(`EDITS/MIN · ${Math.round(WINDOW_MS / 60000)}m`, 18)}${R}${BOLD}${fit(`now ${rate.toFixed(1)}`, 10)}${R}` +
-      `${DIM}${fit(`${nSess} session${nSess === 1 ? '' : 's'} active`, 20)}${R}` +
-      (agents.length
-        ? agents.slice(0, 3).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, peak), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  ')
-        : `${DIM}nothing is running${R}`))
+    // Built from (plain, painted) pairs: fit() counts characters, and every
+    // one of these segments carries colour, so padding them as raw strings
+    // measures the escape sequences too and blows a hole in the row.
+    const seg = []
+    const push = (plain, painted, pad = 0) =>
+      seg.push({ plain, painted, w: Math.max(plain.length, pad) })
+
+    // The span is stated because it moves. A graph whose meaning changes
+    // silently is worse than an empty one.
+    push(`EDITS/MIN · ${span.label}`, `${DIM}EDITS/MIN · ${R}${BOLD}${span.label}${R}`, 18)
+    push(`now ${rate.toFixed(1)}`, `${BOLD}now ${rate.toFixed(1)}${R}`, 10)
+
+    // "0 sessions active" beside a running agent is the tool calling itself
+    // broken. Who is HERE comes first, then whether they are writing anything.
+    if (nLive) {
+      const tail = nSess ? `, ${nSess} editing` : ', idle'
+      push(`${nLive} live${tail}`, `${LUT.activity[80]}${nLive} live${R}${DIM}${tail}${R}`, 20)
+    } else {
+      push('nobody running', `${DIM}nobody running${R}`, 20)
+    }
+
+    if (span.widened) {
+      const q = `quiet ${LADDER[0][1]}`
+      push(q, `${DIM}${q}${R}`, q.length + 2)
+    }
+
+    if (agents.length) {
+      for (const a of agents.slice(0, 3)) {
+        const plain = `${a.agent} ------ ${a.rate.toFixed(1)}`
+        push(plain, `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, peak), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`, plain.length + 2)
+      }
+    } else {
+      push('no file written just now', `${DIM}no file written just now${R}`)
+    }
+
+    let used = 1
+    let strip = ' '
+    for (const s of seg) {
+      if (used + s.w > listW - 2) break
+      strip += s.painted + ' '.repeat(Math.max(0, s.w - s.plain.length))
+      used += s.w
+    }
+    headRows.push(strip)
     headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
   }
 
@@ -309,7 +399,13 @@ export function render(state, size) {
   hit.rows.length = 0
   hit.tags.length = 0
   hit.feed.length = 0
-  const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
+  hit.tabs.length = 0
+  // Scroll a window of exactly tableBudget rows, keeping the selection inside
+  // it. The old slice was sized off listH and so ignored the strip entirely,
+  // which is how the graph came to be squeezed out by a long project list.
+  const start = Math.max(0, Math.min(sel - Math.floor(tableBudget / 2), projects.length - tableBudget))
+  const view = projects.slice(Math.max(0, start), Math.max(0, start) + tableBudget)
+  const hidden = projects.length - view.length
   const offset = projects.indexOf(view[0] ?? projects[0])
   for (let i = 0; i < view.length && i < listH - 2; i++) {
     const p = view[i]
@@ -380,8 +476,21 @@ export function render(state, size) {
     }
   }
   const headPane = pane(L.head, {
-    title: 'skein', key: SUP[0], right: `${clock} ${DIM}${pulse}${R}`,
-    state: `${headState}  ${controls(listW)}`, rows: headRows,
+    title: 'skein', key: SUP[0],
+    // btop prints 'preset N' in the cpu box border. Same place, same reason:
+    // the layout you are looking at is state, and state belongs in the border.
+    right: `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`,
+    // controls() gets what is LEFT after the state text, not the full width.
+    // Handing it the whole width let the combined row overflow, and the pane
+    // trims from the end — which is exactly where the pinned '? keys' and
+    // 'q quit' sit, so pinning them meant nothing.
+    // Rows the budget could not fit are COUNTED, never silently dropped: a list
+    // that quietly ends at row nine reads as "you have nine projects".
+    state: (() => {
+      const s = hidden > 0 ? `${headState}${DIM} · ${hidden} more below${R}` : headState
+      return `${s}  ${controls(Math.max(18, listW - bare(s).length - 8))}`
+    })(),
+    rows: headRows,
   })
 
   // ---- detail: sessions under the selected project ------------------------
@@ -417,7 +526,28 @@ export function render(state, size) {
     }
     detailRows_.push('')
     detailRows_.push(` ${DIM}esc or click a project row to go back${R}`)
-  } else if (p) {
+  } else if (p && L.detail) {
+    // The tab bar, agtop-style: one pane, several questions, switched rather
+    // than tiled. The active tab is bright and underscored; the rest are dim.
+    const tabI = Math.min(state.tab ?? 0, TABS.length - 1)
+    let tx = 1
+    const bar = TABS.map((name, i) => {
+      hit.tabs.push({ y: L.detail.y + 1, x0: L.detail.x + tx, x1: L.detail.x + tx + name.length, index: i })
+      tx += name.length + 2
+      return i === tabI ? `${BOLD}${THEME.hi}${name}${R}` : `${DIM}${name}${R}`
+    }).join('  ')
+    detailRows_.push(` ${bar}`)
+    detailRows_.push(` ${DIM}${TABS.map((n, i) => (i === tabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`)
+
+    const ctx = { state, now, detailW, detailH: detailH - 2, collsHere, lookback,
+      F: { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling } }
+
+    if (tabI === 1) detailRows_.push(...sessionsTab(p, ctx))
+    else if (tabI === 2) detailRows_.push(...filesTab(p, ctx))
+    else if (tabI === 3) detailRows_.push(...collisionsTab(p, ctx))
+    else infoTab()
+
+    function infoTab() {
     // Thesis §5: the defensible claim is not the chart, it is that an agent can
     // read this. So the pane shows the exact line an agent starting in this
     // repository would be handed — the product, rather than a description of it.
@@ -444,21 +574,30 @@ export function render(state, size) {
     }
 
     if (collsHere.length) {
+      // A blank, a header, and at least one row. Anything less prints a
+      // COLLISIONS heading with nothing under it, which reads as "the list is
+      // empty" — the opposite of what a collision means.
       const room = Math.max(0, detailH - 3 - detailRows_.length)
-      if (room > 0) {
+      if (room >= 3) {
         detailRows_.push('')
         detailRows_.push(` ${DIM}${fit('COLLISIONS', 12)}${R}`)
-        for (const c of collsHere.slice(0, room - 1)) {
+        for (const c of collsHere.slice(0, room - 2)) {
           detailRows_.push(` ${LUT.heat[90]}·${R} ${fit(short(c.path, c.project), Math.max(8, detailW - 30))}${DIM}${fit(`${c.gapMin}m apart`, 11)}${ago(c.at, now).padStart(5)}${R}`)
         }
       }
     }
+    }
   }
-  const detailPane = pane(L.detail, {
+  const detailPane = L.detail && pane(L.detail, {
     title: focus
       ? `${projectName(focus.project ?? gitRoot(focus.path))} — ${short(focus.path, focus.project ?? gitRoot(focus.path)).split('/').pop()}`
       : p
-        ? (p.root ? `${p.name} — what an agent is told here` : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
+        // The title names the TAB, not just the project — "what an agent is
+        // told here" describes the info tab only, and was still claiming that
+        // while the files list was on screen.
+        ? (p.root
+            ? `${p.name} — ${TAB_TITLES[Math.min(state.tab ?? 0, TABS.length - 1)]}`
+            : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
         : 'no project',
     key: SUP[1], state: detailState, rows: detailRows_,
   })
@@ -491,7 +630,7 @@ export function render(state, size) {
     }
   }
 
-  const feedPane = pane(L.feed, {
+  const feedPane = L.feed && pane(L.feed, {
     title: 'activity', key: SUP[2],
     right: `${DIM}newest first${R}`,
     state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${R}`,
@@ -500,9 +639,9 @@ export function render(state, size) {
 
   return compose(h, [
     { rect: L.head, lines: headPane },
-    { rect: L.detail, lines: detailPane },
-    { rect: L.feed, lines: feedPane },
-  ])
+    L.detail && { rect: L.detail, lines: detailPane },
+    L.feed && { rect: L.feed, lines: feedPane },
+  ].filter(Boolean))
 }
 
 export function build(windowMin, lookbackMs, now) {
@@ -518,6 +657,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
+  let preset = 0, tab = 0
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -536,7 +676,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus,
+      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -621,6 +761,8 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
       if (ev.kind === 'wheel') {
         sel = Math.max(0, Math.min(state.projects.length - 1, sel + ev.dir))
       } else {
+        const tabHit = mouse.hitTab(state.hit ?? {}, ev.x, ev.y)
+        if (tabHit !== null) { tab = tabHit; draw(); return }
         const ftarget = mouse.hitFeed(state.hit ?? {}, ev.y)
         if (ftarget) { focus = ftarget; draw(); return }
         const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
@@ -671,6 +813,15 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     else if (k === 'c') { onlyColliding = !onlyColliding; sel = 0; reload() }
     else if (k === 'a') { lb = (lb + 1) % LOOKBACKS.length; reload() }
     else if (k === 'w') { windowMin = windowMin === 30 ? 60 : windowMin === 60 ? 10 : 30; reload() }
+    // btop: p and P step through presets, and each is numbered. A digit jumps
+    // straight to one, which is how you actually use them once you know them.
+    // Tab switches the detail pane's view, which is the key agtop uses for the
+    // same job. Shift-Tab steps back.
+    else if (k === '\t') tab = (tab + 1) % TABS.length
+    else if (k === '\x1b[Z') tab = (tab - 1 + TABS.length) % TABS.length
+    else if (k === 'p') preset = (preset + 1) % PRESETS.length
+    else if (k === 'P') preset = (preset - 1 + PRESETS.length) % PRESETS.length
+    else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) preset = Number(k) - 1
     else if (k === 'r') reload()
     else if (k === 'g') sel = 0
     else if (k === 'G') sel = Math.max(0, state.projects.length - 1)

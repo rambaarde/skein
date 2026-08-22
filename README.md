@@ -66,13 +66,13 @@ uninstalled the first time it is wrong.
 ## The dashboard, which is the other half
 
 ```
-╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
-│ 3.1   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
-│ 2.5   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
-│ 1.9   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
-│ 1.2   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
-│ 0     ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
-│ EDITS/MIN · 15m   now 0.4   2 sessions active   claude ■····· 0.4                                                                        │
+╭─ skein¹ ────────────────────────────────────────────────────────────────────────────────────────────────────── preset 1 all  22:20:00 ⠸ ─╮
+│ 1.0   ┤                                                                                                                                  │
+│ 0.8   ┤                                                                                                                                  │
+│ 0.6   ┤                                                                             ⣤⣤⡄                                                  │
+│ 0.4   ┤                                                                             ⣿⣿⡇                         ⡀   ⢀⣿⣀   ⢀              │
+│ 0     ┤                                         ⢰⣶⣶        ⢰⣶⣶  ⣶⣶⡆                 ⣿⣿⡇  ⣶⣶⡆ ⣶⣶⡆              ⣶⣶⣷⣶⡆⢰⣾⣿⣿⡆ ⢰⣾              │
+│ EDITS/MIN · 6h    now 0.4   nobody running      quiet 15m  claude ■■···· 0.4                                                             │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │ PROJECT         DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST          │
 │ ▸ atlas-api     Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣝⣉⣏⣉⣙⣉⣹⣝⣋⣛⣏⣛⣫⣛    1%     8s          │
@@ -81,18 +81,18 @@ uninstalled the first time it is wrong.
 │ ▸ notify-svc    —                              codex+opencode       2     18     28m ■·······     · ⣈⡃⡇⡈⣉⡀⠛⣃⣛⣨⢀⠀⠈⣟    0%     2h          │
 │ ▸ docs-site     —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⢠⢸⢰⢰⣴⢰⢠⢰⣤⢸    0%     9h          │
 │ ▸ not in a repo —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣈⣀⡁⡉⡛⢘⢙⣍⣝⣌⣯⡇    0%     1d          │
-╰─ 6 projects · 3 collisions · 30d · by recent  ⏎ expand · s recent · / filter · a 30d · c all · ? keys · q quit ──────────────────────────╯
+╰─ 6 projects · 3 collisions · 30d · by recent  ⏎ expand · s recent · p all · a 30d · / filter · c all · ? keys · q quit ──────────────────╯
 ╭─ atlas-api — what an agent is told here² ───────────────╮╭─ activity³ ──────────────────────────────────────────────────── newest first ─╮
-│ 3 other agents active in this repo                      ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
-│   claude   editing src/mod0.ts          8s              ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│
-│   codex    editing src/mod59.ts        19m              ││ 22:01:23 codex     atlas-api         src/mod59.ts                          19m│
-│   codex    editing src/auth/session.…  20m              ││ 22:00:00 codex     atlas-api         src/auth/session.ts                   20m│
-│                                                         ││ 21:58:00 claude    checkout          src/mod0.ts                           22m│
-│ COLLISIONS                                              ││ 21:45:57 claude    checkout          src/mod8.ts                           34m│
-│ · src/auth/session.ts          20m apart    40m         ││ 21:40:00 claude    atlas-api         src/auth/session.ts                   40m│
-│ · src/mod47.ts                 10m apart     9d         ││ 20:47:00 claude    checkout          src/mod25.ts                           2h│
-│                                                         ││ 20:34:53 codex     atlas-web         src/mod16.ts                           2h│
-│                                                         ││ 20:20:00 opencode  notify-svc        src/mod1.ts                            2h│
+│ info  sessions  files  collisions                       ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
+│ ────                                                    ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│
+│ 3 other agents active in this repo                      ││ 22:01:23 codex     atlas-api         src/mod59.ts                          19m│
+│   claude   editing src/mod0.ts          8s              ││ 22:00:00 codex     atlas-api         src/auth/session.ts                   20m│
+│   codex    editing src/mod59.ts        19m              ││ 21:58:00 claude    checkout          src/mod0.ts                           22m│
+│   codex    editing src/auth/session.…  20m              ││ 21:45:57 claude    checkout          src/mod8.ts                           34m│
+│                                                         ││ 21:40:00 claude    atlas-api         src/auth/session.ts                   40m│
+│ COLLISIONS                                              ││ 20:47:00 claude    checkout          src/mod25.ts                           2h│
+│ · src/auth/session.ts          20m apart    40m         ││ 20:34:53 codex     atlas-web         src/mod16.ts                           2h│
+│ · src/mod47.ts                 10m apart     9d         ││ 20:20:00 opencode  notify-svc        src/mod1.ts                            2h│
 │                                                         ││ 20:20:00 opencode  notify-svc        src/mod3.ts                            2h│
 │                                                         ││ 20:20:00 opencode  notify-svc        src/mod7.ts                            2h│
 │                                                         ││ 20:20:00 codex     notify-svc        src/mod0.ts                            2h│
@@ -110,6 +110,11 @@ identical to btop's, character for character.
 
 `↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
 `a` window · `c` collisions only · `?` all keys · `q` quit
+
+**Presets** (`p`, or `1`-`3`) change *what is on screen*, not its size — btop's
+idea, and its config format: `all` · `watch` (feed full width) · `table` (the
+project list alone). **Tabs** (`tab`) switch the detail pane between `info`,
+`sessions`, `files` and `collisions`.
 
 **The mouse works**: click a project row to select it, click it again to expand,
 scroll the wheel to move through projects — and **click any line in the activity

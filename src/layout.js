@@ -15,11 +15,32 @@
 // panes are worse than one 80-wide one.
 export const WIDE_AT = 100
 
-export function layout(w, h) {
+// `shown` is a preset's box set. A preset DROPS boxes rather than resizing
+// them — btop's three defaults are cpu+proc, cpu+mem+net, cpu+net — so the
+// boxes that remain expand to fill what the missing ones left behind. That is
+// the difference between a preset and a zoom level.
+export function layout(w, h, shown = null) {
+  const on = n => !shown || shown.has(n)
+
+  // head alone: the table gets the whole screen, which is the point of that
+  // preset. No split, no leftover panes.
+  if (!on('detail') && !on('feed')) return { wide: w >= WIDE_AT, head: { x: 0, y: 0, w, h } }
+
   // The headline carries a live strip as well as the table, so it needs a bit
   // more than btop's cpu box did — but never so much that the panes below it
   // lose their own headers.
   const headH = Math.max(4, Math.min(Math.floor(h * 0.5), h - 8))
+
+  // One pane below instead of two: it takes the full width rather than half of
+  // it sitting beside a gap.
+  if (on('feed') !== on('detail')) {
+    const only = on('feed') ? 'feed' : 'detail'
+    return {
+      wide: w >= WIDE_AT,
+      head: { x: 0, y: 0, w, h: headH },
+      [only]: { x: 0, y: headH, w, h: h - headH },
+    }
+  }
 
   if (w < WIDE_AT) {
     // Stacked: headline, detail, feed. What we had, kept for narrow terminals.
