@@ -804,3 +804,113 @@ test('a project opens its own page, not two inline rows', async () => {
   const missing = render({ ...base, page: '/w/nope' }, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
   assert.match(missing, /activity/)
 })
+
+test('a keypress is on screen in the next frame, not the next poll', async () => {
+  // draw() copied six interactive variables into state and silently omitted
+  // page, tab, preset and feedTop. Those are set by a keypress or a click and
+  // then rendered from the STALE state, so the new screen only appeared when
+  // reload() next rebuilt state — up to a poll interval later. That is the
+  // whole of "nothing happens when I click" and "it takes about two seconds".
+  //
+  // Runs in a subprocess against a FIXTURE home. The first version of this test
+  // drove the real TUI against whatever was in ~/.claude, which passed on the
+  // machine that wrote it and failed on every CI runner, because a runner has
+  // no sessions and so no project for Enter to open. skein's own rule is to
+  // test against fixtures and never against real history; this is why.
+  const { execFileSync } = await import('node:child_process')
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs')
+  const { join } = await import('node:path')
+
+  // NOT under os.tmpdir(). skein's noise filter drops anything beginning /tmp,
+  // /private/tmp or /var — and macOS mkdtemp hands back /var/folders/..., so a
+  // fixture there produces zero projects and the test fails for a reason that
+  // has nothing to do with what it is testing. Under the repo it looks like
+  // ordinary work on every platform.
+  const home = mkdtempSync(join(process.cwd(), '.skein-test-home-'))
+  const repo = join(home, 'work', 'demo')
+  const dir = join(home, '.claude', 'projects', 'demo')
+  mkdirSync(dir, { recursive: true })
+  mkdirSync(join(repo, '.git'), { recursive: true })
+  const at = n => new Date(Date.now() - n * 60_000).toISOString()
+  const lines = [
+    { type: 'user', cwd: repo, gitBranch: 'main', timestamp: at(60), message: { content: 'build the thing' } },
+    ...Array.from({ length: 12 }, (_, i) => ({
+      cwd: repo, timestamp: at(50 - i * 3),
+      message: { role: 'assistant', usage: { input_tokens: 1000 + i },
+                 content: [{ type: 'tool_use', name: 'Edit', input: { file_path: join(repo, `src/f${i % 4}.ts`) } }] },
+    })),
+  ]
+  // Trailing newline: the reader treats a final line with no terminator as a
+  // partial append and holds it back, which is right for a live transcript.
+  writeFileSync(join(dir, 's1.jsonl'), lines.map(l => JSON.stringify(l)).join('\n') + '\n')
+
+  const mod = new URL('../src/tui.js', import.meta.url).href
+  // In tools/, not test/: anything under test/ is collected BY the runner, so
+  // a helper living there is executed as a test with no arguments and fails.
+  const driver = new URL('../tools/drive-tui.mjs', import.meta.url)
+  const raw = execFileSync(process.execPath, [driver.pathname.replace(/^\/([A-Za-z]:)/, '$1'), mod],
+    { env: { ...process.env, HOME: home, USERPROFILE: home, SKEIN_HOME: join(home, '.skein') },
+      encoding: 'utf8', timeout: 30_000 })
+  rmSync(home, { recursive: true, force: true })
+  const marker = raw.match(/@@(.*)@@/)
+  assert.ok(marker, `the driver printed no result:\n${raw.slice(0, 400)}`)
+  const seen = JSON.parse(marker[1])
+
+  assert.ok(seen.projects, 'the fixture home produced a project to act on')
+  assert.ok(seen.painted, 'a keypress paints immediately')
+  assert.match(seen.tab, /files {2}collisions/, 'the new tab is what got drawn')
+  assert.match(seen.enter, /esc back/, 'enter opens the page in the same frame')
+  assert.match(seen.esc, /activity/, 'and esc comes straight back')
+  assert.match(seen.preset, /preset 2 watch/, 'preset switches in the same frame')
+  // Deliberately never pressing q: quit() calls process.exit(0), which would end
+  // the run and silently drop every test after it — the count goes down and
+  // nothing reports a failure.
+})
+
+test('one click opens a project, and there is a way back without the keyboard', async () => {
+  const { render } = await import('../src/tui.js')
+  const { hitTag } = await import('../src/mouse.js')
+  const now = 1_700_000_000_000
+  const mk = (name, root) => ({ name, root, sessions: 1, files: 1, agents: ['claude'],
+    attention: 60_000, last: now, events: [{ at: now, agent: 'claude', path: `${root}/x.ts`, session: 's' }] })
+  const state = {
+    projects: [mk('a', '/w/a'), mk('b', '/w/b')], sessions: new Map(), sel: 0,
+    expanded: new Set(), colls: [], events: [],
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: '/w/a',
+  }
+  const raw = render(state, { cols: 140, rows: 42, now })
+  const lines = raw.replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+
+  // A full screen with no visible exit is a trap for anyone using the mouse.
+  const backs = state.hit.tags.filter(t => t.key === '\x1b')
+  assert.ok(backs.length >= 2, 'both the top-right and the border offer a way out')
+  for (const t of backs) {
+    assert.equal(hitTag(state.hit, t.x0, t.y), '\x1b')
+    // Every region must sit on the label it claims — checked against ITS OWN
+    // row, which is the part I got wrong while verifying this by hand.
+    assert.match(lines[t.y].slice(t.x0, t.x1), /back/)
+  }
+})
+
+test('the no-repo bucket claims no branch, on the page as well as the list', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const loose = {
+    name: 'not in a repo', root: null, sessions: 2, files: 2, agents: ['claude'],
+    attention: 60_000, last: now,
+    events: [{ at: now, agent: 'claude', path: '/tmp/x.ts', session: 's1' },
+             { at: now - 1000, agent: 'claude', path: '/tmp/y.ts', session: 's2' }],
+  }
+  const state = {
+    projects: [loose], sessions: new Map([['s1', { agent: 'claude', branch: 'develop', title: 'unrelated' }]]),
+    sel: 0, expanded: new Set(), colls: [], events: loose.events,
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: 'not in a repo',
+  }
+  const page = render(state, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
+  // Unrelated work sharing a row: a branch from whichever session came first
+  // says something untrue about every other session in the bucket.
+  assert.doesNotMatch(page.split('\n')[0], /develop/, 'the title must not borrow a branch')
+  assert.match(page.split('\n')[0], /not in a repo/)
+})

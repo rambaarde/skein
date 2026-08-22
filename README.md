@@ -111,7 +111,7 @@ identical to btop's, character for character.
 `↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
 `a` window · `c` collisions only · `?` all keys · `q` quit
 
-**Press `⏎` on a project** and it opens its own page: that project's rate graph,
+**Click any project** (or press `⏎`) and it opens its own page: that project's rate graph,
 who worked in it and how much, every session with its context, the hottest files,
 and the collisions with both sides named. `esc` comes back. `space` still peeks
 inline without leaving the list.
