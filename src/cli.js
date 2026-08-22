@@ -244,21 +244,23 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         per_week: v ? Number(v.perWeek.toFixed(1)) : null,
         lead: v && v.lead !== null ? humanMs(v.lead) : null,
         per_ship: v && v.perShip !== null ? humanMs(v.perShip) : null,
-        rework: v && v.rework !== null ? `${Math.round(v.rework * 100)}%` : null,
+        cfr: v && v.cfr !== null ? `${Math.round(v.cfr * 100)}%` : null,
+        deployments: v?.cfrOf ? v.cfrOf.deployments : null,
         attention: humanMs(attentionOf(p.events)),
       }
     })
-    const FIELDS = ['project', 'landed', 'per_day', 'per_week', 'lead', 'per_ship', 'rework', 'attention']
+    const FIELDS = ['project', 'landed', 'per_day', 'per_week', 'lead', 'per_ship', 'cfr', 'deployments', 'attention']
     return {
       code: 0,
       text: out(opts, 'velocity', rows, FIELDS,
         () => table(rows.map(r => Object.fromEntries(FIELDS.map(k => [k, r[k] ?? '—']))), [
           { head: 'PROJECT', key: 'project' }, { head: 'LANDED', key: 'landed', right: true },
           { head: '/DAY', key: 'per_day', right: true }, { head: '/WEEK', key: 'per_week', right: true }, { head: 'LEAD', key: 'lead', right: true },
-          { head: 'ATTN/SHIP', key: 'per_ship', right: true }, { head: 'REWORK', key: 'rework', right: true },
+          { head: 'ATTN/SHIP', key: 'per_ship', right: true }, { head: 'CFR', key: 'cfr', right: true }, { head: 'DEPLOYS', key: 'deployments', right: true },
           { head: 'ATTENTION', key: 'attention', right: true },
         ]) + '\n\nlanded = trunk commits, releases excluded · lead = first edit after the previous landing' +
-             '\nrework is a proxy for change-failure-rate · mean-time-to-restore needs incident data and is not shown',
+             '\ncfr = deployments followed by a hotfix to what they shipped; needs two deployments to mean anything' +
+             '\nmean-time-to-restore needs incident data and is not shown',
         `no projects with git history in the last ${argvSince(opts)} (0 projects)`),
     }
   }
