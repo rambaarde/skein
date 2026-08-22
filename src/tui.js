@@ -9,7 +9,7 @@ import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot } from './project.js'
 import { graph, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP } from './theme.js'
-import { box, fit, width } from './box.js'
+import { box, tag, fit, width } from './box.js'
 import { ago, short, trunc } from './format.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -108,8 +108,10 @@ export function render(state, size) {
   // A dashboard that never moves is indistinguishable from a frozen one. The
   // pulse advances every refresh, so an idle machine still shows a live tool.
   const pulse = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[(state.tick ?? 0) % 10]
+  const clock = new Date(now).toTimeString().slice(0, 8)
   const b = box({
     w, title: 'skein', key: SUP[0],
+    right: `${clock} ${DIM}${pulse}${R}`,
     state: [
       `${projects.length} project${projects.length === 1 ? '' : 's'}`,
       `${colls.length} collision${colls.length === 1 ? '' : 's'}`,
@@ -117,7 +119,7 @@ export function render(state, size) {
       `by ${state.sort ?? 'recent'}`,
       state.filter ? `${BOLD}/${state.filter}${R}` : null,
       state.onlyColliding ? `${BOLD}collisions only${R}` : null,
-    ].filter(Boolean).join(' · ') + ` ${DIM}${pulse}${R}`,
+    ].filter(Boolean).join(' · '),
   })
   out.push(b.top)
   const cells = (name, agents, sessions, files, edits, activity, last) => {
@@ -174,11 +176,15 @@ export function render(state, size) {
     key: SUP[1],
     // Narrow terminals get the keys that matter; ? always survives, because it
     // is how you find the rest.
-    state: w >= 92
-      ? `${DIM}↑↓ move · ⏎ expand · s sort · / filter · a window · ${R}${BOLD}?${R}${DIM} keys · q quit${R}`
-      : w >= 68
-        ? `${DIM}↑↓ · ⏎ · s · / · a · ${R}${BOLD}?${R}${DIM} keys · q${R}`
-        : `${BOLD}?${R}${DIM} keys · q${R}`,
+    // Controls hang off the border as labelled tags, btop-style, and each one
+    // shows its CURRENT value rather than just its key — so the border states
+    // what you are looking at instead of what you could press.
+    state: (w >= 96
+      ? [tag('⏎', 'expand'), tag('s', state.sort ?? 'recent'), tag('/', state.filter || 'filter'),
+         tag('a', lookback), tag('c', state.onlyColliding ? 'colliding' : 'all'), tag('?', 'keys'), tag('q', 'quit')]
+      : w >= 70
+        ? [tag('s', state.sort ?? 'recent'), tag('a', lookback), tag('?', 'keys'), tag('q', 'quit')]
+        : [tag('?', 'keys'), tag('q', 'quit')]).join(''),
   })
   out.push(d.top)
   if (p) {
@@ -263,7 +269,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   }
 
   const quit = () => {
-    clearTimeout(timer)
+    clearTimeout(pollTimer); clearInterval(paintTimer)
     stdout.write(SHOW + UNALT)
     if (stdin.isTTY) stdin.setRawMode(false)
     stdin.pause()
@@ -280,29 +286,42 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   //
   // The pulse slows down with it, which is honest — a lazy pulse means a quiet
   // machine, not a stalled program.
-  const FAST_MS = 2000, SLOW_MS = 16000
-  let everyMs = FAST_MS, idleTicks = 0, timer = null
+  // Painting and polling are separate clocks, which is the whole trick.
+  //
+  // btop's data interval is 2000 ms — the same as ours — yet it feels alive,
+  // because it repaints every second and stamps the time into its border. A
+  // screen that never changes is indistinguishable from a crashed one, and
+  // backing off the REPAINT to save CPU is how you make a live tool look dead.
+  //
+  // So: paint every second, always. It costs a string build and one write, no
+  // file I/O at all. Poll the disk on a separate timer that backs off from two
+  // seconds to sixteen when nothing is changing — that is where the ~16 ms and
+  // the 1300 stats live, and that is what is worth throttling.
+  const PAINT_MS = 1000
+  const POLL_FAST = 2000, POLL_SLOW = 16000
+  let pollMs = POLL_FAST, idleTicks = 0, pollTimer = null, paintTimer = null
 
   const schedule = () => {
-    clearTimeout(timer)
-    timer = setTimeout(onTick, everyMs)
-    timer.unref?.()
+    clearTimeout(pollTimer)
+    pollTimer = setTimeout(onPoll, pollMs)
+    pollTimer.unref?.()
   }
-  const onTick = () => {
-    tick++
+  const onPoll = () => {
     const changed = reload()
-    if (changed) { idleTicks = 0; everyMs = FAST_MS }
-    else if (++idleTicks >= 3) everyMs = Math.min(SLOW_MS, everyMs * 2)
-    draw()
+    if (changed) { idleTicks = 0; pollMs = POLL_FAST }
+    else if (++idleTicks >= 3) pollMs = Math.min(POLL_SLOW, pollMs * 2)
     schedule()
   }
-  const wake = () => { idleTicks = 0; everyMs = FAST_MS; schedule() }
+  const onPaint = () => { tick++; draw() }
+  const wake = () => { idleTicks = 0; pollMs = POLL_FAST; schedule() }
 
   stdout.write(ALT + HIDE)
   if (stdin.isTTY) stdin.setRawMode(true)
   stdin.resume()
   stdin.setEncoding('utf8')
   reload(); draw(); schedule()
+  paintTimer = setInterval(onPaint, PAINT_MS)
+  paintTimer.unref?.()
 
   stdout.on('resize', draw)
   const current = () => state.projects[sel]

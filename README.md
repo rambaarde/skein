@@ -66,7 +66,7 @@ uninstalled the first time it is wrong.
 ## The dashboard, which is the other half
 
 ```
-╭─ skein¹ ─────────────────────────────────────────────────────────────────────────────────────╮
+╭─ skein¹ ──────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
 │ PROJECT               AGENTS            SESS  FILES  EDITS ACTIVITY (30d)                LAST│
 │ ▸ atlas-api           claude+codex         8     75    314 ⣼⣴⣴⣴⣶⣤⣆⡆⣦⣦⣦⣤⣦⣶⣼⣼⣴⣴⣦⣴⣷⣄⣦⣧⣶⣶⣴⣦    8s│
 │ ▸ atlas-web           claude+codex         5     61    249 ⣸⣴⣤⣦⣤⣦⣆⣇⣦⣤⣧⣤⣧⣼⣰⣼⣴⣤⣴⣤⣦⣦⣧⣦⣦⣤⣰⣰    4m│
@@ -81,7 +81,7 @@ uninstalled the first time it is wrong.
 │                                                                                              │
 │                                                                                              │
 │                                                                                              │
-╰─ 6 projects · 3 collisions · 30d · by recent ⠸ ──────────────────────────────────────────────╯
+╰─ 6 projects · 3 collisions · 30d · by recent ────────────────────────────────────────────────╯
 ╭─ atlas-api² ─────────────────────────────────────────────────────────────────────────────────╮
 │ claude    main             Rotate the session expiry hea…  ⢰ ⢠⢠⣶⢠⡄ ⣤⣦⡄ ⡄⡄⣴⢰⣴⣤⣦⣤⣤⡄⣷⡇⣤⡄⣤⣧    8s│
 │ codex     feat/rate-limit  Add rate limiting to /auth      ⢻⠘⠛⠃⠛⠛⠘ ⠟⠸⠟⠃⠇⠟⠸⠛ ⠸⠃⠘⠇ ⠛⠃⠘⡇⠘⠛   19m│
@@ -89,7 +89,7 @@ uninstalled the first time it is wrong.
 │ · src/auth/session.ts                       claude/codex           20m apart, 40m ago        │
 │ · src/mod47.ts                              codex/codex            10m apart, 9d ago         │
 │                                                                                              │
-╰─ ↑↓ move · ⏎ expand · s sort · / filter · a window · ? keys · q quit ────────────────────────╯
+╰─ ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ───────────────────────────────╯
 ```
 
 <p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>
