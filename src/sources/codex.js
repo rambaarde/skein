@@ -8,7 +8,7 @@ const KIND = { update: 'edit', add: 'add', delete: 'delete' }
 
 export function parse(lines, { session, seed }) {
   const events = []
-  const meta = { cwd: seed?.cwd ?? null, branch: null, title: seed?.title ?? null, prLink: false, first: seed?.first ?? Infinity, last: seed?.last ?? 0 }
+  const meta = { cwd: seed?.cwd ?? null, branch: null, title: seed?.title ?? null, prLink: false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null }
 
   for (const line of lines) {
     if (!line) continue
@@ -22,6 +22,9 @@ export function parse(lines, { session, seed }) {
     const p = d.payload
     if (!p || typeof p !== 'object') continue
 
+    // Codex reports its own running total rather than a per-request usage block.
+    const usage = p.info?.total_token_usage ?? p.total_token_usage
+    if (usage) meta.context = (usage.input_tokens ?? 0) + (usage.cached_input_tokens ?? 0)
     if (p.type === 'session_meta') meta.cwd ??= p.payload?.cwd ?? p.cwd ?? null
     if (p.type === 'turn_context') meta.cwd ??= p.cwd ?? p.workspace_roots?.[0] ?? null
 

@@ -11,6 +11,7 @@
 // whole contract -- finds 6 collisions where there are 97.
 import { bashTargets, bashCwd } from './bash.js'
 import { abs } from '../paths.js'
+import { contextOf } from '../context.js'
 import { basename, isAbsolute } from 'node:path'
 
 const EDIT_TOOLS = new Set(['Edit', 'Write', 'NotebookEdit'])
@@ -19,7 +20,7 @@ const isEditTool = name =>
 
 export function parse(lines, { session, seed }) {
   const events = []
-  const meta = { cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0 }
+  const meta = { cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null }
 
   for (const line of lines) {
     if (!line) continue
@@ -31,6 +32,14 @@ export function parse(lines, { session, seed }) {
     if (at) { meta.first = Math.min(meta.first, at); meta.last = Math.max(meta.last, at) }
     // Claude records the session's own summary as `aiTitle`; when it has not
     // produced one yet, the last prompt is the closest honest stand-in.
+    // Context pressure: the newest request's total is the session's current
+    // fill. Not a running sum — the window is what it holds now, not what has
+    // ever passed through it.
+    const usage = d?.message?.usage
+    if (usage) meta.context = contextOf(usage)
+    if (d?.message?.model) meta.model = d.message.model
+    if (d.type === 'compact_file_reference') meta.compactions++
+
     if (d.type === 'ai-title' && typeof d.aiTitle === 'string') meta.title = d.aiTitle
     if (d.type === 'last-prompt' && typeof d.lastPrompt === 'string' && !meta.title) meta.title = d.lastPrompt
     if (d.type === 'pr-link') meta.prLink = true

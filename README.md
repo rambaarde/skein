@@ -84,9 +84,9 @@ uninstalled the first time it is wrong.
 ╰─ 6 projects · 3 collisions · 30d · by recent  ⏎ expand · s recent · / filter · a 30d · c all · ? keys · q quit ──────────────────────────╯
 ╭─ atlas-api — what an agent is told here² ───────────────╮╭─ activity³ ──────────────────────────────────────────────────── newest first ─╮
 │ 3 other agents active in this repo                      ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
-│   claude   editing src/mod0.ts                 8s       ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│
-│   codex    editing src/mod59.ts               19m       ││ 22:01:23 codex     atlas-api         src/mod59.ts                          19m│
-│   codex    editing src/auth/session.ts        20m       ││ 22:00:00 codex     atlas-api         src/auth/session.ts                   20m│
+│   claude   editing src/mod0.ts          8s              ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│
+│   codex    editing src/mod59.ts        19m              ││ 22:01:23 codex     atlas-api         src/mod59.ts                          19m│
+│   codex    editing src/auth/session.…  20m              ││ 22:00:00 codex     atlas-api         src/auth/session.ts                   20m│
 │                                                         ││ 21:58:00 claude    checkout          src/mod0.ts                           22m│
 │ COLLISIONS                                              ││ 21:45:57 claude    checkout          src/mod8.ts                           34m│
 │ · src/auth/session.ts          20m apart    40m         ││ 21:40:00 claude    atlas-api         src/auth/session.ts                   40m│
@@ -289,7 +289,12 @@ that rots.
   queueing, scheduling or assigning. This is the line that defines the product.
 - **Blocking or gating an agent.** Advisory only, forever.
 - **Locks, claims or leases.** The same thing wearing a filesystem hat.
-- **Cost and token panels.** agtop and agentic-metric already do these well.
+- **Cost.** Neither agent records a price, so a cost column means shipping a rate
+  table and being silently wrong the day it drifts. agtop and agentic-metric
+  already do this well.
+- **Token totals as a spend figure.** Same axis, same reason. *Context pressure*
+  is different and skein does show it — how full a session's window is now is an
+  operational state, like memory pressure, not a receipt.
 - **Process trees and CPU gauges.** agtop's are good, and it is three platforms
   of `ps` pain.
 - **Session management.** herdr and agent-manager own this.
