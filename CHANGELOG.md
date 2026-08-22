@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.10.0](https://github.com/rambaarde/skein/compare/v0.9.2...v0.10.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** show branch and what each project is on; drop columns that say nothing ([#24](https://github.com/rambaarde/skein/issues/24)) ([7439747](https://github.com/rambaarde/skein/commit/7439747a651d5b2be30c11c86a282d9330991140))
+
 ## [0.9.2](https://github.com/rambaarde/skein/compare/v0.9.1...v0.9.2) (2026-08-22)
 
 
