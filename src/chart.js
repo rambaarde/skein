@@ -306,14 +306,21 @@ export function chart(series, {
   // peak, ten rows all round to the same couple of values.
   let lastLabel = null
   body.forEach((line, i) => {
-    const raw = i === body.length - 1 ? '0' : fmt((max * (body.length - i)) / body.length)
+    // fmt(0), not the literal '0': a percentage axis read 100% 83% ... 0,
+    // and the one row whose units were dropped is the one every other row is
+    // measured against.
+    const raw = i === body.length - 1 ? fmt(0) : fmt((max * (body.length - i)) / body.length)
     const label = raw === lastLabel ? '' : raw
     if (label) lastLabel = raw
     out.push(` ${DIM}${fit(label, lead)}${R}${DIM}┤${R}${line}${R}`)
   })
   const span = Math.max(1, width - pad)
-  out.push(` ${' '.repeat(lead)}${DIM}└${axisLine(span)}${R}`)
-  out.push(` ${' '.repeat(lead + 1)}${DIM}${xaxis(since, now, { width: span })}${R}`)
+  // Ticks scale with the width. Four of them on a narrow panel printed
+  // `Jul 2Jul 3Aug Augnow` — five labels with no gaps between them, which is
+  // an axis that cannot be read at all. Roughly twelve columns per label.
+  const ticks = clamp(Math.floor(span / 12), 1, 4)
+  out.push(` ${' '.repeat(lead)}${DIM}└${axisLine(span, ticks)}${R}`)
+  out.push(` ${' '.repeat(lead + 1)}${DIM}${xaxis(since, now, { width: span, ticks })}${R}`)
   // The caption sits on the legend row rather than on the border, because what
   // a line MEANS and which line is which are one question, not two.
   // On a narrow chart the caption would eat the whole row and leave the
@@ -347,7 +354,11 @@ function plotBraille(series, { width, rows, max, pad }) {
   const rowOf = v => SH - 1 - Math.round(clamp(v / cap, 0, 1) * (SH - 1))
 
   series.forEach((s, si) => {
-    if (!s.values?.some(v => v > 0)) return
+    // Length, not "has a value above zero". A flat line on the floor is a
+    // measurement: a change failure rate of 0% over thirty days is the best
+    // reading there is, and skipping it drew an empty panel for the project
+    // that was doing everything right.
+    if (!s.values?.length) return
     const n = Math.min(SW, s.values.length * 2)
     let prev = null
     for (let x = 0; x < n; x++) {

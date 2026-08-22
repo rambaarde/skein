@@ -3,6 +3,11 @@ import assert from 'node:assert/strict'
 import { parseArgs, run } from '../src/cli.js'
 import { render } from '../src/tui.js'
 import { tierFor } from '../src/symbols.js'
+import { spawnSync } from 'node:child_process'
+import { mkdtempSync } from 'node:fs'
+import { tmpdir } from 'node:os'
+import { join } from 'node:path'
+import { fileURLToPath } from 'node:url'
 
 test('durations parse, and a bad one is a structured error, never a prompt', () => {
   assert.equal(parseArgs(['--since', '24h']).since, 86_400_000)
@@ -114,12 +119,20 @@ test('an empty rollup says where it looked', async () => {
   // Reported by a real user on Linux: an empty screen with no way to tell a
   // bug from an empty machine. The agent door has to answer it too, or the
   // person who pipes skein gets the ambiguous blank instead.
-  const { run } = await import('../src/cli.js')
-  const out = run(['ls', '--since', '1m'])
-  assert.equal(out.code, 0, 'nothing found is not an error')
-  assert.match(out.text, /0 projects/)
-  for (const agent of ['claude', 'codex', 'opencode']) assert.match(out.text, new RegExp(agent))
-  assert.match(out.text, /XDG_DATA_HOME/)
+  //
+  // A subprocess with a scrubbed HOME, not an in-process call: read against the
+  // real machine this asserted that the developer running it had done no agent
+  // work in the last minute, which is false exactly while they are working on
+  // skein. An empty machine has to be built, not hoped for.
+  const home = mkdtempSync(join(tmpdir(), 'skein-empty-'))
+  const out = spawnSync(process.execPath, [fileURLToPath(new URL('../bin/skein.js', import.meta.url)), 'ls', '--since', '1m'], {
+    encoding: 'utf8',
+    env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config'), CLAUDE_CONFIG_DIR: join(home, 'claude'), SKEIN_HOME: join(home, 'state') },
+  })
+  assert.equal(out.status, 0, 'nothing found is not an error')
+  assert.match(out.stdout, /0 projects/)
+  for (const agent of ['claude', 'codex', 'opencode']) assert.match(out.stdout, new RegExp(agent))
+  assert.match(out.stdout, /XDG_DATA_HOME/)
 })
 
 test('doctor says what was in the files, not just that they exist', async () => {
