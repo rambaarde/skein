@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.18.0](https://github.com/rambaarde/skein/compare/v0.17.1...v0.18.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** the headline is a chart per project ([6482685](https://github.com/rambaarde/skein/commit/64826854daa8bb6664043f49ac7d659ec0e66e81))
+* **tui:** the headline is a chart per project ([#50](https://github.com/rambaarde/skein/issues/50)) ([ec71eb8](https://github.com/rambaarde/skein/commit/ec71eb893bb076abc5b3e2bccfcccbbf77ae24dd))
+
 ## [0.17.1](https://github.com/rambaarde/skein/compare/v0.17.0...v0.17.1) (2026-08-22)
 
 
