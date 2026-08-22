@@ -22,6 +22,9 @@ export const WIDE_AT = 100
 export function layout(w, h, shown = null) {
   const on = n => !shown || shown.has(n)
 
+  // velocity is a whole screen on its own — a different question, not a panel.
+  if (shown?.has('velocity')) return { wide: w >= WIDE_AT, velocity: { x: 0, y: 0, w, h } }
+
   // head alone: the table gets the whole screen, which is the point of that
   // preset. No split, no leftover panes.
   if (!on('detail') && !on('feed')) return { wide: w >= WIDE_AT, head: { x: 0, y: 0, w, h } }

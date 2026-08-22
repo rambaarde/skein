@@ -19,6 +19,7 @@ import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
+import { velocity, landings, bucket } from './delivery.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -83,7 +84,7 @@ const KEYS = [
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
-  ['1-3', 'jump straight to a preset: all · watch · table'],
+  ['1-4', 'jump straight to a preset: all · watch · table · velocity'],
   ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
   ['space', 'peek at a project inline without leaving the list'],
   ['esc', 'back one level: page, then detail, then quit'],
@@ -131,8 +132,11 @@ export function render(state, size) {
   // read of a rect, because in preset 'table' there is no detail or feed at all.
   const preset = PRESETS[state.preset ?? 0] ?? PRESETS[0]
   const L = layout(w, h, preset.shown)
-  const listH = L.head.h, detailH = L.detail?.h ?? 0, feedH = L.feed?.h ?? 0
-  const listW = L.head.w, detailW = L.detail?.w ?? 0, feedW = L.feed?.w ?? 0
+  // Guard every read of a rect: in preset 'table' there is no detail or feed,
+  // and in 'velocity' there is no head either — that screen replaces the list
+  // rather than sitting beside it.
+  const listH = L.head?.h ?? 0, detailH = L.detail?.h ?? 0, feedH = L.feed?.h ?? 0
+  const listW = L.head?.w ?? w, detailW = L.detail?.w ?? 0, feedW = L.feed?.w ?? 0
 
   // Columns are chosen to fit, not assumed. btop tiles fixed boxes because it
   // knows its own metrics; a project list does not know how wide a name is or
@@ -356,6 +360,85 @@ export function render(state, size) {
     return compose(h, panes)
   }
 
+  // ---- velocity: what landed, and how long it took to land ----------------
+  //
+  // DORA, translated for ONE developer. Three quarters of DORA does not
+  // survive that translation and `src/delivery.js` says which parts and why;
+  // the short version is that mean-time-to-restore needs incidents nobody
+  // here has, and change-failure-rate becomes a rework proxy that is named a
+  // proxy on screen.
+  //
+  // The chart plots the running total of landings, so a steeper line is a
+  // faster week — which is the whole question: is it improving.
+  function velocityScreen(V) {
+    const cols = Math.max(24, V.w - 11) - 7
+    // Same split as the headline: the chart takes a share rather than the
+    // rows the table did not want.
+    const rowsV = Math.max(5, Math.min(18, Math.round((V.h - 8) * 0.6)))
+    const stats = projects.map(p => ({
+      p,
+      v: velocity(p.root, p.events ?? [], { since, now, attention: att(p) }),
+      ships: landings(p.root, { since }),
+    }))
+    // A project with no git history is not a line with nothing in it — it is
+    // a project this chart cannot speak about. It stays out of the legend
+    // rather than appearing there with a blank marker.
+    const ranked = [...stats].sort((a, b) => (b.v?.landed ?? -1) - (a.v?.landed ?? -1))
+    const lines = ranked.filter(s => s.ships).slice(0, MAX_SERIES).map((s, i) => ({
+      label: s.p.name,
+      marker: MARKERS[i],
+      color: lineHue(i),
+      value: String(s.v.landed),
+      values: cumulative(bucket(s.ships.filter(x => !x.release).map(x => x.at), cols, since, now)),
+    }))
+    const rowsOut = []
+    if (ranked.some(s => s.ships)) {
+      rowsOut.push(...chart(lines, {
+        width: Math.max(24, V.w - 11), rows: rowsV,
+        max: Math.max(1, ...lines.flatMap(s => s.values)),
+        since, now, lead: 6, pad: 7,
+        fmt: v => String(Math.round(v)),
+        caption: `landed · ${lookback}`,
+        top: ranked.findIndex(s => s.p === projects[sel]),
+      }))
+    } else {
+      rowsOut.push(` ${DIM}no git history in any of these projects${R}`)
+    }
+    rowsOut.push('')
+    const W = V.w - 2
+    const nameW = Math.max(12, Math.min(26, projects.reduce((m, p) => Math.max(m, p.name.length + 2), 10)))
+    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit('  /WEEK', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('  REWORK', 9)}${fit('  ATTENTION', 12)}${R}`)
+    const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
+    for (const { p, v } of ranked.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
+      const on = p === projects[sel]
+      // A project with no git history says so. "0 landed" would be a claim
+      // about your week rather than about what skein can see.
+      const cells = v
+        ? `${LUT.activity[Math.round((v.landed / topLanded) * 100)]}${String(v.landed).padStart(7)}${R}  ` +
+          `${fit(v.perWeek.toFixed(1).padStart(6), 8)}` +
+          `${fit((v.lead === null ? '—' : humanMs(v.lead)).padStart(6), 8)}` +
+          `${fit((v.perShip === null ? '—' : humanMs(v.perShip)).padStart(9), 12)}` +
+          `${v.rework === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.heat[Math.round(v.rework * 100)]}${`${Math.round(v.rework * 100)}%`.padStart(7)}${R}`}  ` +
+          `${fit(humanMs(att(p)).padStart(9), 12)}`
+        : `${DIM}${'no git history'.padStart(7)}${R}`
+      const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
+      hit.rows.push({ y: V.y + 1 + rowsOut.length, index: projects.indexOf(p) })
+      const plainRow = row.replace(/\x1b\[[0-9;]*m/g, '')
+      rowsOut.push(on
+        ? `${THEME.selBg}${THEME.selFg}${plainRow}${' '.repeat(Math.max(0, W - width(plainRow)))}${R}`
+        : row)
+    }
+    const anyGit = stats.filter(s => s.v).length
+    return compose(h, [{ rect: V, lines: pane(V, {
+      title: 'velocity', key: SUP[3], line: THEME.boxHead,
+      right: `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`,
+      // Naming what is NOT here is half the point: two of DORA's four cannot
+      // be computed from a laptop, and a tool that quietly shows two and calls
+      // it DORA is lying by omission.
+      state: `${DIM}${anyGit} of ${projects.length} in git · landed = trunk commits, releases excluded · rework is a proxy for change-failure · no MTTR without incidents${R}`,
+      rows: rowsOut,
+    }) }])
+  }
   const plan = (() => {
     // The name column is sized to the longest NAME, not to whatever is left
     // over. Giving it the slack put nine characters of nothing in every row and
@@ -419,6 +502,8 @@ export function render(state, size) {
     const target = projects.find(x => (x.root ?? x.name) === state.page)
     if (target) return projectPage(target)
   }
+  // Same reason, same place: velocityScreen reads clock and pulse.
+  if (L.velocity) return velocityScreen(L.velocity)
 
   // Fitted to the budget rather than switched at two breakpoints, and the two
   // escape hatches are PINNED. Adding one control used to push '? keys' off the

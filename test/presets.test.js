@@ -41,5 +41,13 @@ test('a preset drops boxes, and the survivors take the space', () => {
   assert.equal(table.feed, undefined)
   assert.equal(table.head.h, 32, 'the table gets the whole screen')
 
-  assert.equal(PRESETS.length, 3)
+  // velocity is a whole screen on its own: a different question, not a panel
+  // of the dashboard, so it drops every other box rather than sharing.
+  const vel = layout(120, 32, apply(parse(DEFAULT_PRESETS).presets[3]).shown)
+  assert.equal(vel.head, undefined, 'the project list is gone, not shrunk')
+  assert.equal(vel.detail, undefined)
+  assert.equal(vel.feed, undefined)
+  assert.equal(vel.velocity.h, 32, 'velocity gets the whole screen')
+
+  assert.equal(PRESETS.length, 4)
 })
