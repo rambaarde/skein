@@ -30,7 +30,11 @@ export function gitRoot(path) {
   return null
 }
 
-export const projectName = root => (root ? basename(root) : 'loose')
+// "loose" was internal shorthand from the thesis and it leaked onto the screen,
+// where it reads as a project the user does not have. Say what it is instead:
+// work that is not inside any git repository.
+export const NO_REPO = 'not in a repo'
+export const projectName = root => (root ? basename(root) : NO_REPO)
 
 // Group events by project. `loose` is a real bucket, never a silent discard.
 export function byProject(events) {

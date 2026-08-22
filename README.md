@@ -74,13 +74,13 @@ uninstalled the first time it is wrong.
 │ 0                                                                                            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿      ⢸⣿             │
 │ EDITS/MIN · 15m   now 0.4   2 sessions active   claude ■■···· 0.4                                                                        │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│ PROJECT      DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST             │
-│ ▸ atlas-api  Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣝⣉⣏⣉⣙⣉⣹⣝⣋⣛⣏⣛⣫⣛    1%     8s             │
-│ ▸ atlas-web  —                              claude+codex         5     61    2h09 ■■······     1 ⣍⣙⣉⣹⣍⣏⣫⣩⣫⣉⣭⣝⣉⣍    1%     4m             │
-│ ▸ checkout   —                              claude               3     29     52m ■·······     · ⣦⣼⡆⣦⣤⣄⣦⣦⣠⣠⣠⣴⣤⣾    0%    22m             │
-│ ▸ notify-svc —                              codex+opencode       2     18     28m ■·······     · ⣈⡃⡇⡈⣉⡀⠛⣃⣛⣨⢀⠀⠈⣟    0%     2h             │
-│ ▸ docs-site  —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⢠⢸⢰⢰⣴⢰⢠⢰⣤⢸    0%     9h             │
-│ ▸ loose      —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣈⣀⡁⡉⡛⢘⢙⣍⣝⣌⣯⡇    0%     1d             │
+│ PROJECT         DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST          │
+│ ▸ atlas-api     Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣝⣉⣏⣉⣙⣉⣹⣝⣋⣛⣏⣛⣫⣛    1%     8s          │
+│ ▸ atlas-web     —                              claude+codex         5     61    2h09 ■■······     1 ⣍⣙⣉⣹⣍⣏⣫⣩⣫⣉⣭⣝⣉⣍    1%     4m          │
+│ ▸ checkout      —                              claude               3     29     52m ■·······     · ⣦⣼⡆⣦⣤⣄⣦⣦⣠⣠⣠⣴⣤⣾    0%    22m          │
+│ ▸ notify-svc    —                              codex+opencode       2     18     28m ■·······     · ⣈⡃⡇⡈⣉⡀⠛⣃⣛⣨⢀⠀⠈⣟    0%     2h          │
+│ ▸ docs-site     —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⢠⢸⢰⢰⣴⢰⢠⢰⣤⢸    0%     9h          │
+│ ▸ not in a repo —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣈⣀⡁⡉⡛⢘⢙⣍⣝⣌⣯⡇    0%     1d          │
 ╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────────────────────────╯
 ╭─ atlas-api — what an agent is told here² ───────────────╮╭─ activity³ ──────────────────────────────────────────────────── newest first ─╮
 │ 3 other agents active in this repo                      ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
@@ -111,6 +111,9 @@ identical to btop's, character for character.
 `↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
 `a` window · `c` collisions only · `?` all keys · `q` quit
 
+**The mouse works**: click a row to select it, click it again to expand, and
+scroll the wheel to move through projects.
+
 It redraws every two seconds while work is landing, and backs off to sixteen
 when nothing changes — **0.11% of one core idle**, measured over thirty seconds.
 The pulse in the border slows with it, so a lazy pulse means a quiet machine
@@ -123,10 +126,8 @@ skein themes                    # every .theme skein can find
 skein --theme tokyo-night
 ```
 
-```sh
-skein --opaque              # solid black, btop's look
-skein --opaque '#1a1b26'    # or any colour
-```
+The background is **solid black by default**, like btop. `--transparent`
+inherits your terminal instead, and `--opaque '#1a1b26'` sets any colour.
 
 skein reads **btop's own `.theme` files** and looks in btop's own directories,
 so a palette you already use in btop works here with no porting — 36 of them

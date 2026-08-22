@@ -72,9 +72,16 @@ export function parseTheme(text) {
 // The terminal's own colours, which is the default and the fallback for any key
 // a theme leaves out. main_bg empty means transparent — btop's convention, and
 // the reason skein never paints a surface it was not asked to paint.
+// btop paints a background out of the box — every theme it ships sets main_bg,
+// and that solid field is most of why it reads as one program rather than text
+// over a wallpaper. skein inherited the terminal by default and looked like the
+// latter through a translucent one, so the default is now opaque and
+// --transparent is the way back.
+const DEFAULT_BG = '\x1b[48;2;0;0;0m'
+
 const INHERIT = {
   fg: '', dim: DIM, title: BOLD, hi: '', inactive: DIM,
-  selBg: REV, selFg: '', box: DIM, surface: '',
+  selBg: REV, selFg: '', box: DIM, surface: DEFAULT_BG,
   activity: gradient('#4a5a8a', '#49b7a0', '#e8d17a'),
   heat: gradient('#3b6ea5', '#d99a3a', '#d1495b'),
   agent: {
@@ -101,8 +108,9 @@ export function buildTheme(nameOrPath) {
     title: (fg(t.title) ?? '') + BOLD,
     hi: fg(t.hi_fg) ?? INHERIT.hi,
     inactive: fg(t.inactive_fg) ?? INHERIT.inactive,
-    // An empty main_bg is btop saying "inherit the terminal". Honour it.
-    surface: t.main_bg ? (bg(t.main_bg) ?? '') : '',
+    // An empty main_bg is btop saying "inherit the terminal". Honour it — an
+    // explicit choice in a theme file outranks our default.
+    surface: t.main_bg ? (bg(t.main_bg) ?? DEFAULT_BG) : '',
     selBg: bg(t.selected_bg) ?? REV,
     selFg: fg(t.selected_fg) ?? '',
     box: fg(t.proc_box ?? t.cpu_box ?? t.div_line) ?? INHERIT.box,
@@ -143,6 +151,8 @@ export const paint = line => {
 
 // An explicit solid background, for when you want btop's look without adopting
 // one of its palettes.
+export const setTransparent = () => { THEME.surface = '' }
+
 export const setOpaque = (hex = '#000000') => {
   const m = /^#?([0-9a-f]{6})$/i.exec(hex)
   if (!m) return false

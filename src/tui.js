@@ -6,11 +6,12 @@
 // and leave its box-grid layout behind.
 import { collect } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
-import { byProject, gitRoot, projectName } from './project.js'
+import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
+import * as mouse from './mouse.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from './live.js'
@@ -273,6 +274,11 @@ export function render(state, size) {
   headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
   const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
 
+  // Hit map: filled while drawing, because the layout decides row positions at
+  // render time and recomputing them in the input handler is how the two drift.
+  const hit = state.hit ?? (state.hit = mouse.hits())
+  hit.rows.length = 0
+  hit.tags.length = 0
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
   const offset = projects.indexOf(view[0] ?? projects[0])
   for (let i = 0; i < view.length && i < listH - 2; i++) {
@@ -295,7 +301,10 @@ export function render(state, size) {
     const open = expanded.has(p.root ?? 'loose')
     const marker = open ? '▾' : '▸'
     const mine = colls.filter(c => c.project === p.root).length
-    const m = metaOf(p)
+    // The no-repo bucket is unrelated work sharing a row. Showing it one
+    // branch and one task title — picked from whichever session happened to be
+    // first — states something untrue about every other session in it.
+    const m = p.root ? metaOf(p) : { branch: null, doing: null }
     const line = cells({
       name: `${marker} ${p.name}`,
       branch: m.branch ?? `${DIM}—${R}`,
@@ -315,6 +324,8 @@ export function render(state, size) {
     // Selection reverses fg/bg on a plain line. Interleaving REV with 24-bit
     // colour leaves gaps wherever a reset lands, so the row drops its hues for
     // the one frame it is selected -- readable on any theme by definition.
+    // +1 for the box's own top border; headRows are drawn one row in.
+    hit.rows.push({ y: L.head.y + 1 + headRows.length, index: idx })
     const plain = line.replace(/\x1b\[[0-9;]*m/g, '')
     const sel_ = `${THEME.selBg}${THEME.selFg}`
     headRows.push(on ? `${sel_}${plain}${' '.repeat(Math.max(0, listW - 2 - width(plain)))}${R}` : line)
@@ -384,7 +395,9 @@ export function render(state, size) {
     }
   }
   const detailPane = pane(L.detail, {
-    title: p ? `${p.name} — what an agent is told here` : 'no project',
+    title: p
+      ? (p.root ? `${p.name} — what an agent is told here` : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
+      : 'no project',
     key: SUP[1], state: detailState, rows: detailRows_,
   })
 
@@ -478,7 +491,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
 
   const quit = () => {
     clearTimeout(pollTimer); clearInterval(paintTimer)
-    stdout.write(SHOW + UNALT)
+    stdout.write(mouse.OFF + SHOW + UNALT)
     if (stdin.isTTY) stdin.setRawMode(false)
     stdin.pause()
     process.exit(0)
@@ -523,7 +536,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   const onPaint = () => { tick++; draw() }
   const wake = () => { idleTicks = 0; pollMs = POLL_FAST; schedule() }
 
-  stdout.write(ALT + HIDE)
+  stdout.write(ALT + HIDE + mouse.ON)
   if (stdin.isTTY) stdin.setRawMode(true)
   stdin.resume()
   stdin.setEncoding('utf8')
@@ -536,6 +549,29 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
 
   stdin.on('data', k => {
     wake()
+
+    // Mouse first: a click arrives as an escape sequence and would otherwise
+    // be read as a burst of keystrokes.
+    const ev = mouse.parseMouse(k)
+    if (ev) {
+      if (ev.kind === 'wheel') {
+        sel = Math.max(0, Math.min(state.projects.length - 1, sel + ev.dir))
+      } else {
+        const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
+        if (row !== null) {
+          // Clicking the row you are on expands it, the way a file tree does.
+          if (row === sel) {
+            const p = state.projects[sel]
+            if (p) {
+              const id = p.root ?? 'loose'
+              expanded.has(id) ? expanded.delete(id) : expanded.add(id)
+            }
+          } else sel = row
+        }
+      }
+      draw()
+      return
+    }
 
     // While filtering, almost every key is text. Only escape and enter are not.
     if (typing) {
