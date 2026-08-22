@@ -29,12 +29,16 @@ Sleep 400ms
 Enter
 Sleep 4s
 
-# 1 all — attention per project, the table, the live feed. Moving the cursor
-# lights that project's line and fades the rest; nothing moves.
+# 1 all — attention per project, the table, the live feed.
+#
+# Moving the cursor lights that project's line on the chart and fades the rest,
+# and swaps the info pane's LIVE graph to the project now under it. Hold long
+# enough on each for that pane to redraw: it is a rolling window, so it slides
+# on its own even when nothing is happening.
 Down@700ms 2
-Sleep 2000ms
+Sleep 3200ms
 Up@700ms 2
-Sleep 1200ms
+Sleep 3200ms
 
 # The detail pane: what an agent is told, the files, then the TOOL CALLS
 # behind them -- a session is mostly reads, and the edits are the residue.

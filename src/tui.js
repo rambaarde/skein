@@ -1030,7 +1030,12 @@ export function render(state, size) {
     const span = pickWindow(mine, { now })
     const gwLive = Math.max(16, detailW - 9)
     const live = rateSeries(mine, gwLive * 2, { now, windowMs: span.windowMs })
-    const peak = Math.max(0.5, ...live)
+    // The floor is small on purpose. At 0.5 a project ticking over at a tenth
+    // of an edit a minute drew a flat line along the bottom row whatever its
+    // shape was -- the same defect the velocity scale had, in a different
+    // widget. The axis labels follow the peak, so a low one is stated rather
+    // than hidden.
+    const peak = Math.max(0.05, ...live)
     // Room for the graph, the strip, a rule, and whatever the hook line needs
     // underneath. Below the floor it is dropped rather than drawn one row tall.
     const perAgent = byAgent(mine, { now, windowMs: span.windowMs }).slice(0, 3)
@@ -1042,7 +1047,7 @@ export function render(state, size) {
       const rows = graph(live.map(v => v / peak), { width: gwLive, rows: gRows, tier, lut: LUT.activity })
       rows.forEach((line, i) => {
         const v = (peak * (rows.length - i)) / rows.length
-        const label = i === rows.length - 1 ? '0' : v >= 10 ? String(Math.round(v)) : v.toFixed(1)
+        const label = i === rows.length - 1 ? '0' : v >= 10 ? String(Math.round(v)) : v.toFixed(peak < 1 ? 2 : 1)
         detailRows_.push(` ${DIM}${fit(label, 5)}${R}${DIM}┤${R}${line}${R}`)
       })
       const rate = ratePerMin(mine, { now })
