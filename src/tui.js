@@ -9,7 +9,7 @@ import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, lineHue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
-import { box, tag, TAG_SEP, fit, width } from './box.js'
+import { box, tag, TAG_SEP, fit, width, clip } from './box.js'
 import { layout, compose } from './layout.js'
 import { PRESETS, NAMES } from './presets.js'
 import { TABS, TAB_TITLES, sessionsTab, filesTab, toolsTab, collisionsTab } from './tabs.js'
@@ -336,13 +336,21 @@ export function render(state, size) {
           // The page said 'esc back' and did nothing when clicked — the same
           // inert-label problem as the preset. There is no keyboard-free way
           // out of a full screen otherwise.
+          //
+          // And the stats line grew: it carries landed, lead, rework and the
+          // tool count now, and on a narrow page it pushed the controls clean
+          // off the border. So the stats YIELD to the controls rather than the
+          // other way round — a number you cannot read is a nuisance, a way
+          // out you cannot see is a trap.
           const parts = [
             { key: '\x1b', label: 'back', glyph: 'esc' },
             { key: '\t', label: 'panes', glyph: 'tab' },
             { key: 'q', label: 'quit', glyph: 'q' },
           ]
+          const need = parts.reduce((n, c) => n + width(tag(c.glyph, c.label)) + width(TAG_SEP), 0)
+          const shown = width(stats) + need + 5 <= w ? stats : clip(stats, Math.max(0, w - need - 5))
           const y = rects.head.y + rects.head.h - 1
-          let at = 3 + width(stats) + 2
+          let at = 3 + width(shown) + 2
           const out = []
           for (const c of parts) {
             const s = tag(c.glyph, c.label)
@@ -351,7 +359,7 @@ export function render(state, size) {
             at += len + width(TAG_SEP)
             out.push(s)
           }
-          return `${stats}  ${out.join(TAG_SEP)}`
+          return `${shown}  ${out.join(TAG_SEP)}`
         })(),
         rows,
       }) },

@@ -86,8 +86,11 @@ for (const [pi, p] of PROJECTS.entries()) {
   const n = Math.max(3, 22 - pi * 4)
   for (let i = 0; i < n; i++) {
     // Spread back over the month, newest last, with a little jitter so the
-    // lead times are not all identical.
-    const at = NOW - ((n - i) / n) * 26 * DAY + Math.floor(rnd() * 6 * HOUR) - 2 * HOUR
+    // lead times are not all identical. The last one lands within the hour:
+    // a repo whose newest commit is a day old reports nothing at all in the
+    // default 24h window, which is a poor thing to look at and a worse thing
+    // to test velocity against.
+    const at = NOW - ((n - 1 - i) / Math.max(1, n - 1)) * 26 * DAY - Math.floor(rnd() * 5 * HOUR) - 20 * MIN
     gitAt(dir, at, ['commit', '-q', '--allow-empty', '-m', SUBJECTS[(i + pi) % SUBJECTS.length]])
   }
 }
@@ -207,10 +210,14 @@ for (const p of PROJECTS.slice(0, 3)) {
   const j = (p, o) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(o, null, 1)) }
   j(join(store, 'project', `${pid}.json`), { id: pid, worktree: root, vcs: 'git' })
   j(join(store, 'session', `${sid}.json`), { id: sid, projectID: pid })
-  for (let i = 0; i < 9; i++) {
+  // Edits AND everything else. opencode writes one part per tool call and
+  // names it outright, so a fixture that emits only edits makes the session
+  // report 0% read -- which is not what any session has ever looked like.
+  const PARTS = ['edit', 'read', 'read', 'read', 'grep', 'bash', 'read', 'edit', 'glob', 'read', 'bash', 'write', 'read', 'grep']
+  for (const [i, tool] of PARTS.entries()) {
     j(join(store, 'part', `msg_${i}`, `prt_${i}.json`), {
-      id: `prt_${i}`, sessionID: sid, type: 'tool', tool: 'edit',
-      state: { status: 'completed', input: { filePath: join(root, pick(PROJECTS[3].files)) }, time: { start: NOW - (i + 1) * 47 * MIN } },
+      id: `prt_${i}`, sessionID: sid, type: 'tool', tool,
+      state: { status: 'completed', input: { filePath: join(root, pick(PROJECTS[3].files)) }, time: { start: NOW - (i + 1) * 31 * MIN } },
     })
   }
 }
