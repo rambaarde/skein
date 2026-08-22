@@ -999,3 +999,43 @@ test('the project page ranks the tools, and drops the control that did nothing',
   assert.match(page, /esc back/, 'and the ones that work are still there')
   assert.match(page, /q quit/)
 })
+
+test('the info pane is a live rolling graph, and it slides with now', async () => {
+  // The headline chart is a running total over the lookback: it answers "where
+  // did the day go" and is deliberately smooth and slow. Nothing answered "is
+  // THIS repo moving right now" — btop keeps both for the same reason, a big
+  // historical cpu box and a small live net box.
+  //
+  // A rolling window slides left every tick whether or not anything happened,
+  // which is why btop's net graph reads as alive at zero. That is the whole
+  // trick and it is the thing worth asserting.
+  const { render } = await import('../src/tui.js')
+  const t0 = 1_700_000_000_000
+  const events = Array.from({ length: 40 }, (_, i) => ({
+    at: t0 - i * 45_000, agent: 'claude', session: 's', path: `/w/a/f${i % 5}.ts`, project: '/w/a',
+  }))
+  const p = { name: 'a', root: '/w/a', sessions: 1, files: 5, agents: ['claude'], last: t0, events }
+  const frame = now => render({
+    projects: [p], events, sessions: new Map([['s', { agent: 'claude', cwd: '/w/a', seen: now }]]),
+    sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 44 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+
+  const a = frame(t0)
+  const i = a.findIndex(l => l.includes('info  sessions'))
+  assert.ok(i > 0, 'the info tab is on screen')
+  const pane = a.slice(i, i + 14).join('\n')
+
+  assert.match(pane, /EDITS\/MIN/, 'the strip states the rate and the span it covers')
+  assert.match(pane, /claude/, 'and a per-agent row, which is btop per-core line')
+  assert.ok([...pane].some(c => c >= '⠀' && c <= '⣿'), 'the graph is drawn')
+  // The product still has the last word: the pane exists to show the line an
+  // agent starting here would be handed.
+  assert.match(a.slice(i, i + 20).join('\n'), /nobody else is in this repo|other agent/)
+
+  // Two minutes later the same data must draw differently, because the window
+  // moved even though nothing happened in it.
+  const b = frame(t0 + 120_000).slice(i, i + 10).join('\n')
+  assert.notEqual(pane.slice(0, b.length), b, 'the series slides with now')
+})
