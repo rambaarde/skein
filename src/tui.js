@@ -12,6 +12,7 @@ import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import { PRESETS, NAMES } from './presets.js'
+import { TABS, TAB_TITLES, sessionsTab, filesTab, collisionsTab } from './tabs.js'
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
@@ -82,6 +83,7 @@ const KEYS = [
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
   ['1-3', 'jump straight to a preset: all · watch · table'],
+  ['tab', 'switch the detail pane: info · sessions · files · collisions'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
   ['?  h', 'this'],
@@ -397,6 +399,7 @@ export function render(state, size) {
   hit.rows.length = 0
   hit.tags.length = 0
   hit.feed.length = 0
+  hit.tabs.length = 0
   // Scroll a window of exactly tableBudget rows, keeping the selection inside
   // it. The old slice was sized off listH and so ignored the strip entirely,
   // which is how the graph came to be squeezed out by a long project list.
@@ -523,7 +526,28 @@ export function render(state, size) {
     }
     detailRows_.push('')
     detailRows_.push(` ${DIM}esc or click a project row to go back${R}`)
-  } else if (p) {
+  } else if (p && L.detail) {
+    // The tab bar, agtop-style: one pane, several questions, switched rather
+    // than tiled. The active tab is bright and underscored; the rest are dim.
+    const tabI = Math.min(state.tab ?? 0, TABS.length - 1)
+    let tx = 1
+    const bar = TABS.map((name, i) => {
+      hit.tabs.push({ y: L.detail.y + 1, x0: L.detail.x + tx, x1: L.detail.x + tx + name.length, index: i })
+      tx += name.length + 2
+      return i === tabI ? `${BOLD}${THEME.hi}${name}${R}` : `${DIM}${name}${R}`
+    }).join('  ')
+    detailRows_.push(` ${bar}`)
+    detailRows_.push(` ${DIM}${TABS.map((n, i) => (i === tabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`)
+
+    const ctx = { state, now, detailW, detailH: detailH - 2, collsHere, lookback,
+      F: { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling } }
+
+    if (tabI === 1) detailRows_.push(...sessionsTab(p, ctx))
+    else if (tabI === 2) detailRows_.push(...filesTab(p, ctx))
+    else if (tabI === 3) detailRows_.push(...collisionsTab(p, ctx))
+    else infoTab()
+
+    function infoTab() {
     // Thesis §5: the defensible claim is not the chart, it is that an agent can
     // read this. So the pane shows the exact line an agent starting in this
     // repository would be handed — the product, rather than a description of it.
@@ -550,21 +574,30 @@ export function render(state, size) {
     }
 
     if (collsHere.length) {
+      // A blank, a header, and at least one row. Anything less prints a
+      // COLLISIONS heading with nothing under it, which reads as "the list is
+      // empty" — the opposite of what a collision means.
       const room = Math.max(0, detailH - 3 - detailRows_.length)
-      if (room > 0) {
+      if (room >= 3) {
         detailRows_.push('')
         detailRows_.push(` ${DIM}${fit('COLLISIONS', 12)}${R}`)
-        for (const c of collsHere.slice(0, room - 1)) {
+        for (const c of collsHere.slice(0, room - 2)) {
           detailRows_.push(` ${LUT.heat[90]}·${R} ${fit(short(c.path, c.project), Math.max(8, detailW - 30))}${DIM}${fit(`${c.gapMin}m apart`, 11)}${ago(c.at, now).padStart(5)}${R}`)
         }
       }
+    }
     }
   }
   const detailPane = L.detail && pane(L.detail, {
     title: focus
       ? `${projectName(focus.project ?? gitRoot(focus.path))} — ${short(focus.path, focus.project ?? gitRoot(focus.path)).split('/').pop()}`
       : p
-        ? (p.root ? `${p.name} — what an agent is told here` : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
+        // The title names the TAB, not just the project — "what an agent is
+        // told here" describes the info tab only, and was still claiming that
+        // while the files list was on screen.
+        ? (p.root
+            ? `${p.name} — ${TAB_TITLES[Math.min(state.tab ?? 0, TABS.length - 1)]}`
+            : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
         : 'no project',
     key: SUP[1], state: detailState, rows: detailRows_,
   })
@@ -624,7 +657,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
-  let preset = 0
+  let preset = 0, tab = 0
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -643,7 +676,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset,
+      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -728,6 +761,8 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
       if (ev.kind === 'wheel') {
         sel = Math.max(0, Math.min(state.projects.length - 1, sel + ev.dir))
       } else {
+        const tabHit = mouse.hitTab(state.hit ?? {}, ev.x, ev.y)
+        if (tabHit !== null) { tab = tabHit; draw(); return }
         const ftarget = mouse.hitFeed(state.hit ?? {}, ev.y)
         if (ftarget) { focus = ftarget; draw(); return }
         const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
@@ -780,6 +815,10 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     else if (k === 'w') { windowMin = windowMin === 30 ? 60 : windowMin === 60 ? 10 : 30; reload() }
     // btop: p and P step through presets, and each is numbered. A digit jumps
     // straight to one, which is how you actually use them once you know them.
+    // Tab switches the detail pane's view, which is the key agtop uses for the
+    // same job. Shift-Tab steps back.
+    else if (k === '\t') tab = (tab + 1) % TABS.length
+    else if (k === '\x1b[Z') tab = (tab - 1 + TABS.length) % TABS.length
     else if (k === 'p') preset = (preset + 1) % PRESETS.length
     else if (k === 'P') preset = (preset - 1 + PRESETS.length) % PRESETS.length
     else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) preset = Number(k) - 1

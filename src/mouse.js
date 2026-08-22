@@ -29,7 +29,15 @@ export function parseMouse(seq) {
 // the layout decides row positions at render time and guessing them again in
 // the input handler is how the two drift apart.
 export function hits() {
-  return { rows: [], tags: [], feed: [] }
+  return { rows: [], tags: [], feed: [], tabs: [] }
+}
+
+// Tabs are the first thing in this file that needs the COLUMN as well as the
+// row: they sit side by side on one line, so a y-only lookup cannot tell them
+// apart. x1 is exclusive.
+export function hitTab(map, x, y) {
+  const t = map.tabs?.find(t => t.y === y && x >= t.x0 && x < t.x1)
+  return t ? t.index : null
 }
 
 export function hitFeed(map, y) {
