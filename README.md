@@ -66,30 +66,32 @@ uninstalled the first time it is wrong.
 ## The dashboard, which is the other half
 
 ```
-╭─ skein¹ ──────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
-│ PROJECT      AGENTS            SESS  FILES  EDITS    SHARE  COLL ACTIVITY (30d)          LAST│
-│ ▸ atlas-api  claude+codex         8     75    314 ■■■·····     2 ⣴⣦⣶⣇⣴⣤⣴⣤⣦⣶⣆⣾⣤⣶⣴⣧⣴⣦⣾⣤⣶     8s│
-│ ▸ atlas-web  claude+codex         5     61    249 ■■······     1 ⣴⣦⣴⣦⣴⣴⣶⣼⣦⣦⣧⣾⣴⣾⣤⣦⣾⣦⣶⣤⣤     4m│
-│ ▸ checkout   claude               3     29     97 ■·······     · ⣴⣶⢰⡆⢰⣤⣦⣤⡄⣴⣶⣶⢠⣦⡆⣤⣤⣶⣴⣴⣾    22m│
-│ ▸ notify-svc codex+opencode       2     18     55 ■·······     · ⢰⣦⡆⡇⢰⡄⣶⡄⡄⡆⣦⣦⣶⣷⣶ ⡄ ⢠⢰⣾     2h│
-│ ▸ docs-site  claude               2     12     32 ········     · ⢠⢠⣤⡄⡆⡄⢠ ⡇⢰⡄⢰⢠⡆⣤⢠ ⡆⣤ ⣶     9h│
-│ ▸ loose      claude+codex         7     40     89 ■·······     · ⣰⣤⣠⣠⣄⣀⡄⢀⡄⣠⡄⢰⣀⣶⣠⣶⣤⣆⣴ ⡇     1d│
-╰─ 6 projects · 3 collisions · 30d · by recent ────────────────────────────────────────────────╯
-╭─ atlas-api² ─────────────────────────────────────────────────────────────────────────────────╮
-│ claude    main             Rotate the session expiry hea…         ⢰ ⣤⡇⣤ ⣴⣤ ⣤⢠⣶⣴⣶⢰⡆⣴⡇⣴⢰⣶    8s│
-│ codex     feat/rate-limit  Add rate limiting to /auth             ⠻⠛⠃⠃⠃⠃⠛⠛⠃⠛⠃⠟ ⠟⠘⠃⠘⠃⢸ ⠛   19m│
-│ codex     feat/rate-limit  —                                                          ⢸   20m│
-│ COLLISIONS                                                                                   │
-│ · src/auth/session.ts                       claude/codex           20m apart, 40m ago        │
-│ · src/mod47.ts                              codex/codex            10m apart, 9d ago         │
-╰─ ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ───────────────────────────────╯
-╭─ activity³ ──────────────────────────────────────────────────────────────────────────────────╮
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-╰─ 0 edits in 30d ─────────────────────────────────────────────────────────────────────────────╯
+╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
+│ PROJECT      AGENTS            SESS  FILES  EDITS    SHARE  COLL ACTIVITY (30d)                                  LAST│
+│ ▸ atlas-api  claude+codex         8     75    314 ■■■·····     2 ⢠⡇⣴⢠⡆⣸⢠⡇⣰⢠⡄⣤ ⡆⣴⢠⡆⣤⢀⡆⢸⢠⡄⣼⢠⡇⣴⢠⡆⣤⢠⡆⣼⢠⡄⣴⢠⡇⣴⢰⡇⣴⢠⡇⣤     8s│
+│ ▸ atlas-web  claude+codex         5     61    249 ■■······     1 ⢠⡇⣴⢠⡄⣶⢠⡄⣦⢰⡄⣼⢠⡆⣶⢠⡇⣤⢠⡇⢰⢠⡇⣴⢠⡇⣴⢠⡆⣴⢠⡄⣼⢰⡄⣾⢠⡆⣼⢠⡆⢠⢰⡄⣤     4m│
+│ ▸ checkout   claude               3     29     97 ■·······     · ⢠⡆⢰⢰ ⣴⢠⡆ ⢠⡆⢠⢠⡆⣤⢠⡄⢠ ⡄⣴ ⡆⣶ ⡆⢠⢠⡆⡄⢠⡄⢠ ⡄⣤⢠⡆⣦⢠⡄⢰⢠⡆⣼    22m│
+│ ▸ notify-svc codex+opencode       2     18     55 ■·······     ·  ⡆⢰⢠⡆ ⢠⡆  ⡆⡄ ⡆⣤⢠ ⢠ ⡆ ⢠⡄⣴ ⡄⣴ ⡇⢰⢰⡆  ⡄     ⡄⢰ ⡆⢸     2h│
+│ ▸ docs-site  claude               2     12     32 ········     ·  ⡄  ⡆⢠ ⡄⢰  ⡄  ⢠  ⢸  ⢰ ⡄  ⡆⢠⢠⡄ ⢠⡄  ⡄  ⡆⢠ ⡄  ⡆⡆     9h│
+│ ▸ loose      claude+codex         7     40     89 ■·······     · ⢀⡆⣀⢀⡀⣠ ⡀⣤ ⡀⡀⢀⡄  ⡀⢠  ⣤ ⡄ ⢀⡄⣀⢀⡆⣤⢀⡄⣠⢠⡄⣠⢠⡄⣠⢠⡆  ⡇      1d│
+│                                                                                                                      │
+╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────╯
+╭─ atlas-api² ───────────────────────────────────╮╭─ activity³ ───────────────────────────────────────── newest first ─╮
+│ claude    main             Rotate the session …││                                                                    │
+│ codex     feat/rate-limit  Add rate limiting t…││                                                                    │
+│ codex     feat/rate-limit  —                  …││                                                                    │
+│ claude    main             —                  …││                                                                    │
+│ codex     —                —                  …││                                                                    │
+│ claude    —                Backfill the audit …││                                                                    │
+│ claude    —                —                  …││                                                                    │
+│ codex     —                —                  …││                                                                    │
+│ COLLISIONS                                     ││                                                                    │
+│ · src/auth/session.ts                         …││                                                                    │
+│ · src/mod47.ts                                …││                                                                    │
+│                                                ││                                                                    │
+│                                                ││                                                                    │
+│                                                ││                                                                    │
+╰─ 8 sessions · 2 collisions ────────────────────╯╰─ 0 edits in 30d ───────────────────────────────────────────────────╯
 ```
 
 <p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>

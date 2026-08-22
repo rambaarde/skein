@@ -328,9 +328,49 @@ test('share is drawn as a meter, and collisions get their own column', async () 
   const plain = render({
     events: [], projects: [big, small], sessions: new Map(), sel: 0, expanded: new Set(), colls,
     tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
-  }, { cols: 120, rows: 12 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+  }, { cols: 120, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
   const bigRow = plain.find(l => l.includes('big')), smallRow = plain.find(l => l.includes('small'))
+  assert.ok(bigRow && smallRow, 'both projects should be on screen at 26 rows')
   const filled = s => (s.match(/■/g) ?? []).length
   assert.ok(filled(bigRow) > filled(smallRow), 'the busier project needs a longer bar')
   assert.match(plain[1], /COLL/, 'collisions should have a column of their own')
+})
+
+test('two panes side by side stay exactly aligned', async () => {
+  // The whole risk of a 2D layout: if either pane yields a line of the wrong
+  // width, every row below drifts one character further out. Assert the
+  // invariant directly rather than trusting it.
+  const { render } = await import('../src/tui.js')
+  const { layout } = await import('../src/layout.js')
+  const now = Date.now()
+  const events = Array.from({ length: 30 }, (_, i) => ({ session: `s${i % 3}`, at: now - i * 60_000, agent: 'claude', path: `/r/f${i}.ts`, project: '/r' }))
+  const projects = Array.from({ length: 6 }, (_, i) => ({ name: `project-${i}`, root: `/r${i}`, agents: ['claude'], sessions: 2, files: 9, events, last: now - i * 90_000 }))
+  const state = { events, projects, sessions: new Map(), sel: 1, expanded: new Set(), colls: [],
+                  tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0 }
+  for (const cols of [100, 120, 160, 200]) {
+    const L = layout(cols, 26)
+    assert.equal(L.wide, true, `${cols} columns should use the two-column layout`)
+    const lines = render(state, { cols, rows: 26 }).split('\n')
+    assert.equal(lines.length, 26)
+    for (const [i, l] of lines.entries()) {
+      const plain = l.replace(/\x1b\[[0-9;]*m/g, '')
+      assert.equal([...plain].length, cols, `row ${i} at ${cols} cols`)
+    }
+    // the seam between the two panes must be a border on every lower row
+    const seam = L.detail.w
+    for (let y = L.detail.y; y < 26; y++) {
+      const plain = lines[y].replace(/\x1b\[[0-9;]*m/g, '')
+      assert.match([...plain][seam] ?? '', /[│╭╮╰╯]/, `no seam at row ${y}, col ${seam}`)
+    }
+  }
+})
+
+test('a narrow terminal falls back to one column', async () => {
+  const { layout } = await import('../src/layout.js')
+  assert.equal(layout(80, 24).wide, false)
+  assert.equal(layout(99, 24).wide, false)
+  assert.equal(layout(100, 24).wide, true)
+  // stacked panes must span the full width
+  const l = layout(80, 24)
+  for (const r of [l.head, l.detail, l.feed]) assert.equal(r.w, 80)
 })
