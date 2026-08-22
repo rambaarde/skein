@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.0](https://github.com/rambaarde/skein/compare/v0.23.1...v0.24.0) (2026-08-22)
+
+
+### Features
+
+* **delivery:** a real change failure rate, measured per deployment ([5f6615a](https://github.com/rambaarde/skein/commit/5f6615a0a1d0e186dd8c9b5c6ccf2d457cae9032))
+* **delivery:** a real change failure rate, measured per deployment ([#85](https://github.com/rambaarde/skein/issues/85)) ([b47a701](https://github.com/rambaarde/skein/commit/b47a701ba5209fb932418ef42058b9a710a5d511))
+
 ## [0.23.1](https://github.com/rambaarde/skein/compare/v0.23.0...v0.23.1) (2026-08-22)
 
 
