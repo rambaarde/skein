@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.30.0](https://github.com/rambaarde/skein/compare/v0.29.0...v0.30.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** btop's menu — one word on the border, over a dimmed dashboard ([1b07dc3](https://github.com/rambaarde/skein/commit/1b07dc3a057bc41aa9017caae8e4c66fe2f798e8))
+* **tui:** btop's menu — one word on the border, over a dimmed dashboard ([#124](https://github.com/rambaarde/skein/issues/124)) ([3e0b11f](https://github.com/rambaarde/skein/commit/3e0b11f9d1f993c44b75ac469256903b2730be34))
+
 ## [0.29.0](https://github.com/rambaarde/skein/compare/v0.28.3...v0.29.0) (2026-08-22)
 
 
