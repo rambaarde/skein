@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.12.0](https://github.com/rambaarde/skein/compare/v0.11.0...v0.12.0) (2026-08-22)
+
+
+### Features
+
+* **theme:** actually paint the background, and stop printing a home directory ([#28](https://github.com/rambaarde/skein/issues/28)) ([917b98b](https://github.com/rambaarde/skein/commit/917b98bdf3e29c8402573e6ad85cc9a5697db7f1))
+
 ## [0.11.0](https://github.com/rambaarde/skein/compare/v0.10.0...v0.11.0) (2026-08-22)
 
 
