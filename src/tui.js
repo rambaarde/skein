@@ -20,7 +20,7 @@ import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
-import { velocity, landings, cfrSeries } from './delivery.js'
+import { velocity, landings, cfrSeries, bucket } from './delivery.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -403,11 +403,12 @@ export function render(state, size) {
   // DORA, translated for ONE developer. Three quarters of DORA does not
   // survive that translation and `src/delivery.js` says which parts and why;
   // the short version is that mean-time-to-restore needs incidents nobody
-  // here has, and change-failure-rate becomes a rework proxy that is named a
-  // proxy on screen.
+  // here has.
   //
-  // The chart plots the running total of landings, so a steeper line is a
-  // faster week — which is the whole question: is it improving.
+  // The big chart plots the running total of landings, so a steeper line is a
+  // faster week — which is the whole question: is it improving. Change failure
+  // rate gets its own panel beside the table, because it is a verdict on the
+  // row you are looking at rather than a comparison across all of them.
   function velocityScreen(V) {
     const cols = Math.max(24, V.w - 11) - 7
     // Same split as the headline: the chart takes a share rather than the
@@ -418,61 +419,34 @@ export function render(state, size) {
       v: velocity(p.root, p.events ?? [], { since, now, attention: att(p) }),
       ships: landings(p.root, { since }),
     }))
-    // The chart plots CHANGE FAILURE RATE, not cumulative landings.
+    // TOP CHART: cumulative landings. This screen is called velocity, and the
+    // big graph has to be the thing the screen is named after. It was replaced
+    // by change failure rate, and the result was a reader who knew one of the
+    // two numbers was on top and could not tell which.
     //
-    // Of the four numbers on this screen it is the only one that answers "is
-    // this getting better or worse", and a single percentage cannot show that.
-    // Landed and /day are already in the table and read fine as numbers; a
-    // rate needs a shape.
-    //
-    // A project with fewer than two deployments is not a flat line at zero —
-    // it is a project this chart cannot speak about, and it stays out of the
-    // legend rather than appearing there claiming a perfect record.
-    // Ranked for the CHART only. The table keeps the order the rest of the
-    // app is in, because that is the order the arrow keys move through.
-    //
-    // Sorting the table by failure rate here introduced a second, invisible
-    // ordering: the cursor moved one step through `projects` and the highlight
-    // appeared to jump two rows or skip one, because the two lists disagreed
-    // about what "next" meant. A screen must not have an order of its own.
-    // ONE line: the project under the cursor.
-    //
-    // Six at once was a comparison nobody asked for, and it forced the colours
-    // to encode WHICH project rather than how bad it is -- so a repo failing a
-    // third of its deployments drew in whatever hue its rank happened to give
-    // it. A failure rate is a verdict, and the verdict belongs in the colour.
-    // Move the cursor and the chart follows, the same way the info pane's live
-    // graph follows it in preset 1.
-    const here = stats.find(s => s.p === projects[sel]) ?? stats[0]
-    const lines = here?.v?.cfrOf?.verdicts?.length
-      ? [{
-          label: here.p.name,
-          marker: MARKERS[0],
-          // DORA's own bands, so the colour means something outside skein:
-          // 0-15% elite and high, 16-30% medium, above that low.
-          color: LUT.heat[here.v.cfr <= 0.15 ? 15 : here.v.cfr <= 0.30 ? 60 : 95],
-          value: `${Math.round(here.v.cfr * 100)}%`,
-          values: cfrSeries(here.v.cfrOf.verdicts, cols, since, now),
-        }]
-      : []
+    // A project with no git history is not a line with nothing in it — it is
+    // a project this chart cannot speak about. It stays out of the legend
+    // rather than appearing there with a blank marker.
+    const ranked = [...stats].sort((a, b) => (b.v?.landed ?? -1) - (a.v?.landed ?? -1))
+    const lines = ranked.filter(s => s.ships).slice(0, MAX_SERIES).map((s, i) => ({
+      label: s.p.name,
+      marker: MARKERS[i],
+      color: lineHue(i),
+      value: String(s.v.landed),
+      values: cumulative(bucket(s.ships.filter(x => !x.release).map(x => x.at), cols, since, now)),
+    }))
     const rowsOut = []
     if (lines.length) {
       rowsOut.push(...chart(lines, {
         width: Math.max(24, V.w - 11), rows: rowsV,
-        // Always the full scale. A failure rate read against its own peak
-        // makes 4% look like a catastrophe and 90% look like a plateau; the
-        // whole point of the number is where it sits between none and all.
-        max: 1,
+        max: Math.max(1, ...lines.flatMap(s => s.values)),
         since, now, lead: 6, pad: 7, tier,
-        fmt: v => `${Math.round(v * 100)}%`,
-        caption: `change failure · ${here?.p?.name ?? ''} · ${lookback}`,
+        fmt: v => String(Math.round(v)),
+        caption: `landed · ${lookback}`,
+        focus: lines.findIndex(l => l.label === projects[sel]?.name),
       }))
     } else {
-      rowsOut.push(` ${DIM}${here?.p?.name ?? 'this project'} has no two deployments to compare${R}`)
-      rowsOut.push('')
-      rowsOut.push(` ${DIM}a change failure rate is the share of deployments whose next${R}`)
-      rowsOut.push(` ${DIM}shipment repaired what they shipped — it needs a second one${R}`)
-      rowsOut.push(` ${DIM}to compare against, and a tag or a release commit to see them.${R}`)
+      rowsOut.push(` ${DIM}no git history in any of these projects${R}`)
     }
     rowsOut.push('')
     const W = V.w - 2
@@ -485,15 +459,30 @@ export function render(state, size) {
     // and were rendering identically — the number was in the CLI door only,
     // which is exactly the second-class door D13 exists to prevent.
     //
-    // And every row gets its OWN trend, in the space the table was leaving
-    // black. The chart above compares the worst six; this answers the same
-    // question for the row you are actually looking at, which is the pattern
-    // the project table already uses for attention.
-    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${R}`)
+    // The failure panel outranks the ATTENTION column, and on a narrow
+    // terminal it takes it: attention per project is the headline's entire
+    // job and is one keystroke away, whereas the failure trend has nowhere
+    // else on the screen to live. Same rule as the project list — drop the
+    // least valuable column first rather than dropping the feature.
+    const full = 1 + nameW + 9 + 8 + 8 + 12 + 9 + 10 + 12
+    const fits = w => W - w - 2 >= 26
+    const showAttn = fits(full) || !fits(full - 12)
+    const tableW = showAttn ? full : full - 12
+    const tableRows = []
+    tableRows.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${showAttn ? fit('  ATTENTION', 12) : ''}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
+    // The body is the height of the BOX, not the height of the list, because
+    // the failure panel beside the table is as tall as the space there is: a
+    // machine with three projects gets the same graph as one with thirty.
+    const bodyH = Math.max(4, V.h - 2 - rowsOut.length)
     // `stats`, not `ranked`: the table is in the app's order so one press of
     // an arrow key moves exactly one row.
-    for (const { p, v } of stats.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
+    //
+    // Sorting the table by failure rate introduced a second, invisible
+    // ordering: the cursor moved one step through `projects` and the highlight
+    // appeared to jump two rows or skip one, because the two lists disagreed
+    // about what "next" meant. A screen must not have an order of its own.
+    for (const { p, v } of stats.slice(0, Math.max(1, bodyH - 1))) {
       const on = p === projects[sel]
       // A project with no git history says so. "0 landed" would be a claim
       // about your week rather than about what skein can see.
@@ -506,14 +495,72 @@ export function render(state, size) {
           // The count, and how many of them could actually be judged. The
           // newest one never can — nothing has shipped after it yet.
           `${fit((v.cfrOf ? `${v.cfrOf.judged}/${v.cfrOf.deployments}` : '—').padStart(8), 10)}` +
-          `${fit(humanMs(att(p)).padStart(9), 12)}`
+          `${showAttn ? fit(humanMs(att(p)).padStart(9), 12) : ''}`
         : `${DIM}${'no git history'.padStart(7)}${R}`
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
-      hit.rows.push({ y: V.y + 1 + rowsOut.length, index: projects.indexOf(p) })
+      hit.rows.push({ y: V.y + 1 + rowsOut.length + tableRows.length, index: projects.indexOf(p) })
       const plainRow = row.replace(/\x1b\[[0-9;]*m/g, '')
-      rowsOut.push(on
-        ? `${THEME.selBg}${THEME.selFg}${plainRow}${' '.repeat(Math.max(0, W - width(plainRow)))}${R}`
+      tableRows.push(on
+        ? `${THEME.selBg}${THEME.selFg}${plainRow}${' '.repeat(Math.max(0, tableW - width(plainRow)))}${R}`
         : row)
+    }
+
+    // SIDE PANEL: change failure rate for the row under the cursor, in the
+    // space the table was leaving black — which is where a reader looking at a
+    // row already expects the detail about that row to be.
+    //
+    // ONE line, not six. Six at once was a comparison nobody asked for, and it
+    // forced the colours to encode WHICH project rather than how bad it is, so
+    // a repo failing a third of its deployments drew in whatever hue its rank
+    // happened to give it. A failure rate is a verdict, and the verdict
+    // belongs in the colour.
+    const here = stats.find(s => s.p === projects[sel]) ?? stats[0]
+    // DORA's own bands, so the colour means something outside skein:
+    // 0-15% elite and high, 16-30% medium, above that low.
+    const band = LUT.heat[here?.v?.cfr == null ? 0 : here.v.cfr <= 0.15 ? 15 : here.v.cfr <= 0.30 ? 60 : 95]
+    const sideW = W - tableW - 2
+    const side = []
+    if (sideW >= 26 && bodyH >= 8) {
+      const name = here?.p?.name ?? ''
+      const rate = here?.v?.cfr == null ? '—' : `${Math.round(here.v.cfr * 100)}%`
+      // DORA's own words when there is room for them, and the project name
+      // over the jargon when there is not: `CHANGE FAILURE · fir…` names
+      // neither the metric nor the row.
+      const head = `CHANGE FAILURE · ${name}`
+      side.push(`${DIM}${fit(head.length <= sideW - 6 ? head : `FAILURE · ${name}`, sideW - 6)}${R}${band}${rate.padStart(5)}${R}`)
+      side.push('')
+      if (here?.v?.cfrOf?.verdicts?.length) {
+        side.push(...chart([{
+          // The legend row would otherwise repeat the title. Spend it on the
+          // DORA band instead, so the colour has a name and the reader can
+          // take the number somewhere other than skein.
+          label: here.v.cfr <= 0.15 ? 'elite/high' : here.v.cfr <= 0.30 ? 'medium' : 'low',
+          marker: MARKERS[0], color: band,
+          values: cfrSeries(here.v.cfrOf.verdicts, Math.max(8, sideW - 12), since, now),
+        }], {
+          width: Math.max(12, sideW - 6), rows: Math.max(3, bodyH - 2 - CHART_BELOW), tier,
+          // Always the full scale. A failure rate read against its own peak
+          // makes 4% look like a catastrophe and 90% look like a plateau; the
+          // whole point of the number is where it sits between none and all.
+          max: 1, since, now, lead: 4, pad: 1,
+          fmt: v => `${Math.round(v * 100)}%`,
+        }))
+      } else {
+        // One line, not five. The prose version replaced the panel with what
+        // read as an error screen for the ordinary case of a young repo.
+        side.push(` ${DIM}needs two deployments to compare${R}`)
+      }
+    }
+
+    // Zip. The table keeps a fixed width so the panel starts in the same
+    // column on every row, whatever the longest project name happens to be.
+    // The rule runs the FULL height of the body, not just the rows the panel
+    // happens to fill. Drawn only beside the chart it read as a stray glyph on
+    // three rows rather than as the edge of a panel.
+    for (let i = 0; i < bodyH; i++) {
+      const left = tableRows[i] ?? ''
+      if (!side.length) { if (i < tableRows.length) rowsOut.push(left); continue }
+      rowsOut.push(`${left}${' '.repeat(Math.max(0, tableW - width(left)))}${DIM}│${R} ${side[i] ?? ''}`)
     }
     const anyGit = stats.filter(s => s.v).length
     return compose(h, [{ rect: V, lines: pane(V, {

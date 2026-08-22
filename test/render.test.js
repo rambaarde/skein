@@ -1124,12 +1124,44 @@ test('the failure chart follows the cursor, and its colour is the verdict', asyn
   // Whether it can draw or not, the screen names the project the cursor is on
   // — so it can never be mistaken for a total across all of them. This fixture
   // has no git behind it, so what it names is the reason it cannot draw.
-  assert.match(frame(0), /change failure · first|^.*first has no two deployments/m)
-  assert.match(frame(1), /change failure · second|^.*second has no two deployments/m)
-  assert.doesNotMatch(frame(0), /second has no two deployments/, 'and only that one')
+  assert.match(frame(0), /CHANGE FAILURE · first/)
+  assert.match(frame(1), /CHANGE FAILURE · second/)
+  assert.doesNotMatch(frame(0), /CHANGE FAILURE · second/, 'and only that one')
+
+  // And it sits BESIDE the table, not on top of it: the big graph up there is
+  // velocity, which is what the screen is called.
+  assert.match(frame(0), /landed · 7d|no git history in any of these projects/)
+  assert.match(frame(0), /PROJECT.*ATTENTION *. CHANGE FAILURE/)
 
   // And the per-row column is gone: given the whole remaining width it drew a
   // sixty-character rule of dots per row, and the dots buried the data.
   assert.doesNotMatch(frame(0), /FAILURE TREND/)
+
+  // The panel takes the ATTENTION column rather than disappearing when the
+  // terminal is narrow: attention per project is one keystroke away in the
+  // headline, and the failure trend has nowhere else on the screen to live.
+  const narrow = render({
+    projects: [mk('first', '/w/first'), mk('second', '/w/second')],
+    events, sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 7 * 86_400_000, now, lookback: '7d', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 3, tab: 0, feedTop: 0, page: null,
+  }, { cols: 100, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(narrow, /FAILURE · first/)
+  assert.doesNotMatch(narrow, /ATTENTION/)
+})
+
+test('a flat zero is a reading, not an empty chart', async () => {
+  // A change failure rate of 0% over thirty days is the best result there is,
+  // and the renderer skipped any series with no value above zero — so the
+  // project doing everything right got a blank panel.
+  const { chart } = await import('../src/chart.js')
+  const now = Date.now()
+  const drawn = chart([{ label: 'x', color: '', values: new Array(20).fill(0) }], {
+    width: 40, rows: 5, max: 1, since: now - 86_400_000, now, lead: 4, pad: 1,
+    fmt: v => `${Math.round(v * 100)}%`,
+  }).join('\n').replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(drawn, /⣀/, 'the floor is drawn')
+  // And the floor is labelled in the caller's units, not a bare 0.
+  assert.match(drawn, /0% *┤/)
 })
 
