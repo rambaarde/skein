@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.1](https://github.com/rambaarde/skein/compare/v0.22.0...v0.22.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** rank the tools on the project page, and classify MCP calls correctly ([cc9aa1d](https://github.com/rambaarde/skein/commit/cc9aa1db53c18e8ce08578adaa4e277e7ca97a89))
+* **tui:** rank the tools on the project page, and classify MCP calls correctly ([#76](https://github.com/rambaarde/skein/issues/76)) ([3ccdc65](https://github.com/rambaarde/skein/commit/3ccdc659a4f9b8136ba2bdf8496b97f5a7e52088))
+
 ## [0.22.0](https://github.com/rambaarde/skein/compare/v0.21.1...v0.22.0) (2026-08-22)
 
 
