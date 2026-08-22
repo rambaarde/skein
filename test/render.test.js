@@ -550,11 +550,16 @@ test('the headline is a chart per project, tall and graduated', async () => {
   const lines = render(state, { cols: 140, rows: 32 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
 
   // Every row carries a gradation, the way btop and agtop label theirs — with
-  // only the ends marked a spike is a shape, not a value.
-  const axis = lines.filter(l => /^\│\s+[\d.]+%?\s+┤/.test(l))
+  // only the ends marked a spike is a shape, not a value. The axis is a
+  // DURATION now, because the y value is accumulated attention.
+  const axis = lines.filter(l => /^\│\s+(\d+h\d*|\d+m|0)\s+┤/.test(l))
   assert.ok(axis.length >= 5, `the chart should be several graduated rows, got ${axis.length}`)
   assert.ok(lines.some(l => /^\│\s+0\s+┤/.test(l)), 'and the baseline should read 0')
-  const values = axis.map(l => Number(l.match(/^\│\s+([\d.]+)/)[1]))
+  const mins = s => {
+    const m = /^(?:(\d+)h)?(\d+)?m?$/.exec(s)
+    return Number(m?.[1] ?? 0) * 60 + Number(m?.[2] ?? 0)
+  }
+  const values = axis.map(l => mins(l.match(/^\│\s+(\S+)/)[1]))
   assert.deepEqual(values, [...values].sort((a, b) => b - a), 'the scale must run downward')
 
   // Both projects are on the chart, each with its own marker.
