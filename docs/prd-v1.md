@@ -416,21 +416,7 @@ just redraws what agtop already showed you.
 
 ---
 
-## 10. Open questions
-
-| # | Question | Current lean |
-|---|---|---|
-| ~~Q1~~ | ~~Do Codex and opencode expose any hook surface?~~ | **RESOLVED — yes, both.** §7. Codex uses Claude's exact schema; opencode takes a plugin |
-| Q2 | Is the metric *attention* (active minutes, prompts) or *outcomes* (PRs, files landed)? | Attention for the chart, outcomes for the list |
-| Q3 | Is 30 minutes the right collision window? | M0 decides. D7 is written in pencil until it reports |
-| Q4 | Where does the cache live — `~/.skein/` or XDG `~/.local/share/skein/`? | `~/.skein/`, matching the `.claude`/`.codex`/`.aps` neighbours it sits beside. Moving it later needs a migration |
-| Q5 | Does `skein who` report reads, or only writes? | Writes in v1. opencode and Codex both distinguish them; Claude's contract is thinner. Reads may be noise |
-| Q6 | Does the Kitty/Sixel tier slot into the btop R2 symbol table, or need its own path? | Unknown, and it sets M2's cost. Worth a spike before M2, not before M1 |
-| Q7 | Should the hook line be suppressed when there is nothing to say? | **Yes** — silence when alone. AXI 5's "definitive empty state" governs the CLI, not an injected line nobody asked for |
-
----
-
-## 11. Acceptance criteria
+## 10. Acceptance criteria
 
 Properties a change must not break. Written now so M1 has something to fail
 against.
@@ -459,7 +445,7 @@ against.
 
 ---
 
-## 12. Milestones **[REVISED]**
+## 11. Milestones **[REVISED]**
 
 | | What | Outcome |
 |---|---|---|
