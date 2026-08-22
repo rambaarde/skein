@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.2](https://github.com/rambaarde/skein/compare/v0.27.1...v0.27.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **codex:** read the cwd it actually records, and the shell it actually uses ([#106](https://github.com/rambaarde/skein/issues/106)) ([90544ee](https://github.com/rambaarde/skein/commit/90544ee3100e03aba5357ef4decbf2cb6916cfb8))
+* **codex:** read the cwd it records and the shell it uses ([119ae42](https://github.com/rambaarde/skein/commit/119ae42d5d2f838a8d01d4ba81692cd99f8c5578))
+
 ## [0.27.1](https://github.com/rambaarde/skein/compare/v0.27.0...v0.27.1) (2026-08-22)
 
 
