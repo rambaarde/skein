@@ -23,8 +23,11 @@ const NOISE = /(^|\/)(node_modules|\.git|dist|build|coverage|\.next|target|vendo
 // An agent's own store is not project work. Without this, skein reports itself
 // and its neighbours editing ~/.claude/projects and calls it a collision.
 const AGENT_INTERNALS = /\/(\.claude|\.codex)\/|\/\.local\/share\/opencode\//
+// A path that still contains a shell variable was never expanded — it came out
+// of a command line, not off the disk, so it names no real file.
+const UNEXPANDED = /[$`]|^~[^/]/
 export const isNoise = p =>
-  !p || NOISE.test(p) || AGENT_INTERNALS.test(p) ||
+  !p || NOISE.test(p) || AGENT_INTERNALS.test(p) || UNEXPANDED.test(p) ||
   /\.(log|lock)$/.test(p) || /^\/(tmp|private\/tmp|var)\//.test(p)
 
 // Did these two sessions actually run at the same time? Two edits landing

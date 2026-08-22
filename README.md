@@ -74,22 +74,22 @@ uninstalled the first time it is wrong.
 │ ▸ notify-svc          codex+opencode       2     18     55 ⢰⢰⣴ ⣶ ⡆⡄⣦⣤⢠ ⡆⢰⣴⢠⣴⣴⣤⣦ ⡄   ⡄⣶⣼    2h│
 │ ▸ docs-site           claude               2     12     32 ⢠ ⢰⢠⢠⡆⢠  ⡄ ⡇ ⣦ ⢰⢠⣤ ⣤ ⡄ ⡆⡄⡄ ⣶    9h│
 │ ▸ loose               claude+codex         7     40     89 ⣰⣀⣀⣠⡀⡆⡀⣀⡄ ⣀⡀⢰⢠ ⣠⣀⣰⣤⣄⣆⣆⣤⣄⣤⡆⢸     1d│
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
-│                                                                                              │
 ╰─ 6 projects · 3 collisions · 30d · by recent ────────────────────────────────────────────────╯
 ╭─ atlas-api² ─────────────────────────────────────────────────────────────────────────────────╮
 │ claude    main             Rotate the session expiry hea…  ⢰ ⢠⢠⣶⢠⡄ ⣤⣦⡄ ⡄⡄⣴⢰⣴⣤⣦⣤⣤⡄⣷⡇⣤⡄⣤⣧    8s│
 │ codex     feat/rate-limit  Add rate limiting to /auth      ⢻⠘⠛⠃⠛⠛⠘ ⠟⠸⠟⠃⠇⠟⠸⠛ ⠸⠃⠘⠇ ⠛⠃⠘⡇⠘⠛   19m│
+│ codex     feat/rate-limit  —                                                          ⢸   20m│
 │ COLLISIONS                                                                                   │
 │ · src/auth/session.ts                       claude/codex           20m apart, 40m ago        │
 │ · src/mod47.ts                              codex/codex            10m apart, 9d ago         │
-│                                                                                              │
 ╰─ ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ───────────────────────────────╯
+╭─ activity³ ──────────────────────────────────────────────────────────────────────────────────╮
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+│                                                                                              │
+╰─ 0 edits in 30d ─────────────────────────────────────────────────────────────────────────────╯
 ```
 
 <p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>

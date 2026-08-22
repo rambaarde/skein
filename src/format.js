@@ -3,7 +3,10 @@ import { relative } from 'node:path'
 
 export const ago = (t, now = Date.now()) => {
   const s = Math.max(0, Math.round((now - t) / 1000))
-  if (s < 60) return `${s}s`
+  // Seconds all the way to two minutes, so anything that just happened counts
+  // up on screen every second. Rounding straight to "2m" freezes the newest
+  // and most interesting rows, which is exactly where liveness is judged.
+  if (s < 120) return `${s}s`
   if (s < 3600) return `${Math.round(s / 60)}m`
   if (s < 86400) return `${Math.round(s / 3600)}h`
   return `${Math.round(s / 86400)}d`

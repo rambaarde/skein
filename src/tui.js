@@ -6,7 +6,7 @@
 // and leave its box-grid layout behind.
 import { collect } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
-import { byProject, gitRoot } from './project.js'
+import { byProject, gitRoot, projectName } from './project.js'
 import { graph, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, fit, width } from './box.js'
@@ -82,8 +82,24 @@ export function render(state, size) {
 
   if (state.help) return helpOverlay(w, h)
 
-  const detailH = Math.min(10, Math.max(6, Math.floor(h * 0.35)))
-  const listH = h - detailH - 1
+  // Boxes are sized to what is in them. The old split gave the list a fixed
+  // 65% of the screen whether it held three projects or thirty, so a normal
+  // machine showed seven rows and thirteen blank ones — and a mostly-empty
+  // screen reads as frozen no matter how fast the clock ticks.
+  const expandedRows = projects.reduce(
+    (a, p) => a + (expanded.has(p.root ?? 'loose') ? Math.min(4, p.sessions) : 0), 0)
+  const listRows = Math.max(1, projects.length + expandedRows)
+  const listH = Math.min(Math.max(4, listRows + 2), Math.floor(h * 0.6))
+
+  const p0 = projects[sel]
+  const collsHere = p0 ? colls.filter(c => c.project === p0.root) : []
+  const detailRows = p0 ? Math.min(4, p0.sessions) + (collsHere.length ? Math.min(3, collsHere.length) + 1 : 0) : 1
+  const detailH = Math.min(Math.max(3, detailRows + 2), h - listH - 5)
+
+  // Whatever is left goes to a live feed of edits as they land. This is the
+  // part that actually moves: the project table changes once a minute at best,
+  // and a 24h sparkline shifts one cell every fifty-one minutes.
+  const feedH = h - listH - detailH
 
   // Columns are chosen to fit, not assumed. btop tiles fixed boxes because it
   // knows its own metrics; a project list does not know how wide a name is or
@@ -217,8 +233,44 @@ export function render(state, size) {
       }
     }
   }
-  while (out.length < h - 1) out.push(d.row(''))
+  const detailEnd = listH + detailH - 1
+  while (out.length < detailEnd) out.push(d.row(''))
   out.push(d.bottom)
+
+  // ---- the live feed: edits as they land ----------------------------------
+  //
+  // The table above changes once a minute at best. This is the part that moves,
+  // and it is why the screen now looks like something is happening: a wall
+  // clock beside each edit, newest first, refreshed every second.
+  // A partial state must render, not throw: the feed is the newest panel and
+  // the most likely thing a caller forgets to supply.
+  const stream = Array.isArray(state.events) ? state.events : []
+  if (feedH >= 3) {
+    const seen = new Set()
+    const feed = []
+    for (const e of [...stream].sort((a, b2) => b2.at - a.at)) {
+      const k = `${e.session}:${e.path}`
+      if (seen.has(k)) continue
+      seen.add(k)
+      feed.push(e)
+      if (feed.length >= feedH - 2) break
+    }
+    const f = box({
+      w, title: 'activity', key: SUP[2],
+      right: feed.length ? `${DIM}newest first${R}` : '',
+      state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${R}`,
+    })
+    out.push(f.top)
+    for (const e of feed) {
+      const at = new Date(e.at).toTimeString().slice(0, 8)
+      const root = e.project ?? gitRoot(e.path)
+      const pw = Math.max(8, Math.min(20, Math.floor(w * 0.18)))
+      out.push(f.row(` ${DIM}${at}${R} ${hue(e.agent)}${fit(e.agent, 9)}${R} ${fit(projectName(root), pw)} ${DIM}${fit(short(e.path, root), Math.max(0, w - 29 - pw))}${R}${ago(e.at, now).padStart(6)}`))
+    }
+    while (out.length < h - 1) out.push(f.row(''))
+    out.push(f.bottom)
+  }
+
   return out.slice(0, h).join('\n')
 }
 
