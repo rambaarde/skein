@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.0](https://github.com/rambaarde/skein/compare/v0.27.2...v0.28.0) (2026-08-22)
+
+
+### Features
+
+* **cli:** skein doctor — why is my screen empty ([53ed775](https://github.com/rambaarde/skein/commit/53ed77530b0a63e14995c936b4d6725407bd6b9c))
+* **cli:** skein doctor — why is my screen empty ([#109](https://github.com/rambaarde/skein/issues/109)) ([9e2e25a](https://github.com/rambaarde/skein/commit/9e2e25aa60ca5c3e8e302481c63d4db92fbaca35))
+
 ## [0.27.2](https://github.com/rambaarde/skein/compare/v0.27.1...v0.27.2) (2026-08-22)
 
 
