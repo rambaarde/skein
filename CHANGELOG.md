@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.2](https://github.com/rambaarde/skein/compare/v0.28.1...v0.28.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** velocity on top, failure rate beside the row it belongs to ([0482558](https://github.com/rambaarde/skein/commit/0482558dac20d683bdb07304f3b07484e196c964))
+* **tui:** velocity on top, failure rate beside the row it belongs to ([#115](https://github.com/rambaarde/skein/issues/115)) ([23d69fe](https://github.com/rambaarde/skein/commit/23d69fea9e80a3c4e5d7c2c18c69acdab31bfdd9))
+
 ## [0.28.1](https://github.com/rambaarde/skein/compare/v0.28.0...v0.28.1) (2026-08-22)
 
 
