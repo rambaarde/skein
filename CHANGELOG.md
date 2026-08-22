@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.1](https://github.com/rambaarde/skein/compare/v0.15.0...v0.15.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **context:** a ceiling belongs to a session, not to the machine ([#38](https://github.com/rambaarde/skein/issues/38)) ([ee32495](https://github.com/rambaarde/skein/commit/ee3249595abdf98b69321f8636b537977043f5da))
+
 ## [0.15.0](https://github.com/rambaarde/skein/compare/v0.14.0...v0.15.0) (2026-08-22)
 
 
