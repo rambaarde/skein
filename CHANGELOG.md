@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.0](https://github.com/rambaarde/skein/compare/v0.22.1...v0.23.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** a live rolling graph in the info pane ([15d7770](https://github.com/rambaarde/skein/commit/15d7770451e95756514258bcd9cc2bf22f4b899e))
+* **tui:** a live rolling graph in the info pane, btop's net box for one project ([#80](https://github.com/rambaarde/skein/issues/80)) ([d53179c](https://github.com/rambaarde/skein/commit/d53179cedf37d595914542d21191bdad4715d70d))
+
 ## [0.22.1](https://github.com/rambaarde/skein/compare/v0.22.0...v0.22.1) (2026-08-22)
 
 
