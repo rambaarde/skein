@@ -150,3 +150,29 @@ test('doctor says what was in the files, not just that they exist', async () => 
   assert.match(out.text, /saw:|not found/, 'and which kinds of record it saw')
   assert.match(out.text, /changed its format/, 'with the reason that matters said out loud')
 })
+
+test('a metric is defined in every door, or in none', async () => {
+  // D13, applied to the definitions rather than the numbers: a term explained
+  // only on the TUI's overlay is a term the person piping skein never reads,
+  // and the agent consuming --json never reads at all.
+  const { GLOSSARY } = await import('../src/glossary.js')
+  const { render } = await import('../src/tui.js')
+  const text = run(['glossary']).text
+  const json = JSON.parse(run(['glossary', '--json']).text)
+  const overlay = render({
+    projects: [], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: Date.now() - 86_400_000, now: Date.now(), lookback: '24h',
+    windowMin: 30, tick: 0, sort: 'recent', filter: '', onlyColliding: false,
+    preset: 0, tab: 0, feedTop: 0, page: null, help: 2,
+  }, { cols: 120, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(overlay, /metrics/, 'the overlay has a metrics page')
+  for (const [term] of GLOSSARY.filter(([t]) => t)) {
+    assert.ok(text.includes(term), `${term} is in the CLI door`)
+    assert.ok(json.some(r => r.term === term), `${term} is in the json door`)
+    assert.ok(overlay.includes(term), `${term} is in the TUI door`)
+  }
+  // And the definitions that carry the number people will compare to others.
+  assert.match(text, /0-15% elite and high, 16-30% medium/)
+  assert.match(text, /newest can never be judged/)
+})
