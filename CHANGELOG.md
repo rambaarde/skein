@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.23.1](https://github.com/rambaarde/skein/compare/v0.23.0...v0.23.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the live graph had a scale floor that flattened quiet projects ([da30bf8](https://github.com/rambaarde/skein/commit/da30bf826f6161412373a94c74e6a9354cefab1b))
+* **tui:** the live graph's scale floor flattened quiet projects ([51fdc60](https://github.com/rambaarde/skein/commit/51fdc600edfa1de909209476d996bf7c58d70012))
+
 ## [0.23.0](https://github.com/rambaarde/skein/compare/v0.22.1...v0.23.0) (2026-08-22)
 
 
