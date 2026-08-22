@@ -90,11 +90,18 @@ jobs:
             }
             const files = meta.files.map((f) => f.path);
             const fail = (m) => { console.error("REFUSING TO PUBLISH: " + m); process.exit(1); };
-            if (!files.includes("bin/skein.js")) fail("bin/skein.js is not in the tarball");
+            // Derived from the bin map, not hardcoded: renaming the binary
+            // updated the mapping assertion below and left this one naming
+            // bin/skein.js, and the guard refused a release it should have
+            // let through. A guard that has to be edited twice gets edited
+            // once.
+            const pkg = require("./package.json");
+            for (const [name, path] of Object.entries(pkg.bin ?? {})) {
+              if (!files.includes(path)) fail(`${path} (bin "${name}") is not in the tarball`);
+            }
             if (!files.some((f) => f.startsWith("src/"))) fail("src/ is not in the tarball");
             const junk = files.filter((f) => f.startsWith("test/") || f.startsWith(".github/") || f.startsWith("tools/") || f.startsWith("docs/"));
             if (junk.length) fail("must not publish: " + junk.join(", "));
-            const pkg = require("./package.json");
             for (const field of ["dependencies", "optionalDependencies", "peerDependencies"]) {
               if (Object.keys(pkg[field] ?? {}).length) fail(`a ${field} entry appeared`);
             }
