@@ -4,7 +4,7 @@
 // graphs are a ROLLING window: the newest sample enters on the right and the
 // whole series shifts left every tick, whether or not anything changed.
 //
-// skein's timeline is not that. It buckets a fixed 24h span, so a cell covers
+// skeins's timeline is not that. It buckets a fixed 24h span, so a cell covers
 // fifty-one minutes and the picture is identical between one boundary and the
 // next. Correct for "where did my week go", useless for "is anything happening
 // right now".
@@ -88,7 +88,7 @@ export const activeSessions = (events, { now = Date.now(), windowMs = 5 * 60_000
 //
 // btop's CPU graph always has data because CPU always samples. Editing is
 // bursty: you type for ten minutes, then read for twenty, then think. Open
-// skein during the reading part and a 15m window is honestly, uselessly empty —
+// skeins during the reading part and a 15m window is honestly, uselessly empty —
 // "where is the spike?" is answered by "your last edit was 16 minutes ago".
 //
 // So the window is chosen, not fixed: the narrowest span that actually holds
@@ -120,7 +120,7 @@ export function pickWindow(events, { now = Date.now(), ladder = LADDER } = {}) {
 //
 // activeSessions() counts sessions that WROTE A FILE recently, and that is not
 // what "is anything running" means: an agent reading, thinking, or waiting on
-// you appends to its transcript without touching your repo. skein reported
+// you appends to its transcript without touching your repo. skeins reported
 // "0 sessions active · nothing is running" while an agent was demonstrably
 // running, because it had not saved anything in five minutes.
 //

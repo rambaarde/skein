@@ -1,6 +1,6 @@
 // What actually landed, and how long it took to land.
 //
-// skein's four DORA-shaped numbers, for ONE developer. DORA is an org metric
+// skeins's four DORA-shaped numbers, for ONE developer. DORA is an org metric
 // and three quarters of it does not survive the translation:
 //
 //   deployment frequency  -> what LANDED on the trunk. Honest, from git.
@@ -12,10 +12,10 @@
 // The same rule as the cost column: a number that is wrong is worse than a
 // number that is absent.
 //
-// Lead time is the interesting one, and it is where skein has something git
+// Lead time is the interesting one, and it is where skeins has something git
 // does not. Measured on this repository, every trunk commit has ONE parent and
 // its author date equals its commit date — squash merges erase the branch, so
-// git alone cannot say when the work started. skein can: the transcripts know
+// git alone cannot say when the work started. skeins can: the transcripts know
 // when you first touched the repo after the previous landing. That is a better
 // definition anyway, because it measures from when you started WORKING rather
 // than from when you happened to first commit.
@@ -90,7 +90,7 @@ function gitLog(root, trunk, since) {
     return parse(raw)
   } catch {
     // A repo mid-rebase, a git that is not installed, a submodule with no
-    // history. None of those are skein's problem to report loudly.
+    // history. None of those are skeins's problem to report loudly.
     return null
   }
 }
@@ -263,7 +263,7 @@ export function velocity(root, events, { since, now, attention = 0, ships = null
     perDay: landed.length / days,
     perWeek: (landed.length / days) * 7,
     lead: median(leadTimes(landed, events, since)),
-    // Hours per landing is the join no other tool can make: skein knows the
+    // Hours per landing is the join no other tool can make: skeins knows the
     // attention, git knows what came out of it.
     perShip: landed.length ? Math.round(attention / landed.length) : null,
     // null, not zero, when there are fewer than two deployments to compare.

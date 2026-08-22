@@ -51,7 +51,7 @@ test('empty states are stated, never silent stdout', () => {
 
 test('render fits the terminal it is given and never wraps', () => {
   const state = {
-    projects: [{ name: 'skein', root: '/r', agents: ['claude'], sessions: 1, files: 2, events: [{ at: Date.now(), session: 's', agent: 'claude' }], last: Date.now() }],
+    projects: [{ name: 'skeins', root: '/r', agents: ['claude'], sessions: 1, files: 2, events: [{ at: Date.now(), session: 's', agent: 'claude' }], last: Date.now() }],
     sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: tierFor(),
     since: Date.now() - 86_400_000, now: Date.now(), lookback: '24h', windowMin: 30,
   }
@@ -118,14 +118,14 @@ test('a row can never push the border off the frame', async () => {
 test('an empty rollup says where it looked', async () => {
   // Reported by a real user on Linux: an empty screen with no way to tell a
   // bug from an empty machine. The agent door has to answer it too, or the
-  // person who pipes skein gets the ambiguous blank instead.
+  // person who pipes skeins gets the ambiguous blank instead.
   //
   // A subprocess with a scrubbed HOME, not an in-process call: read against the
   // real machine this asserted that the developer running it had done no agent
   // work in the last minute, which is false exactly while they are working on
-  // skein. An empty machine has to be built, not hoped for.
-  const home = mkdtempSync(join(tmpdir(), 'skein-empty-'))
-  const out = spawnSync(process.execPath, [fileURLToPath(new URL('../bin/skein.js', import.meta.url)), 'ls', '--since', '1m'], {
+  // skeins. An empty machine has to be built, not hoped for.
+  const home = mkdtempSync(join(tmpdir(), 'skeins-empty-'))
+  const out = spawnSync(process.execPath, [fileURLToPath(new URL('../bin/skeins.js', import.meta.url)), 'ls', '--since', '1m'], {
     encoding: 'utf8',
     env: { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config'), CLAUDE_CONFIG_DIR: join(home, 'claude'), SKEIN_HOME: join(home, 'state') },
   })
@@ -145,7 +145,7 @@ test('doctor says what was in the files, not just that they exist', async () => 
   assert.equal(out.code, 0, 'a diagnosis is never an error')
   for (const agent of ['claude', 'codex', 'opencode']) assert.match(out.text, new RegExp(agent))
   assert.match(out.text, /records read|not found/, 'it reports what it read, per store')
-  // The histogram is what catches an agent renaming the record skein reads:
+  // The histogram is what catches an agent renaming the record skeins reads:
   // it turns an empty dashboard into a type nobody recognises.
   assert.match(out.text, /saw:|not found/, 'and which kinds of record it saw')
   assert.match(out.text, /changed its format/, 'with the reason that matters said out loud')
@@ -153,7 +153,7 @@ test('doctor says what was in the files, not just that they exist', async () => 
 
 test('a metric is defined in every door, or in none', async () => {
   // D13, applied to the definitions rather than the numbers: a term explained
-  // only on the TUI's overlay is a term the person piping skein never reads,
+  // only on the TUI's overlay is a term the person piping skeins never reads,
   // and the agent consuming --json never reads at all.
   const { GLOSSARY } = await import('../src/glossary.js')
   const { render } = await import('../src/tui.js')

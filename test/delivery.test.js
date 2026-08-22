@@ -65,7 +65,7 @@ test('a trunk log parses to landings, with the files each one touched', () => {
 })
 
 test('no git history is null, not zero', () => {
-  // AXI 5. "This repo landed nothing this week" and "skein cannot see this
+  // AXI 5. "This repo landed nothing this week" and "skeins cannot see this
   // repo" are entirely different statements and must not share a rendering.
   const now = Date.now(), since = now - 7 * 86_400_000
   assert.equal(velocity(null, [], { since, now }), null, 'a project with no root says nothing')
@@ -108,7 +108,7 @@ test('the four numbers, and the one that is a join', () => {
   assert.equal(v.landed, 2, 'the release is excluded')
   assert.equal(v.releases, 1, 'and counted separately rather than dropped')
   assert.equal(v.perWeek, 2, 'two landings in a seven-day window is two a week')
-  // The join no other tool can make: skein knows the hours, git knows what
+  // The join no other tool can make: skeins knows the hours, git knows what
   // came out of them.
   assert.equal(v.perShip, 2 * H, 'four hours of attention over two landings')
 })

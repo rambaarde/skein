@@ -1,6 +1,6 @@
 // The human door (design language §3.1).
 //
-// btop tiles fixed boxes for fixed metrics on one machine. skein's primary
+// btop tiles fixed boxes for fixed metrics on one machine. skeins's primary
 // object is a PROJECT, and projects are a variable-length list with sessions
 // nested under them -- so we take btop's border grammar and its graph tables,
 // and leave its box-grid layout behind.
@@ -116,14 +116,14 @@ const wrap = (s, n) => {
   return out
 }
 
-// btop's three: OPTIONS, HELP, QUIT. skein has no options screen -- its
+// btop's three: OPTIONS, HELP, QUIT. skeins has no options screen -- its
 // settings are the border controls, and duplicating them here would be a
 // second place to keep them correct. What it has instead is a vocabulary
 // nobody defined, so METRICS takes that slot.
 export const MENU = [
   ['METRICS', 'what every number on these screens counts'],
   ['KEYS', 'every key, and what the mouse can reach'],
-  ['QUIT', 'leave. skein never started anything, so nothing stops'],
+  ['QUIT', 'leave. skeins never started anything, so nothing stops'],
 ]
 
 // The dashboard, dimmed, with the menu standing on top of it.
@@ -142,7 +142,7 @@ function menuOverlay(frame, sel, w, h, hit) {
   const big = w >= wide + 10 && h >= MENU.length * (MENU_ROWS + 1) + 4
   const tall = big ? MENU_ROWS : 1
   // The ground has to hold the HINT as well as the words. Sized to the words
-  // alone it clipped "leave. skein never started anything" to "leave. sks",
+  // alone it clipped "leave. skeins never started anything" to "leave. sks",
   // which is not a shorter sentence, it is a different one.
   const words = big ? wide : Math.max(...MENU.map(([word]) => word.length))
   const bw = Math.min(Math.max(0, w - 8), Math.max(words, ...MENU.map(([, why]) => why.length)))
@@ -216,7 +216,7 @@ function helpOverlay(w, h, page = 1) {
   } else {
     for (const [k, what] of KEYS) out.push(b.row(`  ${BOLD}${fit(k, 10)}${R}  ${DIM}${what}${R}`))
     out.push(b.row(''))
-    out.push(b.row(`  ${DIM}skein reports. It never starts, stops, routes or blocks anything.${R}`))
+    out.push(b.row(`  ${DIM}skeins reports. It never starts, stops, routes or blocks anything.${R}`))
   }
   while (out.length < h - 1) out.push(b.row(''))
   out.push(b.bottom)
@@ -613,7 +613,7 @@ export function render(state, size) {
     for (const { p, v } of stats.slice(0, Math.max(1, bodyH - 1))) {
       const on = p === projects[sel]
       // A project with no git history says so. "0 landed" would be a claim
-      // about your week rather than about what skein can see.
+      // about your week rather than about what skeins can see.
       const cells = v
         ? `${LUT.activity[Math.round((v.landed / topLanded) * 100)]}${String(v.landed).padStart(7)}${R}  ` +
           `${fit((weekly ? v.perWeek : v.perDay).toFixed(1).padStart(6), 8)}` +
@@ -645,7 +645,7 @@ export function render(state, size) {
     const here = stats.find(s => s.p === projects[sel]) ?? stats[0]
     // Red at every value; the TONE carries the severity. The legend row still
     // names DORA's band (0-15% elite and high, 16-30% medium, above that low)
-    // so the number means something outside skein — but the colour no longer
+    // so the number means something outside skeins — but the colour no longer
     // has to encode which band, only how bad.
     const band = LUT.failure[Math.round((here?.v?.cfr ?? 0) * 100)]
     const sideW = W - tableW - 2
@@ -663,7 +663,7 @@ export function render(state, size) {
         side.push(...chart([{
           // The legend row would otherwise repeat the title. Spend it on the
           // DORA band instead, so the colour has a name and the reader can
-          // take the number somewhere other than skein.
+          // take the number somewhere other than skeins.
           label: here.v.cfr <= 0.15 ? 'elite/high' : here.v.cfr <= 0.30 ? 'medium' : 'low',
           marker: MARKERS[0], color: band,
           values: cfrSeries(here.v.cfrOf.verdicts, Math.max(8, sideW - 12), since, now),
@@ -1084,7 +1084,7 @@ export function render(state, size) {
     const fresh = any.filter(s => s.newest >= since)
     headRows.push('')
     headRows.push(!any.length
-      ? ` ${BOLD}no agent sessions found${R}${DIM} — skein reads these three places:${R}`
+      ? ` ${BOLD}no agent sessions found${R}${DIM} — skeins reads these three places:${R}`
       : fresh.length
         ? (state.events?.length
           ? ` ${BOLD}edits were recorded, but none of them landed in a project${R}`
@@ -1102,29 +1102,29 @@ export function render(state, size) {
     }
     headRows.push('')
     if (!any.length) {
-      headRows.push(`   ${DIM}skein reads Claude Code, Codex and opencode. Other agents write${R}`)
-      headRows.push(`   ${DIM}elsewhere, and skein cannot see what it cannot read.${R}`)
+      headRows.push(`   ${DIM}skeins reads Claude Code, Codex and opencode. Other agents write${R}`)
+      headRows.push(`   ${DIM}elsewhere, and skeins cannot see what it cannot read.${R}`)
     } else if (fresh.length && state.events?.length) {
       // Edits exist and none grouped: scratch paths, or work outside a repo.
       headRows.push(`   ${DIM}every edit was in a scratch path, or outside any git repository.${R}`)
-      headRows.push(`   ${DIM}skein groups by git root; work with no repo lands in ${R}${BOLD}not in a repo${R}${DIM}.${R}`)
+      headRows.push(`   ${DIM}skeins groups by git root; work with no repo lands in ${R}${BOLD}not in a repo${R}${DIM}.${R}`)
     } else if (fresh.length) {
       // No edits at all. Saying "every edit was in a scratch path" here is a
       // claim about edits that do not exist -- which is what a real user was
       // told while his agent was reading and running commands and had not yet
       // written anything.
-      headRows.push(`   ${DIM}skein counts files WRITTEN, not sessions opened. An agent that is${R}`)
+      headRows.push(`   ${DIM}skeins counts files WRITTEN, not sessions opened. An agent that is${R}`)
       headRows.push(`   ${DIM}reading, searching or running commands has not edited anything yet.${R}`)
     } else {
       headRows.push(`   ${DIM}press ${R}${BOLD}a${R}${DIM} to widen the window — 6h · 24h · 7d · 30d${R}`)
     }
     headRows.push('')
     headRows.push(`   ${DIM}XDG_DATA_HOME is honoured; set it and opencode moves with it.${R}`)
-    // Everything above is what skein can say from two stats. The rest -- what
+    // Everything above is what skeins can say from two stats. The rest -- what
     // was IN those files, and what it could read out of them -- needs the
     // files opened, so it lives behind a command rather than costing every
     // frame. Several rounds were spent guessing at a user's empty screen.
-    headRows.push(`   ${DIM}run ${R}${BOLD}skein doctor${R}${DIM} to see what was in the files it read.${R}`)
+    headRows.push(`   ${DIM}run ${R}${BOLD}skeins doctor${R}${DIM} to see what was in the files it read.${R}`)
   } else {
   headRows.push(`${THEME.header}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', ctx: '  CONTEXT', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
   }
@@ -1215,7 +1215,7 @@ export function render(state, size) {
     }
   }
   const headPane = pane(L.head, {
-    title: 'skein', key: SUP[0], line: THEME.boxHead,
+    title: 'skeins', key: SUP[0], line: THEME.boxHead,
     // btop prints 'preset N' in the cpu box border. Same place, same reason:
     // the layout you are looking at is state, and state belongs in the border.
     right: (() => {

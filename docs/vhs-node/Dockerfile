@@ -1,4 +1,4 @@
-# VHS ships ttyd + ffmpeg + fonts but no node and no git. skein is a node
+# VHS ships ttyd + ffmpeg + fonts but no node and no git. skeins is a node
 # program whose demo world is built out of real git repositories, so add both.
 FROM ghcr.io/charmbracelet/vhs
 RUN apt-get update \

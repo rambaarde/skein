@@ -26,7 +26,8 @@
     "node": ">=20"
   },
   "bin": {
-    "skein": "bin/skein.js"
+    "skeins": "bin/skeins.js",
+    "skein": "bin/skeins.js"
   },
   "files": [
     "bin",

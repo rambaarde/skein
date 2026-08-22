@@ -16,7 +16,7 @@ const ctx = extra => ({ state: { sessions: new Map() }, now, detailW: 46, detail
 
 test('every tab has a title, and the border must not lie about which one', () => {
   // The border kept saying "what an agent is told here" while the file list was
-  // on screen. It is skein's metadata line, so it has to describe what is
+  // on screen. It is skeins's metadata line, so it has to describe what is
   // actually under it.
   assert.equal(TABS.length, TAB_TITLES.length)
   assert.match(TAB_TITLES[0], /agent is told/)
@@ -77,7 +77,7 @@ test('a tab is clickable, and the gaps between tabs are not', () => {
   assert.equal(state.hit.tabs.length, TABS.length, 'every tab registers a region')
 
   // Tabs sit side by side on one row, so a y-only lookup cannot tell them
-  // apart — this is the first hit region in skein that needs the column.
+  // apart — this is the first hit region in skeins that needs the column.
   const files = state.hit.tabs[2]
   assert.equal(hitTab(state.hit, files.x0, files.y), 2)
   assert.equal(hitTab(state.hit, files.x1 - 1, files.y), 2, 'x1 is exclusive')

@@ -20,12 +20,12 @@ const listFiles = (dir, ext, out = []) => {
   return out
 }
 
-// What skein looked for, and what it found there.
+// What skeins looked for, and what it found there.
 //
 // A first run that finds nothing showed an empty grid and the words "0
 // projects". That reads as a broken program, and it is the one moment where a
 // user has no way to tell a bug from an empty machine -- reported by a real
-// one on Linux, running an agent skein does not read, with no way to discover
+// one on Linux, running an agent skeins does not read, with no way to discover
 // that from the screen (AXI 5: a definitive empty state, never an ambiguous
 // blank).
 //
@@ -143,7 +143,7 @@ export function collect({ useCache = true, sinceMs = Date.now() - 30 * 86_400_00
 // events came out.
 //
 // The record histogram is the part that catches format drift. An agent that
-// renames the event skein reads shows up here as a type nobody recognises,
+// renames the event skeins reads shows up here as a type nobody recognises,
 // rather than as an empty dashboard.
 export function diagnose({ now = Date.now(), sinceMs = now - 86_400_000, sample = 4 } = {}) {
   const readers = { claude, codex, opencode }

@@ -8,7 +8,7 @@
 //   proc  x=51  y=11  w=69   h=21    right column, the whole lower height
 //
 // The shape is: a headline across the top, a split left column, and a tall
-// right column for the one view that is a long list. skein's long list is the
+// right column for the one view that is a long list. skeins's long list is the
 // activity feed, so the feed is our proc.
 //
 // Below ~100 columns btop drops to a single column, and so do we — two 40-wide

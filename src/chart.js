@@ -100,7 +100,7 @@ const tickCols = (width, ticks) =>
 // ONE DOT THICK instead of one character thick — which is why btop, ratatui
 // and blessed-contrib all look the way they do.
 //
-// The reason skein did not start there: colour is per character CELL, so two
+// The reason skeins did not start there: colour is per character CELL, so two
 // series sharing a cell cannot both keep their hue. That was treated as the
 // common case and it is not. These lines are running totals; they fan out and
 // spend almost all of their length apart. Where they do share a cell one hue
@@ -292,7 +292,7 @@ export function legend(series, { width, tier = 'braille' }) {
 // where they were.
 export function chart(series, {
   width, rows, max, since, now, lead = 6, pad = 6, focus = -1, caption = '', tier = 'braille',
-  // The axis is whatever the caller's values are. Both of skein's charts plot
+  // The axis is whatever the caller's values are. Both of skeins's charts plot
   // milliseconds, so both pass humanMs.
   fmt = String,
 }) {

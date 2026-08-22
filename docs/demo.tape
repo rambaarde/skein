@@ -5,7 +5,7 @@
 #     -v "$PWD/docs/demo.tape:/tape.tape:ro" vhs-node /tape.tape
 #   bash scripts/optimize.sh docs/demo.mp4 docs/demo.gif
 #
-# skein — the demo. Every frame is the real program reading a FIXTURE world
+# skeins — the demo. Every frame is the real program reading a FIXTURE world
 # built by tools/sandbox.mjs: five git repositories, sessions for all three
 # agents, one deliberate collision. Nothing here is anybody's real history.
 Output "/out/demo.mp4"
@@ -24,7 +24,7 @@ Enter
 Sleep 12s
 Show
 
-Type "./skein"
+Type "./skeins"
 Sleep 400ms
 Enter
 Sleep 4s
