@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.1](https://github.com/rambaarde/skein/compare/v0.21.0...v0.21.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** light the selected line, and give the velocity preset a way out ([b29389c](https://github.com/rambaarde/skein/commit/b29389c8750627513e7b07af3502a1b2a1c4574c))
+* **tui:** light the selected line, and give the velocity preset a way out ([#68](https://github.com/rambaarde/skein/issues/68)) ([af7ccb6](https://github.com/rambaarde/skein/commit/af7ccb6c5ec81e86f36f4dc885b1b55fcf257b11))
+
 ## [0.21.0](https://github.com/rambaarde/skein/compare/v0.20.0...v0.21.0) (2026-08-22)
 
 
