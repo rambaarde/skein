@@ -4,7 +4,7 @@
 //
 // aps already does this, arrived at independently -- so skein inherits a house
 // style that agrees with btop.
-import { DIM, R, BOLD, THEME } from './theme.js'
+import { DIM, R, BOLD, THEME, paint } from './theme.js'
 
 const ROUND = { tl: '╭', tr: '╮', bl: '╰', br: '╯', h: '─', v: '│' }
 const SQUARE = { tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│' }
@@ -14,7 +14,10 @@ export const width = s => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length
 // btop hangs labelled controls off the border rather than listing keys in a
 // footer: ┘filter└ ┘tree└ ┘- 2000ms +└. The bracket says "this is a thing you
 // press", which a comma-separated key list never does.
-export const tag = (key, label) => `${THEME.box}┘${R}${BOLD}${key}${R}${THEME.box} ${label}└${R}`
+// btop highlights the key letter inside each border control — that is what
+// makes a row of them scannable rather than a line of noise. Same here.
+export const tag = (key, label) =>
+  `${THEME.box}┘${R}${BOLD}${THEME.hi}${key}${R}${THEME.box} ${label}└${R}`
 
 export function box({ w, title = '', state = '', right = '', rounded = true, key = '' }) {
   const c = rounded ? ROUND : SQUARE
@@ -30,8 +33,8 @@ export function box({ w, title = '', state = '', right = '', rounded = true, key
   // that moves is the cheapest possible proof the program has not wedged.
   const tail = right ? `${THEME.box}${c.h} ${right} ${c.h}${R}` : ''
   return {
-    top: `${THEME.box}${c.tl}${R}${head}${THEME.box}${pad(w - 2 - width(head) - width(tail))}${R}${tail}${DIM}${c.tr}${R}`,
-    bottom: `${THEME.box}${c.bl}${R}${foot}${THEME.box}${pad(w - 2 - width(foot))}${c.br}${R}`,
+    top: paint(`${THEME.box}${c.tl}${R}${head}${THEME.box}${pad(w - 2 - width(head) - width(tail))}${R}${tail}${DIM}${c.tr}${R}`),
+    bottom: paint(`${THEME.box}${c.bl}${R}${foot}${THEME.box}${pad(w - 2 - width(foot))}${c.br}${R}`),
     // A row that is too long is a bug in the caller, but it must not be
     // allowed to push the right border off the screen and corrupt the frame.
     // Pad short, truncate long, never overflow.
@@ -39,7 +42,7 @@ export function box({ w, title = '', state = '', right = '', rounded = true, key
       const room = w - 2
       const over = width(inner) - room
       const body = over > 0 ? fit(inner.replace(/\x1b\[[0-9;]*m/g, ''), room) : inner
-      return `${THEME.box}${c.v}${R}${body}${' '.repeat(Math.max(0, room - width(body)))}${THEME.box}${c.v}${R}`
+      return paint(`${THEME.box}${c.v}${R}${body}${' '.repeat(Math.max(0, room - width(body)))}${THEME.box}${c.v}${R}`)
     },
   }
 }
