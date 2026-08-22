@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.13.0](https://github.com/rambaarde/skein/compare/v0.12.0...v0.13.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** mouse, a black background by default, and stop saying 'loose' ([#30](https://github.com/rambaarde/skein/issues/30)) ([6354e0d](https://github.com/rambaarde/skein/commit/6354e0d8c5d207e21b936531eaabe62c0bb4ae46))
+
 ## [0.12.0](https://github.com/rambaarde/skein/compare/v0.11.0...v0.12.0) (2026-08-22)
 
 
