@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.1](https://github.com/rambaarde/skein/compare/v0.27.0...v0.27.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **test:** main went red on Linux and Windows, and both were the tests ([d6ad6df](https://github.com/rambaarde/skein/commit/d6ad6df94724d088630551f5df5e96414c06898f))
+* **test:** main went red on Linux and Windows, and both were the tests ([#103](https://github.com/rambaarde/skein/issues/103)) ([0af3b00](https://github.com/rambaarde/skein/commit/0af3b007a33e218acb9e8f61a29de27fc8372ef4))
+
 ## [0.27.0](https://github.com/rambaarde/skein/compare/v0.26.0...v0.27.0) (2026-08-22)
 
 
