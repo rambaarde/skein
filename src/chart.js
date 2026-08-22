@@ -203,17 +203,40 @@ export function axisLine(width, ticks = 4) {
   return Array.from({ length: Math.max(1, width) }, (_, c) => (at.has(c) ? '┬' : '─')).join('')
 }
 
-// Clock times under the ticks. A chart whose x axis is unlabelled is a shape,
-// not a measurement — you cannot tell this morning from an hour ago.
+// Labels under the ticks. A chart whose x axis is unlabelled is a shape, not a
+// measurement — you cannot tell this morning from an hour ago.
+//
+// The FORMAT follows the span, and it has to. A seven-day window labelled in
+// clock time reads `00:24  18:24  12:24  06:24  now`, which looks like time
+// running backwards: the hours are real but they are from four different days,
+// and nothing on the axis says so. A reader cannot place themselves at all.
+const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+
+export function stampFor(span) {
+  // Under a day the date is noise; over two days the clock is. Between them
+  // neither alone is enough, so both, short.
+  if (span <= 36 * 3600_000) return t => new Date(t).toTimeString().slice(0, 5)
+  if (span <= 8 * 86_400_000) {
+    return t => {
+      const d = new Date(t)
+      return `${d.getDate()} ${d.toTimeString().slice(0, 5)}`
+    }
+  }
+  return t => {
+    const d = new Date(t)
+    return `${MONTHS[d.getMonth()]} ${d.getDate()}`
+  }
+}
+
 export function xaxis(since, now, { width, ticks = 4 }) {
   const w = Math.max(1, width)
   const buf = new Array(w).fill(' ')
   const put = (at, s) => { for (let i = 0; i < s.length; i++) if (at + i >= 0 && at + i < w) buf[at + i] = s[i] }
-  const hhmm = t => new Date(t).toTimeString().slice(0, 5)
+  const stamp = stampFor(now - since)
   tickCols(w, ticks).forEach((c, k) => {
     // The right edge is always `now`, whatever the span — the one label nobody
     // should have to work out — and it is pulled left so it stays on screen.
-    const s = k === ticks ? 'now' : hhmm(since + (k / ticks) * (now - since))
+    const s = k === ticks ? 'now' : stamp(since + (k / ticks) * (now - since))
     put(k === ticks ? c - s.length + 1 : c, s)
   })
   return buf.join('')

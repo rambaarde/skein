@@ -201,3 +201,31 @@ test('a focus outside the list changes nothing', () => {
   const opts = { width: 10, rows: 3, max: 1, since: now - 3600_000, now }
   assert.deepEqual(chart(s, { ...opts, focus: -1 }), chart(s, { ...opts, focus: 9 }))
 })
+
+test('the x axis says which day it is once the window is longer than one', async () => {
+  const { stampFor, xaxis } = await import('../src/chart.js')
+  const now = new Date('2026-08-23T00:25:00').getTime()
+  const D = 86_400_000
+
+  // A seven-day window labelled in clock time reads 00:24 18:24 12:24 06:24 —
+  // which looks like time running BACKWARDS. The hours are real, they are just
+  // from four different days, and nothing on the axis said so.
+  const day = xaxis(now - D, now, { width: 90 })
+  assert.match(day, /^\d\d:\d\d/, 'inside a day the date is noise')
+  assert.doesNotMatch(day, /Aug|Jul/)
+
+  const week = xaxis(now - 7 * D, now, { width: 90 })
+  assert.match(week, /^\d+ \d\d:\d\d/, 'across days it needs the day AND the hour')
+
+  const month = xaxis(now - 30 * D, now, { width: 90 })
+  assert.match(month, /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d+/, 'across a month the clock is noise')
+  assert.doesNotMatch(month, /\d\d:\d\d/)
+
+  // Whatever the span, the right edge is `now` — the one label nobody should
+  // have to work out.
+  for (const span of [D, 7 * D, 30 * D]) {
+    assert.ok(xaxis(now - span, now, { width: 90 }).trimEnd().endsWith('now'))
+  }
+  // And the labels ascend left to right, which is the whole complaint.
+  assert.equal(typeof stampFor(D), 'function')
+})
