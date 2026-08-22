@@ -892,7 +892,11 @@ export function render(state, size) {
   // answer -- which stores exist, whether they hold anything, whether it is
   // merely older than the window -- is two stats away.
   if (!projects.length && !state.filter && !state.onlyColliding) {
-    const stores = probe({ now })
+    // Injectable, because probe() reads the real machine and a test that
+    // does that is flaky by construction -- it passes or fails depending on
+    // whether anything happened to be written while it ran. This project has
+    // already shipped one test that read live history.
+    const stores = state.stores ?? probe({ now })
     const any = stores.filter(s => s.found && s.files)
     // Three different situations, and telling them apart is the whole point.
     // "Sessions exist but they are old" and "sessions were written a minute
@@ -937,6 +941,11 @@ export function render(state, size) {
     }
     headRows.push('')
     headRows.push(`   ${DIM}XDG_DATA_HOME is honoured; set it and opencode moves with it.${R}`)
+    // Everything above is what skein can say from two stats. The rest -- what
+    // was IN those files, and what it could read out of them -- needs the
+    // files opened, so it lives behind a command rather than costing every
+    // frame. Several rounds were spent guessing at a user's empty screen.
+    headRows.push(`   ${DIM}run ${R}${BOLD}skein doctor${R}${DIM} to see what was in the files it read.${R}`)
   } else {
   headRows.push(`${THEME.header}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', ctx: '  CONTEXT', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
   }

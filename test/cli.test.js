@@ -121,3 +121,19 @@ test('an empty rollup says where it looked', async () => {
   for (const agent of ['claude', 'codex', 'opencode']) assert.match(out.text, new RegExp(agent))
   assert.match(out.text, /XDG_DATA_HOME/)
 })
+
+test('doctor says what was in the files, not just that they exist', async () => {
+  // Several rounds were spent guessing at a user's empty screen from
+  // photographs. probe() says a store exists and holds files; that was enough
+  // to prove the program was not broken and not enough to say why it was
+  // empty. This opens the newest sessions and reports what came out.
+  const { run } = await import('../src/cli.js')
+  const out = run(['doctor', '--since', '30d'])
+  assert.equal(out.code, 0, 'a diagnosis is never an error')
+  for (const agent of ['claude', 'codex', 'opencode']) assert.match(out.text, new RegExp(agent))
+  assert.match(out.text, /records read|not found/, 'it reports what it read, per store')
+  // The histogram is what catches an agent renaming the record skein reads:
+  // it turns an empty dashboard into a type nobody recognises.
+  assert.match(out.text, /saw:|not found/, 'and which kinds of record it saw')
+  assert.match(out.text, /changed its format/, 'with the reason that matters said out loud')
+})

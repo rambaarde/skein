@@ -1,4 +1,4 @@
-import { collect, probe } from './sources/index.js'
+import { collect, probe, diagnose } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName } from './project.js'
 import { toon, table, ago, short, trunc } from './format.js'
@@ -204,6 +204,46 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
           return `no collisions${here} in the last ${argvSince(opts)} (0 collisions)${context}` +
                  (root && !opts.all ? ' · --all for every project' : '')
         })()),
+    }
+  }
+
+  // Why is my screen empty.
+  //
+  // The empty state answers that for the common cases. This answers it for the
+  // rest: it opens the newest sessions each store holds and reports what was
+  // in them -- how many records, what KINDS, whether a cwd resolved, and how
+  // many edits came out. Several rounds were spent guessing at a user's empty
+  // screen from photographs; one command should have settled it.
+  if (cmd === 'doctor') {
+    const rows = diagnose({ now, sinceMs: since, sample: opts.all ? 20 : 4 }).map(d => ({
+      agent: d.agent,
+      store: d.dir,
+      found: d.found,
+      files: d.found ? d.files : null,
+      in_window: d.found ? d.inWindow : null,
+      records: d.found ? d.records : null,
+      edits: d.found ? d.events : null,
+      cwd_resolved: d.found && d.inWindow ? d.cwd !== null : null,
+      // The histogram is what catches an agent renaming the record skein
+      // reads: it turns an empty dashboard into a type nobody recognises.
+      records_seen: d.types.map(t => `${t.type}×${t.n}`).join(' '),
+    }))
+    const FIELDS = ['agent', 'store', 'found', 'files', 'in_window', 'records', 'edits', 'cwd_resolved', 'records_seen']
+    const total = rows.reduce((n, r) => n + (r.edits ?? 0), 0)
+    return {
+      code: 0,
+      text: out(opts, 'stores', rows, FIELDS,
+        () => rows.map(r => {
+          const head = `${r.agent.padEnd(9)} ${r.store}`
+          if (!r.found) return `${head}\n  not found`
+          const line = `  ${r.files} files · ${r.in_window} in the last ${argvSince(opts)} · ${r.records} records read · ` +
+            `${r.edits} edit${r.edits === 1 ? '' : 's'}${r.in_window ? ` · cwd ${r.cwd_resolved ? 'resolved' : 'NOT resolved'}` : ''}`
+          return `${head}\n${line}${r.records_seen ? `\n  saw: ${r.records_seen}` : ''}`
+        }).join('\n\n') +
+        `\n\n${total} edit${total === 1 ? '' : 's'} in the last ${argvSince(opts)}` +
+        (total ? '' : '\n\nskein counts files WRITTEN. Reading, searching and running commands are not edits.') +
+        '\nA record type skein does not recognise means the agent changed its format — please report it.',
+        'no agent stores found at all'),
     }
   }
 

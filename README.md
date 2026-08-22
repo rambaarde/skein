@@ -33,7 +33,7 @@ skein                  # the dashboard
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-190%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-192%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -158,6 +158,8 @@ skein who [path]          who else is in this repo, or in one file
 skein collisions          recent same-file overlaps
 skein velocity            what landed, and how long it took
 skein tools               what the agents called, not only what they wrote
+skein doctor              why is my screen empty: what each store held, and
+                          what skein could read out of it
 skein hook                the ambient line, for a session-start hook
 skein install             wire the hook into every agent it finds
 skein --json | --toon     machine-readable
