@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.24.1](https://github.com/rambaarde/skein/compare/v0.24.0...v0.24.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** put the denominator next to the change failure rate ([5dcba8d](https://github.com/rambaarde/skein/commit/5dcba8ddaf59fda3c6890ae162d22844fc037baa))
+* **tui:** put the denominator next to the change failure rate ([#88](https://github.com/rambaarde/skein/issues/88)) ([1bbb94a](https://github.com/rambaarde/skein/commit/1bbb94ac0c29db6aa344fe0f17720a6f5e0800e6))
+
 ## [0.24.0](https://github.com/rambaarde/skein/compare/v0.23.1...v0.24.0) (2026-08-22)
 
 
