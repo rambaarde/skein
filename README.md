@@ -41,8 +41,6 @@ skein                  # the dashboard
 
 <img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/demo.gif" alt="skein running against fixture projects" width="900">
 
-<sub>Recorded against a throwaway fixture world, never a real machine.</sub>
-
 </div>
 
 ---
