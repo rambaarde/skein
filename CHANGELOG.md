@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.21.0](https://github.com/rambaarde/skein/compare/v0.20.0...v0.21.0) (2026-08-22)
+
+
+### Features
+
+* **chart:** draw the line in braille, one dot thick ([85c4d3b](https://github.com/rambaarde/skein/commit/85c4d3b6d4910424f1eeb418c9a6f8e35a7a0ecd))
+* **chart:** draw the line in braille, one dot thick ([#65](https://github.com/rambaarde/skein/issues/65)) ([29b38f2](https://github.com/rambaarde/skein/commit/29b38f24782d71d1135e7ec5dce51f8ec6711364))
+
 ## [0.20.0](https://github.com/rambaarde/skein/compare/v0.19.1...v0.20.0) (2026-08-22)
 
 
