@@ -1090,6 +1090,32 @@ test('an empty screen says what skein looked for and what it found', async () =>
   assert.doesNotMatch(plain, /PEAK/, 'no column headers over an empty table')
   assert.doesNotMatch(plain, /attention · 24h/, 'and no chart plotting nothing')
 
-  // One of the three explanations, never a bare blank.
-  assert.match(plain, /no agent sessions found|none touched a project|sessions exist/)
+  // One of the explanations, never a bare blank. They are distinct on purpose:
+  // "no edits at all" and "edits that landed nowhere" are opposite problems,
+  // and a real user was told the second while the truth was the first.
+  assert.match(plain, /no agent sessions found|none of them edited a file|landed in a project|sessions exist/)
+})
+
+test('every velocity row carries its own failure trend', async () => {
+  // The table used half the width and left the rest black. The chart above it
+  // compares the worst six; this answers the same question for the row you are
+  // actually looking at — the pattern the project table already uses for
+  // attention.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [{ at: now - 3600_000, agent: 'claude', session: 's', path: '/w/a/f.ts', project: '/w/a' }]
+  const plain = render({
+    projects: [{ name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], last: now, events }],
+    events, sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 7 * 86_400_000, now, lookback: '7d', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 3, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(plain, /FAILURE TREND/, 'the column exists, in the space the table was leaving black')
+  // This fixture has no git repository behind it, so the honest answer is that
+  // there is nothing to trend -- and the row says so rather than drawing an
+  // empty cell that would read as "measured, and flat".
+  const row = plain.split('\n').find(l => /\ba\b/.test(l) && /no git history/.test(l))
+  assert.ok(row, 'a project with no history says so')
+  assert.doesNotMatch(row, /⣀|⠿/, 'and draws no trend it cannot support')
 })
