@@ -27,16 +27,21 @@ No daemon. No account. No telemetry. Nothing leaves the machine.
 ```sh
 npm i -g skeins
 skein install          # wires the hook into claude, codex and opencode
+skein                  # the dashboard
 ```
 
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-166%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-174%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
 ![license](https://img.shields.io/badge/license-Apache--2.0-blue)
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/demo.gif" alt="skein running against fixture projects" width="900">
+
+<sub>Recorded against a throwaway fixture world, never a real machine.</sub>
 
 </div>
 
@@ -44,7 +49,7 @@ skein install          # wires the hook into claude, codex and opencode
 
 ## The one line that is the product
 
-Everything below this is a dashboard, and five other tools already have one. This
+Everything else here is a dashboard, and five other tools already have one. This
 is the part none of them can do — injected into an agent's session before it
 writes, without anyone asking for it:
 
@@ -54,16 +59,13 @@ writes, without anyone asking for it:
   codex    editing  src/auth/session.ts      (1m ago)
 ```
 
-That is shared awareness, not coordination. **skein never starts, stops,
-restarts, routes, queues, schedules or blocks anything.** It has no locks and no
-claims. The aviation distinction is exact: this is a *flight information
-service* — "traffic in your area, same altitude" — never air traffic control —
-"turn left heading 270 now". A tool that stops an agent mid-task gets
-uninstalled the first time it is wrong.
+`skein install` wires that into Claude Code, Codex and opencode. The agent is
+told and decides for itself; nothing is blocked, queued or claimed. If skein
+breaks, the hook exits 0 and says nothing.
 
 ---
 
-## The dashboard, which is the other half
+## The dashboard
 
 ```
 ╭─ skein¹ ────────────────────────────────────────────────────────────────────────────────────────────────────── preset 1 all  22:20:00 ⠸ ─╮
@@ -110,199 +112,105 @@ uninstalled the first time it is wrong.
 ╰─ 8 sessions · 2 collisions ─────────────────────────────╯╰─ 836 edits in 30d ────────────────────────────────────────────────────────────╯
 ```
 
-<p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>
-Your own project names never leave your machine, which is rather the point.</em></p>
+The headline is **attention accumulated per project** — the line climbs while you
+were in a repo and runs flat while you were not, and ends the day at its own
+total. The project you have selected is lit; the rest fade back.
 
-Timelines are value-gradient braille at **two samples per character cell**; the
-roster carries per-agent hue. Both conventions come from
-[btop](https://github.com/aristocratos/btop), and the braille table is asserted
-identical to btop's, character for character.
+### Four screens, one key
 
-`↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
-`a` window · `c` collisions only · `?` all keys · `q` quit
+`p` cycles them, `1`–`4` jump straight there.
 
-**Click any project** (or press `⏎`) and it opens its own page: that project's rate graph,
-who worked in it and how much, every session with its context, the hottest files,
-and the collisions with both sides named. `esc` comes back. `space` still peeks
-inline without leaving the list.
+| | Shows |
+|---|---|
+| **1 all** | the chart, the project table, a detail pane and the live activity feed |
+| **2 watch** | the chart and the feed at full width — what is happening right now |
+| **3 table** | the project table alone, the most projects on screen |
+| **4 velocity** | what landed on each trunk, and how long it took |
 
-**Presets** (`p`, or `1`-`3`) change *what is on screen*, not its size — btop's
-idea, and its config format: `all` · `watch` (feed full width) · `table` (the
-project list alone). **Tabs** (`tab`) switch the detail pane between `info`,
-`sessions`, `files` and `collisions`.
+`⏎` opens a project's own screen: its agents, its sessions and their context
+pressure, its files, its tool calls, its collisions.
 
-**Scrolling**: the wheel scrolls whatever is under the pointer — the project
-table or the activity feed — and the feed border shows your position (`21–35 of
-292`). `g` returns to newest.
+### Velocity, for one developer
 
-**The mouse works**: click a project row to select it, click it again to expand,
-scroll the wheel to move through projects — and **click any line in the activity
-feed** to open the whole record: agent, full path, branch, session title and
-context, with `esc` to go back.
+DORA is an org metric and three quarters of it does not survive being pointed at
+one person, so skein ships the part that does and says so:
 
-It redraws every two seconds while work is landing, and backs off to sixteen
-when nothing changes — **0.11% of one core idle**, measured over thirty seconds.
-The pulse in the border slows with it, so a lazy pulse means a quiet machine
-rather than a stalled program.
+| | |
+|---|---|
+| **LANDED** · **/DAY** | trunk commits, release commits excluded |
+| **LEAD** | first edit after the previous landing, until it lands. Measured from when you *started*, which git cannot see through a squash merge |
+| **ATTN/SHIP** | your hours divided by what came out of them — the number that needs both halves |
+| **REWORK** | share of landings typed `fix` or `revert`. A proxy for change-failure, and labelled one |
+| ~~MTTR~~ | needs incident data. Not derivable, not shown |
 
-### Themes are btop's, unmodified
+A rate over a window shorter than a week is a projection, not a measurement, so
+the column reads `/DAY` under seven days and `/WEEK` above.
 
-```sh
-skein themes                    # every .theme skein can find
-skein --theme tokyo-night
+---
+
+## Commands
+
+A tty gets the TUI; a pipe gets text. **No metric exists in only one door** —
+anything the chart shows, the CLI answers, and the reverse.
+
+```
+skein                     the dashboard
+skein ls                  one line per project
+skein who [path]          who else is in this repo, or in one file
+skein collisions          recent same-file overlaps
+skein velocity            what landed, and how long it took
+skein tools               what the agents called, not only what they wrote
+skein hook                the ambient line, for a session-start hook
+skein install             wire the hook into every agent it finds
+skein --json | --toon     machine-readable
 ```
 
-The background is **solid black by default**, like btop. `--transparent`
-inherits your terminal instead, and `--opaque '#1a1b26'` sets any colour.
+Absence is an explicit `null`, never an omitted key or a zero standing in for
+one: "this repo has no git history" and "you landed nothing" are different
+answers.
 
-skein reads **btop's own `.theme` files** and looks in btop's own directories,
-so a palette you already use in btop works here with no porting — 36 of them
-ship with btop, and the community has written many more. `theme[main_bg]=""`
-still means *inherit the terminal*, which is the default and the fallback for
-any key a theme leaves out. A theme changes colour and never layout; a test
-asserts exactly that.
+## Keys
 
-### Try it without showing it your history
+| | |
+|---|---|
+| `↑` `↓` `j` `k` | move between projects |
+| `⏎` | open the project's own screen |
+| `space` | peek at it inline |
+| `tab` | switch the detail pane — info · sessions · files · tools · collisions |
+| `p` · `1`–`4` | presets |
+| `a` | window: 6h · 24h · 7d · 30d |
+| `s` | sort: recent · time · files · sessions · name |
+| `/` | filter by name |
+| `c` | only projects that collided |
+| `esc` | back one level, then quit |
+| `?` | every key |
+
+The mouse works too: rows, tabs, feed entries and the controls on the border are
+all clickable.
+
+---
+
+## Try it without showing it your history
 
 ```sh
 node tools/sandbox.mjs
 cd ../skein-sandbox && ./skein
 ```
 
-That builds a throwaway world — five git repositories, fixture sessions for all
-three agents, and one deliberate collision — and runs skein against a fake
-`HOME`, so none of your own work is read. Delete the folder when you are done.
+That builds a throwaway world — five git repositories with a month of commits,
+fixture sessions for all three agents, and one deliberate collision — and runs
+skein against a fake `HOME`, so none of your own work is read. Delete the folder
+when you are done.
 
----
+## Themes are btop's, unmodified
 
-## Why now
-
-Parallel agents stopped being exotic about a year ago. Three things changed at
-once, and only the third one is new.
-
-1. **Running four agents became normal.** Under a multiplexer it is routine to
-   have several sessions open across several repositories, two of them on the
-   same repo, all editing files at once.
-
-2. **Nothing coordinates them, on purpose.** That is the right call — an
-   orchestrator that routes work is a heavier product with a worse failure mode.
-   But "no orchestrator" was quietly taken to mean "no awareness either".
-
-3. **The agents can now be told things.** This is the one that matters. Every
-   agent grew a session-start hook, so a fact can reach an agent *before* it
-   writes, without a human relaying it. The defence used to be a human holding
-   the whole board in their head — the exact thing that fails at four sessions.
-
-skein is what you do about the third one.
-
----
-
-## Before and after
-
-| | Before | With skein |
-|---|---|---|
-| where your week went | a guess, or a token bill | per project, per agent, on a timeline |
-| two agents in one file | found later, in a merge | the second one is told before it writes |
-| what an agent knows about its neighbours | nothing | who is here, what they touched, how long ago |
-| the unit of attention | the session | the project, with sessions nested under it |
-| a repo you have not touched in a week | still on screen | ranked below the ones that are live |
-| asking "is anyone else in this file?" | you cannot | `skein who src/auth/session.ts` |
-| what happens when skein breaks | — | nothing. The hook exits 0 and says nothing |
-
----
-
-## Two doors, one store
-
-One reader underneath, two surfaces on top — the shape `aps` already proved.
-
-| Door | For | Shape |
-|---|---|---|
-| **TUI** | your eyes | project rollup, agents nested, timeline |
-| **CLI** | agents and pipes | `--json`, `--toon`, pre-computed aggregates, minimal schemas |
-| **Hook** | agents, ambiently | one line at session start — the block above |
-
-```
-skein                     the TUI
-skein ls                  one line per project
-skein who [path]          who else is in this repo, or in one file
-skein collisions          recent same-file overlaps
-skein hook                the ambient line, for a session-start hook
-skein --json | --toon     machine-readable
+```sh
+skein --theme tokyo-night        # any .theme file btop can read
+skein --themes                   # list what is installed
 ```
 
-A tty gets the TUI; a pipe gets text. **No metric exists in only one door** —
-anything the chart shows, the CLI answers, and the reverse. Otherwise one door
-becomes second-class, which is the failure that makes most TUIs unscriptable.
-
----
-
-## The problem
-
-The code lands. Nobody knows who else was in it.
-
-Your defence against two agents overwriting each other is that you are holding
-the whole board in your head. That works at two sessions and fails at four,
-which is a normal Tuesday. The cost is not tokens — it is a silent merge
-conflict discovered later, in code neither you nor either agent remembers
-writing.
-
-- **Sessions are the wrong unit.** You think in projects. Every tool in the field
-  keys on `sessionKey`, so "where did my week go, per project" has no answer.
-- **The dashboards are write-only.** Five tools will draw you a chart. None can
-  be *consulted by the agents they watch*, so the warning always arrives after
-  the fact and always to a human.
-- **The knowledge is per-file and nobody holds it.** *"Codex touched this file
-  four minutes ago."* That fact exists on disk, in three different formats, and
-  no agent can reach it.
-
-## The promise
-
-> **No agent writes into a file blind that another agent just changed.**
->
-> **No agent is ever told what to do about it.**
->
-> **Nothing you did not ask for leaves the machine.**
-
----
-
-## Was this real, or a solution looking for a problem?
-
-It was gated on that question, and the gate was allowed to kill it.
-
-Before a line of product code, a throwaway script
-([`tools/m0.mjs`](tools/m0.mjs)) measured 30 days of real history. The rule,
-written down in advance: **fewer than ~5 collisions in 30 days and the project is
-cancelled, not descoped.**
-
-It found **97**, across 8 distinct days. ([full result](docs/m0-result.txt))
-
-The more useful finding was about *capture*. The design assumed Claude records
-file edits as `file-history-delta`. It does — in 63 of 197 transcripts, covering
-2,110 of 8,850 edits. The rest arrive as `Edit`/`Write` tool calls (5,090) and as
-shell redirects, `sed -i`, `tee` and heredocs (1,650), which is how Claude Code's
-auto mode is *instructed* to edit files.
-
-**A reader built on the documented contract alone finds 6 collisions and cancels
-the project.** The same 30 days, read properly, contain 97.
-
----
-
-## How it reads
-
-| Agent | File edits | Project | Branch | Title |
-|---|---|---|---|---|
-| **Claude Code** | `file-history-delta` + `Edit`/`Write` + shell writes | `cwd` | ✓ | ✓ `aiTitle` |
-| **Codex** | `patch_apply_end.changes` — says what *kind* of change | `session_meta.cwd` | — | first prompt |
-| **opencode** | `tool:edit` / `write` parts | `project.worktree` | — | — |
-
-Absence renders as absence, never as breakage. **Read-only, always** — the one
-path skein writes is its own cache in `~/.skein`, and CI greps the source to keep
-it that way.
-
-Transcripts get large. The biggest on the author's machine is **1.27 GB**, past
-Node's maximum string length, so every file is streamed and parsed incrementally
-from its previous end. Cold read of a 30-day window: **~4 s**. Warm: **~20 ms**.
-No daemon — nothing to start, nothing to have crashed.
+skein reads btop's own theme format from btop's own directories. A theme changes
+colour and never layout; a test asserts exactly that.
 
 ---
 
@@ -316,64 +224,20 @@ that rots.
 - **Blocking or gating an agent.** Advisory only, forever.
 - **Locks, claims or leases.** The same thing wearing a filesystem hat.
 - **Cost.** Neither agent records a price, so a cost column means shipping a rate
-  table and being silently wrong the day it drifts. agtop and agentic-metric
-  already do this well.
-- **Token totals as a spend figure.** Same axis, same reason. *Context pressure*
-  is different and skein does show it — how full a session's window is now is an
-  operational state, like memory pressure, not a receipt.
+  table and being silently wrong the day it drifts. *Context pressure* is the
+  honest version and skein does show it — how full a session's window is now is
+  an operational state, like memory pressure, not a receipt.
 - **Process trees and CPU gauges.** agtop's are good, and it is three platforms
   of `ps` pain.
 - **Session management.** herdr and agent-manager own this.
 - **Anything hosted or shared.** Paths and titles carry client names.
 - **Telemetry.** Absent, not off-by-default.
 
-## Design lineage
-
-Inspired by [agtop](https://github.com/ldegio/agtop), descended from
-[btop](https://github.com/aristocratos/btop) — Copyright 2021 Aristocratos,
-Apache-2.0.
-
-skein takes three things from btop and no code: the braille and block symbol
-tables that pack two samples per character cell (asserted identical to btop's,
-character for character, in `test/render.test.js`), the border grammar — title
-in the top edge, controls in the bottom, a clock top-right — and the
-`theme[key]="#rrggbb"` file format, which is why any btop theme works here
-unported.
-
-agtop proved the category — 273 stars in five months for a single-file, zero-dep
-Node TUI. Its object is the **session**; skein's is the **project**, and that is a
-spine change rather than a `groupBy`. agtop is GPL-2.0 and skein is permissive, so
-**agtop's source is deliberately unread**: the visual grammar comes from btop
-(Apache-2.0), which is agtop's own ancestor. Take from the parent, not the
-sibling.
-
----
-
-## Status
-
-**M1.** The readers, the collision engine, the TUI, the CLI and the hook, with
-49 tests and zero runtime dependencies, green on ubuntu/macOS/Windows × Node
-20/22/24.
-
-On npm as **`skeins`**; the command it installs is `skein`. The singular is held
-by an unrelated 2015 crypto package with just enough traffic that npm will not
-release it — so the plural carries the package and the singular is what you
-type.
-
-The hook has not yet been lived with for a week, which is the only test that
-matters for it.
-
-[`docs/prd-v1.md`](docs/prd-v1.md) is the product requirements, including the
-parts that were wrong and what running it corrected.
-
-## Open questions
-
-- Does the hook line earn its place every session, or become wallpaper?
-- Is "same file within 30 minutes" the right collision definition, or should it
-  be same-function?
-- Should `skein who` report reads, or only writes? (Writes, today.)
-- Does the Kitty/Sixel tier slot into the symbol table, or need its own path?
+**Read-only, always.** The one path skein writes is its own cache in `~/.skein`,
+and CI greps the source to keep it that way.
 
 ## Licence
 
+Apache-2.0. Inspired by [agtop](https://github.com/ldegio/agtop), descended from
+[btop](https://github.com/aristocratos/btop) — Copyright 2021 Aristocratos,
 Apache-2.0.
