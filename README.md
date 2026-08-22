@@ -33,7 +33,7 @@ skein                  # the dashboard
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-190%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-192%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
