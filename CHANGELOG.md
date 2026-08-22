@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.15.0](https://github.com/rambaarde/skein/compare/v0.14.0...v0.15.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** spikes instead of a plateau, a graduated axis, and a clickable feed ([#36](https://github.com/rambaarde/skein/issues/36)) ([4ba2339](https://github.com/rambaarde/skein/commit/4ba2339824675ef8919bae5794bf56156d22cbc7))
+
 ## [0.14.0](https://github.com/rambaarde/skein/compare/v0.13.1...v0.14.0) (2026-08-22)
 
 
