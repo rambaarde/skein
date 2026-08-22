@@ -9,9 +9,17 @@ import { SKEIN_DIR, CACHE_FILE } from './paths.js'
 // Bump this whenever the SHAPE of what gets cached changes — not just when the
 // cache format does. A fix to how a token count is derived is invisible to a
 // user whose cache still holds the number the old code computed; the file has
-// not grown, so it is never re-read. v2: Codex context stopped double-counting
-// cached_input_tokens, which is a subset of input_tokens rather than a sibling.
-const VERSION = 2
+// not grown, so it is never re-read.
+//
+//   v2  Codex context stopped double-counting cached_input_tokens, which is a
+//       subset of input_tokens rather than a sibling.
+//   v3  sessions carry a tool-call tally. A cached session parsed by v2 has no
+//       tools field at all, so without a bump every existing user would see an
+//       empty tools tab forever and conclude the feature was broken.
+//
+// Exported so tests assert the BEHAVIOUR -- old discarded, current reused --
+// rather than a number they have to be remembered to update.
+export const VERSION = 3
 
 export function load() {
   try {

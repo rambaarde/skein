@@ -28,6 +28,14 @@ const PROJECTS = [
   { name: 'notify-svc', files: ['worker.go', 'queue.go', 'README.md'] },
   { name: 'docs-site', files: ['content/intro.md', 'content/guide.md'] },
 ]
+// Weighted by how often a real session reaches for them: Read dominates,
+// then Grep and Bash, with the occasional Task and web call.
+const READ_TOOLS = [
+  'Read', 'Read', 'Read', 'Read', 'Read', 'Read',
+  'Grep', 'Grep', 'Grep', 'Glob', 'Glob',
+  'Bash', 'Bash', 'Bash',
+  'TodoWrite', 'Task', 'WebFetch',
+]
 const TITLES = [
   'Rotate the session expiry header', 'Add rate limiting to /auth', 'Fix the flaky cart test',
   'Backfill the audit log', 'Split the pricing module', 'Tidy the onboarding guide',
@@ -36,14 +44,55 @@ const TITLES = [
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(HOME, { recursive: true })
 
-// Real git roots, because skein finds a project by walking up to a .git.
-for (const p of PROJECTS) {
+// Real git roots, because skein finds a project by walking up to a .git — and
+// real trunk HISTORY, because `skein velocity` reads what landed on the trunk.
+// One empty init commit made every fixture project look like it had shipped
+// once and never again, which is a poor thing to show and a worse thing to
+// test against.
+//
+// The subjects are Conventional Commits because velocity classifies by TYPE:
+// `fix`/`revert` is what rework counts, and `chore(main): release` is excluded
+// so a release-automation repo does not report double.
+const SUBJECTS = [
+  'feat(auth): rotate the session expiry header',
+  'fix(cart): the flaky test was a real race',
+  'refactor(db): one pool, created once',
+  'feat(api): rate limit /auth',
+  'chore(main): release',
+  'fix(nav): the active link was a link to here',
+  'docs: say what the window means',
+  'perf(pricing): stop recomputing the whole basket',
+  'fix(queue): a dead letter is not a retry',
+  'feat(dashboard): a project opens its own screen',
+]
+
+// The date is formatted inline rather than through iso(), which is declared
+// further down: a const does not hoist, and reaching back for one is the exact
+// trap this codebase has now hit five times.
+const gitAt = (dir, at, args) => {
+  const when = new Date(at).toISOString()
+  return execFileSync('git', [
+    '-c', 'user.email=fixture@example.com', '-c', 'user.name=fixture', ...args,
+  ], { cwd: dir, env: { ...process.env, GIT_AUTHOR_DATE: when, GIT_COMMITTER_DATE: when } })
+}
+
+for (const [pi, p] of PROJECTS.entries()) {
   const dir = join(REPOS, p.name)
   mkdirSync(join(dir, 'src'), { recursive: true })
   writeFileSync(join(dir, 'README.md'), `# ${p.name}\n\nFixture repository. Nothing here is real.\n`)
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
-  execFileSync('git', ['-c', 'user.email=fixture@example.com', '-c', 'user.name=fixture', 'commit', '-q',
-    '--allow-empty', '-m', 'init'], { cwd: dir })
+  // Busier projects land more. The first one ships most, so the demo has a
+  // leader rather than five identical lines.
+  const n = Math.max(3, 22 - pi * 4)
+  for (let i = 0; i < n; i++) {
+    // Spread back over the month, newest last, with a little jitter so the
+    // lead times are not all identical. The last one lands within the hour:
+    // a repo whose newest commit is a day old reports nothing at all in the
+    // default 24h window, which is a poor thing to look at and a worse thing
+    // to test velocity against.
+    const at = NOW - ((n - 1 - i) / Math.max(1, n - 1)) * 26 * DAY - Math.floor(rnd() * 5 * HOUR) - 20 * MIN
+    gitAt(dir, at, ['commit', '-q', '--allow-empty', '-m', SUBJECTS[(i + pi) % SUBJECTS.length]])
+  }
 }
 
 // ---- claude: ~/.claude/projects/<slug>/<session>.jsonl ---------------------
@@ -73,6 +122,17 @@ for (const p of PROJECTS) {
       if (r < 0.4) lines.push({ type: 'file-history-delta', trackingPath: join(root, f), timestamp: iso(at) })
       else if (r < 0.8) lines.push({ timestamp: iso(at), cwd: root, gitBranch: branch, message: { content: [{ type: 'tool_use', name: 'Edit', input: { file_path: f } }] } })
       else lines.push({ timestamp: iso(at), cwd: root, gitBranch: branch, message: { content: [{ type: 'tool_use', name: 'Bash', input: { command: `cd ${root} && sed -i '' s/a/b/ ${f}` } }] } })
+
+      // Everything a session does that leaves no file behind. Real sessions
+      // are mostly this -- reading, searching, running things -- and a fixture
+      // that emits only writes makes the tools tab look like a two-row list
+      // and hides the read:write ratio, which is the number worth reading.
+      for (let k = 0, n = Math.floor(rnd() * 6); k < n; k++) {
+        lines.push({
+          timestamp: iso(at + k * 9_000), cwd: root, gitBranch: branch,
+          message: { content: [{ type: 'tool_use', name: pick(READ_TOOLS), input: {} }] },
+        })
+      }
     }
     write(join(claudeDir, slug, `${id}.jsonl`), lines)
   }
@@ -150,10 +210,14 @@ for (const p of PROJECTS.slice(0, 3)) {
   const j = (p, o) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(o, null, 1)) }
   j(join(store, 'project', `${pid}.json`), { id: pid, worktree: root, vcs: 'git' })
   j(join(store, 'session', `${sid}.json`), { id: sid, projectID: pid })
-  for (let i = 0; i < 9; i++) {
+  // Edits AND everything else. opencode writes one part per tool call and
+  // names it outright, so a fixture that emits only edits makes the session
+  // report 0% read -- which is not what any session has ever looked like.
+  const PARTS = ['edit', 'read', 'read', 'read', 'grep', 'bash', 'read', 'edit', 'glob', 'read', 'bash', 'write', 'read', 'grep']
+  for (const [i, tool] of PARTS.entries()) {
     j(join(store, 'part', `msg_${i}`, `prt_${i}.json`), {
-      id: `prt_${i}`, sessionID: sid, type: 'tool', tool: 'edit',
-      state: { status: 'completed', input: { filePath: join(root, pick(PROJECTS[3].files)) }, time: { start: NOW - (i + 1) * 47 * MIN } },
+      id: `prt_${i}`, sessionID: sid, type: 'tool', tool,
+      state: { status: 'completed', input: { filePath: join(root, pick(PROJECTS[3].files)) }, time: { start: NOW - (i + 1) * 31 * MIN } },
     })
   }
 }

@@ -9,10 +9,10 @@ import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, lineHue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
-import { box, tag, TAG_SEP, fit, width } from './box.js'
+import { box, tag, TAG_SEP, fit, width, clip } from './box.js'
 import { layout, compose } from './layout.js'
 import { PRESETS, NAMES } from './presets.js'
-import { TABS, TAB_TITLES, sessionsTab, filesTab, collisionsTab } from './tabs.js'
+import { TABS, TAB_TITLES, sessionsTab, filesTab, toolsTab, collisionsTab } from './tabs.js'
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
@@ -20,6 +20,7 @@ import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, bucket } from './delivery.js'
+import { toolsOf, totalOf, shape } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -89,7 +90,7 @@ const KEYS = [
   ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
   ['space', 'peek at a project inline without leaving the list'],
   ['esc', 'back one level: page, then detail, then preset 1, then quit'],
-  ['tab', 'switch the detail pane: info · sessions · files · collisions'],
+  ['tab', 'switch the detail pane: info · sessions · files · tools · collisions'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
   ['?  h', 'this'],
@@ -275,6 +276,16 @@ export function render(state, size) {
       vp ? `${vp.landed} landed` : null,
       vp && vp.lead !== null ? `${humanMs(vp.lead)} lead` : null,
       vp && vp.rework !== null ? `${Math.round(vp.rework * 100)}% rework` : null,
+      // What the agents did, not only what they left behind. A project with
+      // nine files touched can be nine minutes of editing or four hours of
+      // reading the codebase to find the nine.
+      (() => {
+        const t = toolsOf(p, state.sessions)
+        if (!t.length) return null
+        const sh = shape(t)
+        const n = totalOf(t)
+        return `${n} tool call${n === 1 ? '' : 's'} · ${Math.round((sh.read / n) * 100)}% read`
+      })(),
       collsHere.length ? `${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : 'no collisions',
     ].filter(Boolean).join(`${DIM} · ${R}`)
 
@@ -325,13 +336,21 @@ export function render(state, size) {
           // The page said 'esc back' and did nothing when clicked — the same
           // inert-label problem as the preset. There is no keyboard-free way
           // out of a full screen otherwise.
+          //
+          // And the stats line grew: it carries landed, lead, rework and the
+          // tool count now, and on a narrow page it pushed the controls clean
+          // off the border. So the stats YIELD to the controls rather than the
+          // other way round — a number you cannot read is a nuisance, a way
+          // out you cannot see is a trap.
           const parts = [
             { key: '\x1b', label: 'back', glyph: 'esc' },
             { key: '\t', label: 'panes', glyph: 'tab' },
             { key: 'q', label: 'quit', glyph: 'q' },
           ]
+          const need = parts.reduce((n, c) => n + width(tag(c.glyph, c.label)) + width(TAG_SEP), 0)
+          const shown = width(stats) + need + 5 <= w ? stats : clip(stats, Math.max(0, w - need - 5))
           const y = rects.head.y + rects.head.h - 1
-          let at = 3 + width(stats) + 2
+          let at = 3 + width(shown) + 2
           const out = []
           for (const c of parts) {
             const s = tag(c.glyph, c.label)
@@ -340,7 +359,7 @@ export function render(state, size) {
             at += len + width(TAG_SEP)
             out.push(s)
           }
-          return `${stats}  ${out.join(TAG_SEP)}`
+          return `${shown}  ${out.join(TAG_SEP)}`
         })(),
         rows,
       }) },
@@ -981,7 +1000,8 @@ export function render(state, size) {
 
     if (tabI === 1) detailRows_.push(...sessionsTab(p, ctx))
     else if (tabI === 2) detailRows_.push(...filesTab(p, ctx))
-    else if (tabI === 3) detailRows_.push(...collisionsTab(p, ctx))
+    else if (tabI === 3) detailRows_.push(...toolsTab(p, ctx))
+    else if (tabI === 4) detailRows_.push(...collisionsTab(p, ctx))
     else infoTab()
 
     function infoTab() {

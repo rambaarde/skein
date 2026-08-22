@@ -75,17 +75,31 @@ export function collect({ useCache = true, sinceMs = Date.now() - 30 * 86_400_00
       try { st = statSync(f) } catch { continue }
       const prev = cache.files[f]
       if (!prev && st.mtimeMs < sinceMs) continue
-      let ev
-      if (fresh(prev, st)) ev = prev.events[0] ?? null
+      let ev, tool
+      if (fresh(prev, st)) { ev = prev.events[0] ?? null; tool = prev.meta ?? null }
       else {
-        ev = opencode.parsePart(readFileSync(f, 'utf8'), { file: f })
+        const raw = readFileSync(f, 'utf8')
+        ev = opencode.parsePart(raw, { file: f })
+        // Cached even when the part is not an edit, or the tool count would be
+        // right on the first run and empty on every one after it -- the file
+        // has not changed, so it is never read again.
+        tool = opencode.toolOf(raw)
         dirty = true
-        cache.files[f] = { size: st.size, mtimeMs: st.mtimeMs, events: ev ? [ev] : [], meta: null }
+        cache.files[f] = { size: st.size, mtimeMs: st.mtimeMs, events: ev ? [ev] : [], meta: tool }
+      }
+      if (tool) {
+        const root = roots.get(tool.session)
+        if (!sessions.has(tool.session)) {
+          sessions.set(tool.session, { agent: 'opencode', cwd: root ?? null, branch: null, title: null, prLink: false, first: tool.at, last: tool.at, tools: {} })
+        }
+        const s = sessions.get(tool.session)
+        s.tools = s.tools ?? {}
+        s.tools[tool.tool] = (s.tools[tool.tool] ?? 0) + 1
       }
       if (!ev) continue
       const root = roots.get(ev.session)
       events.push(root ? { ...ev, project: root } : ev)
-      if (!sessions.has(ev.session)) sessions.set(ev.session, { agent: 'opencode', cwd: root ?? null, branch: null, title: null, prLink: false, first: ev.at, last: ev.at })
+      if (!sessions.has(ev.session)) sessions.set(ev.session, { agent: 'opencode', cwd: root ?? null, branch: null, title: null, prLink: false, first: ev.at, last: ev.at, tools: {} })
       const s = sessions.get(ev.session)
       s.first = Math.min(s.first ?? Infinity, ev.at); s.last = Math.max(s.last ?? 0, ev.at)
     }

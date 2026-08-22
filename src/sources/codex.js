@@ -8,7 +8,7 @@ const KIND = { update: 'edit', add: 'add', delete: 'delete' }
 
 export function parse(lines, { session, seed }) {
   const events = []
-  const meta = { cwd: seed?.cwd ?? null, branch: null, title: seed?.title ?? null, prLink: false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
+  const meta = { tools: { ...(seed?.tools ?? {}) }, cwd: seed?.cwd ?? null, branch: null, title: seed?.title ?? null, prLink: false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
 
   for (const line of lines) {
     if (!line) continue
@@ -43,6 +43,16 @@ export function parse(lines, { session, seed }) {
     if (!meta.title && p.type === 'user_message' && typeof p.message === 'string') {
       meta.title = p.message.split('\n')[0].slice(0, 60)
     }
+
+    // Tool names, read off the rollout rather than guessed at. Verified
+    // against real sessions: codex records a call as `custom_tool_call` (or
+    // `function_call`) carrying `.name`, and states the two it does not name
+    // that way -- a patch and a web search -- as their own event types.
+    const called = (p.type === 'custom_tool_call' || p.type === 'function_call') ? p.name
+      : p.type === 'patch_apply_end' ? 'apply_patch'
+      : p.type === 'web_search_end' ? 'web_search'
+      : null
+    if (typeof called === 'string' && called) meta.tools[called] = (meta.tools[called] ?? 0) + 1
 
     if (p.type === 'patch_apply_end' && p.changes && typeof p.changes === 'object') {
       for (const [path, change] of Object.entries(p.changes)) {
