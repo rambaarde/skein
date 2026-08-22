@@ -29,21 +29,33 @@ Sleep 400ms
 Enter
 Sleep 4s
 
-# 1 all — attention per project, the table, the live feed.
+# 1 all — attention per project, the table, the live feed. Moving the cursor
+# lights that project's line and fades the rest; nothing moves.
 Down@700ms 2
-Sleep 2500ms
-
-# The detail pane: what an agent is told, then the tool calls behind the edits.
-Tab
+Sleep 2000ms
+Up@700ms 2
 Sleep 1200ms
-Tab
-Sleep 1200ms
-Tab
-Sleep 2800ms
 
-# The project's own screen.
+# The detail pane: what an agent is told, the files, then the TOOL CALLS
+# behind them -- a session is mostly reads, and the edits are the residue.
+Tab
+Sleep 1100ms
+Tab
+Sleep 1100ms
+Tab
+Sleep 3800ms
+
+# Widen the window. A day is the right default for "what is running now", and
+# too short a lever for anything about where the time went.
+Type "a"
+Sleep 800ms
+Type "a"
+Sleep 1800ms
+
+# The project's own screen: agents, sessions, files and tools, all ranked,
+# with the collisions this repo actually had along the bottom.
 Enter
-Sleep 4s
+Sleep 6s
 Escape
 Sleep 1200ms
 
@@ -54,13 +66,6 @@ Sleep 2500ms
 # 3 table — the most projects on screen.
 Type "p"
 Sleep 2500ms
-
-# Widen the window: velocity is a "where did the week go" question, and a
-# day is too short a lever to see a trend with.
-Type "a"
-Sleep 900ms
-Type "a"
-Sleep 1800ms
 
 # 4 velocity — what landed, and how long it took.
 Type "p"
