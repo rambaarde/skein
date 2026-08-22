@@ -32,7 +32,7 @@ skein install          # wires the hook into claude, codex and opencode
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-161%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-163%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -68,20 +68,20 @@ uninstalled the first time it is wrong.
 ```
 ╭─ skein¹ ────────────────────────────────────────────────────────────────────────────────────────────────────── preset 1 all  22:20:00 ⠸ ─╮
 │ 3h00  ┤                                                                                                                                  │
-│ 2h45  ┤                                                                                                                   ####### 2h46   │
-│ 2h30  ┤                                                                                                         ###########              │
-│ 2h15  ┤                                                                                            ##############         ******* 2h09   │
-│ 2h00  ┤                                                                                #############    *******************              │
-│ 1h45  ┤                                                                    #############*****************                                │
-│ 1h30  ┤                                                           ##########*************                                                │
-│ 1h15  ┤                                               #############*********                                                             │
-│ 1h00  ┤                                ################************                                            +++++++++++++xxxxx 52m    │
-│ 45m   ┤                   ##############***********            +++++++++++++++++++++++++++xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxooooooooo 28m    │
-│ 30m   ┤      ##############++xxxxxxxxoooooooooooooooooooooooooooooooooooooo====================================================== 16m    │
-│ 0     ┤#######==============================================================                                                             │
+│ 2h45  ┤                                                                                                               ⣀⣀⡤⠤⠤⠤⠖⠒⠋⠉⠉ 2h46   │
+│ 2h30  ┤                                                                                                     ⣀⣀⣀⣀⡤⠤⠤⠖⠋⠉⠁                  │
+│ 2h15  ┤                                                                                         ⣀⣀⣀⣀⡤⠤⠤⠤⠖⠒⠒⠋⠁          ⣀⣀⣀⣀⡤⠤⠤⠤⠤⠖ 2h09   │
+│ 2h00  ┤                                                                               ⣀⣀⣀⣀⣀⡤⠖⠒⠒⠒⠃      ⣀⣀⣀⡤⠤⠤⠤⠖⠒⠋⠉⠉⠉⠉⠉⠉⠁                 │
+│ 1h45  ┤                                                                    ⣀⣀⡤⠤⠤⠖⠒⠒⠋⠉⠉⠁ ⣀⣀⣀⣀⣀⣀⣀⡤⠤⠤⠖⠒⠋⠉⠉⠁                                 │
+│ 1h30  ┤                                                           ⣀⣀⣀⣀⣀⡖⠒⠋⠉⣁⣀⣀⣀⡤⠤⠤⠖⠒⠒⠒⠋⠉⠁                                                │
+│ 1h15  ┤                                                ⣀⣀⣀⣀⡤⠤⠤⠤⠖⠒⠒⠃⣀⣀⣀⡤⠤⠤⠤⠖⠃                                                             │
+│ 1h00  ┤                                    ⣀⣀⣀⡤⠤⠤⠖⠒⣋⣉⣉⣉⡥⠤⠤⠤⠖⠒⠒⠒⠋⠉⠉⠉⠁                                                ⣀⣀⣀⣀⣀⣀⣀⣀⡤⠤⠤⠤⠤ 52m    │
+│ 45m   ┤                    ⣀⣀⡤⠤⠤⠤⠖⠒⠒⠒⠒⠋⣉⣉⣉⡭⠥⠤⠤⠖⠒⠒⠒⠋⠁                   ⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⣀⡤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠤⠖⠒⣒⣒⣒⣒⣒⣒⣒⣒⡶⠶⠯⠭⠭⠭⠭⠭⠟⠛⠓⠒⠒⠒⠒⠒⠒⠒⠋⠉⠉⠉⠉ 42m    │
+│ 30m   ┤          ⣀⣀⣀⣀⡤⣤⣖⣒⣒⡯⣥⣤⣤⣤⣖⣒⣒⣋⣉⣉⣉⣉⣁⣀⣀⣀⡤⠤⠤⠤⠤⠤⠤⠤⠖⠒⠒⠒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣋⣉⣉⣉⣁⣀⣀⣤⣤⣤⣤⣤⣤⡤⠤⠤⠶⠶⠶⠶⠶⠶⠶⠟⠛⠛⠛⠛⠛⠛⠛⠓⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣒⣋⣉⣉⣉⣉ 28m    │
+│ 0     ┤⣀⣀⣤⣶⣶⣶⣶⣿⣿⣿⣷⣶⣿⣿⣿⣷⡿⠿⠿⠿⠷⠶⠶⠶⠶⠶⠶⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠿⠯⠭⠭⠭⠭⠭⠭⠭⠭⠭⠟⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠛⠓⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠒⠋⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠉⠁                        │
 │       └┬─────────────────────────────┬──────────────────────────────┬─────────────────────────────┬─────────────────────────────┬        │
 │        22:20                         10:20                          22:20                         10:20                       now        │
-│        attention · 30d  │ #: atlas-api 2h46 │ *: atlas-web 2h09 │ +: checkout 52m │ x: not in a repo 42m │ o: notify-svc 28m │ +1 more   │
+│        attention · 30d  │ ⣿⣿ atlas-api 2h46 │ ⣿⣿ atlas-web 2h09 │ ⣿⣿ checkout 52m │ ⣿⣿ not in a repo 42m │ ⣿⣿ notify-svc 28m │ +1 more   │
 │ EDITS/MIN · 6h    now 0.4   nobody running      quiet 15m  claude ■■■■■■ 0.4                                                             │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │ PROJECT         DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST          │
