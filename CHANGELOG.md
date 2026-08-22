@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.28.3](https://github.com/rambaarde/skein/compare/v0.28.2...v0.28.3) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** a failure rate is red, and only the tone moves ([33bec92](https://github.com/rambaarde/skein/commit/33bec9259b20c8067bed2ebaacdf83fa257b8960))
+* **tui:** a failure rate is red, and only the tone moves ([#118](https://github.com/rambaarde/skein/issues/118)) ([f1f263f](https://github.com/rambaarde/skein/commit/f1f263f3bcd648e05f41ea6543b85ddb23ac1452))
+
 ## [0.28.2](https://github.com/rambaarde/skein/compare/v0.28.1...v0.28.2) (2026-08-22)
 
 
