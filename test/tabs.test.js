@@ -41,7 +41,13 @@ test('an empty tab says what was checked, not just nothing', () => {
   // collision even is reads as good news.
   const rows = collisionsTab({ root: '/w/a', events: [] }, ctx()).join('\n')
   assert.match(rows, /no collisions here in 24h/)
-  assert.match(rows, /two agents editing the same/, 'and defines the term')
+  assert.match(rows, /two SESSIONS editing the/, 'and defines the term')
+  // Accuracy: a collision is between two sessions, and they are frequently the
+  // SAME agent in two windows. Most projects here have a one-entry agent list
+  // and dozens of collisions, so calling them "two agents" was plainly wrong.
+  // The copy is wrapped to the pane, so match it with the line break in place
+  // rather than pretending the rendered text is one string.
+  assert.match(rows.replace(/\s+/g, ' '), /often the same agent in two windows/)
 
   assert.match(filesTab({ root: '/w/a', events: [] }, ctx()).join(''), /no files touched/)
   assert.match(sessionsTab({ events: [] }, ctx()).join(''), /no sessions/)
@@ -78,4 +84,21 @@ test('a tab is clickable, and the gaps between tabs are not', () => {
   assert.equal(hitTab(state.hit, files.x1, files.y), null, 'the gap is dead space')
   assert.equal(hitTab(state.hit, files.x0, files.y + 1), null, 'and so is the row below')
   assert.equal(hitTab(hits(), 5, 5), null, 'an empty map never throws')
+})
+
+
+test('a collision names the two sides it actually has', () => {
+  // The record carries `a` and `b`, each with its own agent and session — there
+  // has never been a `c.agents` array, so the line that rendered it produced
+  // nothing at all and the column sat blank.
+  const same = { path: '/w/a/x.ts', project: '/w/a', gapMin: 28, at: now,
+                 a: { agent: 'claude', session: 's1' }, b: { agent: 'claude', session: 's2' } }
+  const diff = { ...same, b: { agent: 'codex', session: 's3' } }
+
+  const one = collisionsTab({ root: '/w/a', events: [] }, ctx({ collsHere: [same] })).join('\n')
+  assert.match(one, /2 × claude/, 'the same agent twice is said as such')
+
+  const two = collisionsTab({ root: '/w/a', events: [] }, ctx({ collsHere: [diff] })).join('\n')
+  assert.match(two, /claude ↔ codex/, 'and two different agents are both named')
+  assert.doesNotMatch(two, /undefined/)
 })
