@@ -67,17 +67,17 @@ uninstalled the first time it is wrong.
 
 ```
 ╭─ skein¹ ──────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
-│ PROJECT               AGENTS            SESS  FILES  EDITS ACTIVITY (30d)                LAST│
-│ ▸ atlas-api           claude+codex         8     75    314 ⣼⣴⣴⣴⣶⣤⣆⡆⣦⣦⣦⣤⣦⣶⣼⣼⣴⣴⣦⣴⣷⣄⣦⣧⣶⣶⣴⣦    8s│
-│ ▸ atlas-web           claude+codex         5     61    249 ⣸⣴⣤⣦⣤⣦⣆⣇⣦⣤⣧⣤⣧⣼⣰⣼⣴⣤⣴⣤⣦⣦⣧⣦⣦⣤⣰⣰    4m│
-│ ▸ checkout            claude               3     29     97 ⢸⢰⡆⣴⣦ ⣦⣤⣦⣤⡄⡄⣴⢰⣴⢰⢠⣤⡄⡆⡄⣤⣤⣶⣤⣤⣴⣼   22m│
-│ ▸ notify-svc          codex+opencode       2     18     55 ⢰⢰⣴ ⣶ ⡆⡄⣦⣤⢠ ⡆⢰⣴⢠⣴⣴⣤⣦ ⡄   ⡄⣶⣼    2h│
-│ ▸ docs-site           claude               2     12     32 ⢠ ⢰⢠⢠⡆⢠  ⡄ ⡇ ⣦ ⢰⢠⣤ ⣤ ⡄ ⡆⡄⡄ ⣶    9h│
-│ ▸ loose               claude+codex         7     40     89 ⣰⣀⣀⣠⡀⡆⡀⣀⡄ ⣀⡀⢰⢠ ⣠⣀⣰⣤⣄⣆⣆⣤⣄⣤⡆⢸     1d│
+│ PROJECT      AGENTS            SESS  FILES  EDITS    SHARE  COLL ACTIVITY (30d)          LAST│
+│ ▸ atlas-api  claude+codex         8     75    314 ■■■·····     2 ⣴⣦⣶⣇⣴⣤⣴⣤⣦⣶⣆⣾⣤⣶⣴⣧⣴⣦⣾⣤⣶     8s│
+│ ▸ atlas-web  claude+codex         5     61    249 ■■······     1 ⣴⣦⣴⣦⣴⣴⣶⣼⣦⣦⣧⣾⣴⣾⣤⣦⣾⣦⣶⣤⣤     4m│
+│ ▸ checkout   claude               3     29     97 ■·······     · ⣴⣶⢰⡆⢰⣤⣦⣤⡄⣴⣶⣶⢠⣦⡆⣤⣤⣶⣴⣴⣾    22m│
+│ ▸ notify-svc codex+opencode       2     18     55 ■·······     · ⢰⣦⡆⡇⢰⡄⣶⡄⡄⡆⣦⣦⣶⣷⣶ ⡄ ⢠⢰⣾     2h│
+│ ▸ docs-site  claude               2     12     32 ········     · ⢠⢠⣤⡄⡆⡄⢠ ⡇⢰⡄⢰⢠⡆⣤⢠ ⡆⣤ ⣶     9h│
+│ ▸ loose      claude+codex         7     40     89 ■·······     · ⣰⣤⣠⣠⣄⣀⡄⢀⡄⣠⡄⢰⣀⣶⣠⣶⣤⣆⣴ ⡇     1d│
 ╰─ 6 projects · 3 collisions · 30d · by recent ────────────────────────────────────────────────╯
 ╭─ atlas-api² ─────────────────────────────────────────────────────────────────────────────────╮
-│ claude    main             Rotate the session expiry hea…  ⢰ ⢠⢠⣶⢠⡄ ⣤⣦⡄ ⡄⡄⣴⢰⣴⣤⣦⣤⣤⡄⣷⡇⣤⡄⣤⣧    8s│
-│ codex     feat/rate-limit  Add rate limiting to /auth      ⢻⠘⠛⠃⠛⠛⠘ ⠟⠸⠟⠃⠇⠟⠸⠛ ⠸⠃⠘⠇ ⠛⠃⠘⡇⠘⠛   19m│
+│ claude    main             Rotate the session expiry hea…         ⢰ ⣤⡇⣤ ⣴⣤ ⣤⢠⣶⣴⣶⢰⡆⣴⡇⣴⢰⣶    8s│
+│ codex     feat/rate-limit  Add rate limiting to /auth             ⠻⠛⠃⠃⠃⠃⠛⠛⠃⠛⠃⠟ ⠟⠘⠃⠘⠃⢸ ⠛   19m│
 │ codex     feat/rate-limit  —                                                          ⢸   20m│
 │ COLLISIONS                                                                                   │
 │ · src/auth/session.ts                       claude/codex           20m apart, 40m ago        │

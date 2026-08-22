@@ -299,3 +299,38 @@ test('a recent age counts in seconds so it visibly ticks', async () => {
   assert.equal(ago(now - 90_000, now), '90s', 'a minute and a half must still tick, not freeze at 2m')
   assert.equal(ago(now - 300_000, now), '5m')
 })
+
+test('the name column is sized to the names, not to the leftover space', async () => {
+  // It used to absorb all the slack, which put nine characters of nothing in
+  // every row and starved the timeline. btop never leaves a gap it could put
+  // data in.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = name => ({ name, root: `/${name}`, agents: ['claude'], sessions: 1, files: 2,
+                        events: [{ at: now, session: 's', agent: 'claude', path: `/${name}/a.ts` }], last: now })
+  const state = p => ({
+    events: [], projects: p, sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  })
+  const shortNames = render(state([mk('a'), mk('b')]), { cols: 120, rows: 12 }).replace(/\x1b\[[0-9;]*m/g, '')
+  const longNames = render(state([mk('a-very-long-project-name')]), { cols: 120, rows: 12 }).replace(/\x1b\[[0-9;]*m/g, '')
+  const col = s => s.split('\n')[1].indexOf('AGENTS')
+  assert.ok(col(shortNames) < col(longNames), 'short names should give the timeline more room')
+})
+
+test('share is drawn as a meter, and collisions get their own column', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const ev = n => Array.from({ length: n }, (_, i) => ({ at: now - i * 1000, session: 's', agent: 'claude', path: `/r/f${i}.ts`, project: '/r' }))
+  const big = { name: 'big', root: '/big', agents: ['claude'], sessions: 1, files: 9, events: ev(90), last: now }
+  const small = { name: 'small', root: '/small', agents: ['claude'], sessions: 1, files: 1, events: ev(10), last: now }
+  const colls = [{ path: '/big/f1.ts', project: '/big', a: {}, b: {}, gapMin: 2, at: now }]
+  const plain = render({
+    events: [], projects: [big, small], sessions: new Map(), sel: 0, expanded: new Set(), colls,
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }, { cols: 120, rows: 12 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+  const bigRow = plain.find(l => l.includes('big')), smallRow = plain.find(l => l.includes('small'))
+  const filled = s => (s.match(/■/g) ?? []).length
+  assert.ok(filled(bigRow) > filled(smallRow), 'the busier project needs a longer bar')
+  assert.match(plain[1], /COLL/, 'collisions should have a column of their own')
+})
