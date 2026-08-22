@@ -227,7 +227,9 @@ test('an unknown theme falls back to the terminal rather than failing', async ()
   const { buildTheme } = await import('../src/theme.js')
   const t = buildTheme('no-such-theme-anywhere')
   assert.equal(t.name, null)
-  assert.equal(t.surface, '', 'the fallback must not paint a background')
+  // The default is opaque now — btop's look out of the box — so the fallback
+  // paints black rather than nothing. --transparent is the way back.
+  assert.match(t.surface, /48;2;0;0;0/, 'the fallback paints the default background')
   assert.equal(t.activity.length, 101, 'it still needs a gradient')
 })
 
@@ -559,8 +561,11 @@ test('a theme background is actually painted, not just parsed', async () => {
   // so a translucent terminal showed straight through the panes.
   const { setTheme, setOpaque, THEME } = await import('../src/theme.js')
   const { box } = await import('../src/box.js')
+  const { setTransparent } = await import('../src/theme.js')
   setTheme(null)
-  assert.equal(box({ w: 20 }).row('x').includes('\x1b[48;2;'), false, 'default inherits the terminal')
+  assert.ok(box({ w: 20 }).row('x').includes('\x1b[48;2;0;0;0m'), 'default is opaque black')
+  setTransparent()
+  assert.equal(box({ w: 20 }).row('x').includes('\x1b[48;2;'), false, '--transparent inherits the terminal')
   setOpaque('#101020')
   const painted = box({ w: 20 }).row('x')
   assert.ok(painted.includes('\x1b[48;2;16;16;32m'), 'the surface must reach the row')
