@@ -204,3 +204,50 @@ test('controls hang off the border showing their current value', async () => {
   assert.match(plain, /┘a 7d└/, 'the window tag should show the ACTIVE window')
   assert.match(plain, /┘\? keys└/)
 })
+
+test('btop theme files are read as-is', async () => {
+  const { parseTheme, buildTheme } = await import('../src/theme.js')
+  // The literal format btop ships, including the transparent-background
+  // convention: an empty main_bg means "inherit the terminal".
+  const t = parseTheme(`# a comment
+theme[main_bg]=""
+theme[main_fg]="#cfc9c2"
+theme[selected_bg]="#414868"
+theme[cpu_start]="#9ece6a"
+theme[cpu_mid]="#e0af68"
+theme[cpu_end]="#f7768e"
+not a theme line at all`)
+  assert.equal(t.main_bg, '')
+  assert.equal(t.main_fg, '#cfc9c2')
+  assert.equal(Object.keys(t).length, 6)
+})
+
+test('an unknown theme falls back to the terminal rather than failing', async () => {
+  const { buildTheme } = await import('../src/theme.js')
+  const t = buildTheme('no-such-theme-anywhere')
+  assert.equal(t.name, null)
+  assert.equal(t.surface, '', 'the fallback must not paint a background')
+  assert.equal(t.activity.length, 101, 'it still needs a gradient')
+})
+
+test('a theme changes what is drawn', async () => {
+  const { setTheme, listThemes } = await import('../src/theme.js')
+  const { render } = await import('../src/tui.js')
+  const available = listThemes()
+  if (!available.length) return    // btop not installed on this runner
+  const now = Date.now()
+  const state = () => ({
+    projects: [{ name: 'a', root: '/r', agents: ['claude'], sessions: 1, files: 1,
+                 events: [{ at: now, session: 's', agent: 'claude', path: '/r/a.ts' }], last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  })
+  setTheme(null)
+  const plainRun = render(state(), { cols: 90, rows: 12 })
+  setTheme(available[0].name)
+  const themed = render(state(), { cols: 90, rows: 12 })
+  setTheme(null)                                   // leave the suite as we found it
+  assert.notEqual(plainRun, themed, 'the theme should have changed the output')
+  const strip = s => s.replace(/\x1b\[[0-9;]*m/g, '')
+  assert.equal(strip(plainRun), strip(themed), 'but only the colour, never the layout')
+})
