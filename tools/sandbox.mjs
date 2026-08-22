@@ -10,6 +10,10 @@
 import { mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
+// The same resolver skein reads with, so the world this builds and the world
+// skein looks for cannot drift apart. They already had once: this file
+// hardcoded ~/.local/share while skein had learned to honour XDG_DATA_HOME.
+import { storesIn } from '../src/paths.js'
 
 const OUT = resolve(process.argv[2] ?? join(dirname(new URL(import.meta.url).pathname), '..', '..', 'skein-sandbox'))
 const HOME = join(OUT, 'home')
@@ -96,7 +100,8 @@ for (const [pi, p] of PROJECTS.entries()) {
 }
 
 // ---- claude: ~/.claude/projects/<slug>/<session>.jsonl ---------------------
-const claudeDir = join(HOME, '.claude', 'projects')
+const STORE = storesIn(HOME)
+const claudeDir = STORE.claude
 const write = (p, lines) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, lines.map(o => JSON.stringify(o)).join('\n') + '\n') }
 const iso = t => new Date(t).toISOString()
 
@@ -173,7 +178,7 @@ for (const p of PROJECTS) {
     } else {
       const d = new Date(NOW - 25 * MIN)
       const pad = n => String(n).padStart(2, '0')
-      write(join(HOME, '.codex', 'sessions', String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()),
+      write(join(STORE.codex, String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()),
         `rollout-live-${id}.jsonl`), [
         { timestamp: iso(NOW - 25 * MIN), type: 'session_meta', payload: { type: 'session_meta', cwd: root } },
         { timestamp: iso(NOW - minsAgo * MIN), type: 'event_msg',
@@ -198,13 +203,13 @@ for (const p of PROJECTS.slice(0, 3)) {
       payload: { type: 'patch_apply_end', success: true, changes: { [join(root, pick(p.files))]: { type: pick(['update', 'update', 'add']) } } },
     })
   }
-  write(join(HOME, '.codex', 'sessions', String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()),
+  write(join(STORE.codex, String(d.getFullYear()), pad(d.getMonth() + 1), pad(d.getDate()),
     `rollout-${iso(start).replace(/[:.]/g, '-')}-fixture-${p.name}.jsonl`), lines)
 }
 
 // ---- opencode: storage/{project,session,part} ------------------------------
 {
-  const store = join(HOME, '.local', 'share', 'opencode', 'storage')
+  const store = STORE.opencode
   const root = join(REPOS, 'notify-svc')
   const pid = 'proj_fixture', sid = 'ses_fixture'
   const j = (p, o) => { mkdirSync(dirname(p), { recursive: true }); writeFileSync(p, JSON.stringify(o, null, 1)) }
@@ -226,13 +231,23 @@ for (const p of PROJECTS.slice(0, 3)) {
 const runner = join(OUT, 'skein')
 const BIN = resolve(dirname(new URL(import.meta.url).pathname), '..', 'bin', 'skein.js')
 writeFileSync(runner, `#!/bin/sh
-# Runs skein against THIS sandbox only. HOME is what scopes it: every agent
-# store, and skein's own cache, resolve from the home directory.
+# Runs skein against THIS sandbox only.
+#
+# HOME alone is NOT enough, and that was a real hole. skein honours the
+# variables the agents themselves honour -- XDG_DATA_HOME for opencode,
+# CLAUDE_CONFIG_DIR for Claude Code -- so on a machine that sets either, a
+# sandbox overriding only HOME would have read the user's own history while
+# promising it read nothing. Every one of them is pinned inside the sandbox.
 #
 # It runs the CHECKOUT this sandbox was seeded from, not whatever is installed
 # globally -- otherwise you test the last release while looking at your working
 # tree, which is a confusing hour. Set SKEIN_BIN to override.
 export HOME="${HOME}"
+export XDG_DATA_HOME="${HOME}/.local/share"
+export XDG_CONFIG_HOME="${HOME}/.config"
+export XDG_STATE_HOME="${HOME}/.local/state"
+export CLAUDE_CONFIG_DIR="${HOME}/.claude"
+export SKEIN_HOME="${HOME}/.skein"
 BIN="\${SKEIN_BIN:-${BIN}}"
 if [ -f "$BIN" ]; then exec node "$BIN" "$@"; fi
 exec "$(command -v skein || echo skein)" "$@"
