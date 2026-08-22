@@ -427,6 +427,13 @@ export function render(state, size) {
     // A project with fewer than two deployments is not a flat line at zero —
     // it is a project this chart cannot speak about, and it stays out of the
     // legend rather than appearing there claiming a perfect record.
+    // Ranked for the CHART only. The table keeps the order the rest of the
+    // app is in, because that is the order the arrow keys move through.
+    //
+    // Sorting the table by failure rate here introduced a second, invisible
+    // ordering: the cursor moved one step through `projects` and the highlight
+    // appeared to jump two rows or skip one, because the two lists disagreed
+    // about what "next" meant. A screen must not have an order of its own.
     const ranked = [...stats].sort((a, b) => (b.v?.cfr ?? -1) - (a.v?.cfr ?? -1))
     const judged = ranked.filter(s => s.v?.cfrOf?.verdicts?.length)
     const lines = judged.slice(0, MAX_SERIES).map((s, i) => ({
@@ -468,7 +475,9 @@ export function render(state, size) {
     // which is exactly the second-class door D13 exists to prevent.
     rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
-    for (const { p, v } of ranked.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
+    // `stats`, not `ranked`: the table is in the app's order so one press of
+    // an arrow key moves exactly one row.
+    for (const { p, v } of stats.slice(0, Math.max(1, V.h - rowsOut.length - 3))) {
       const on = p === projects[sel]
       // A project with no git history says so. "0 landed" would be a claim
       // about your week rather than about what skein can see.
