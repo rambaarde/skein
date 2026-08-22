@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.1](https://github.com/rambaarde/skein/compare/v0.9.0...v0.9.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** make the live graph an average, so it draws a line ([#18](https://github.com/rambaarde/skein/issues/18)) ([9013ba5](https://github.com/rambaarde/skein/commit/9013ba5a24a3276509409b0cdd412bc1fdafdd0f))
+
 ## [0.9.0](https://github.com/rambaarde/skein/compare/v0.8.0...v0.9.0) (2026-08-22)
 
 
