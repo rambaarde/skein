@@ -7,7 +7,7 @@
 import { collect } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName } from './project.js'
-import { graph, tierFor } from './symbols.js'
+import { graph, graphPair, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
@@ -161,7 +161,11 @@ export function render(state, size) {
   const headRows = []
   const headState = [
       `${projects.length} project${projects.length === 1 ? '' : 's'}`,
-      `${colls.length} collision${colls.length === 1 ? '' : 's'}`,
+      // A bare zero reads as "this tool is broken". A zero beside a longer
+      // window reads as "nothing today, and here is what normal looks like".
+      colls.length
+        ? `${colls.length} collision${colls.length === 1 ? '' : 's'}`
+        : `${DIM}no collisions in ${lookback}${R}`,
       lookback,
       `by ${state.sort ?? 'recent'}`,
       state.filter ? `${BOLD}/${state.filter}${R}` : null,
@@ -227,7 +231,18 @@ export function render(state, size) {
     const p = view[i]
     const idx = offset + i
     const on = idx === sel
-    const spark = graph(normalise(attentionSeries(p.events, gw * 2, since, now)), { width: gw, rows: 1, tier, lut: LUT.activity })[0]
+    // Thesis §6.5: the timeline is "per project, stacked by agent". One
+    // undifferentiated line cannot say whether a project was one agent or two,
+    // which is most of what you want to know about a shared repo. R7's
+    // mirrored tables carry the second series: busiest agent above the
+    // baseline, next one below.
+    const perAgent = p.agents.map(a => ({
+      agent: a,
+      series: attentionSeries(p.events.filter(e => e.agent === a), gw * 2, since, now),
+    })).sort((x, y) => y.series.reduce((s, v) => s + v, 0) - x.series.reduce((s, v) => s + v, 0))
+    const spark = perAgent.length > 1
+      ? graphPair(normalise(perAgent[0].series), normalise(perAgent[1].series), { width: gw, tier, lut: LUT.activity })
+      : graph(normalise(attentionSeries(p.events, gw * 2, since, now)), { width: gw, rows: 1, tier, lut: LUT.activity })[0]
     const agents = p.agents.map(a => `${hue(a)}${a}${R}`).join(`${DIM}+${R}`)
     const open = expanded.has(p.root ?? 'loose')
     const marker = open ? '▾' : '▸'

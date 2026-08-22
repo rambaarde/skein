@@ -437,3 +437,40 @@ test('the headline metric is time, not a count of edits', async () => {
   const burstRow = plain.find(l => l.includes('burst')), spreadRow = plain.find(l => l.includes('spread'))
   assert.ok(bars(spreadRow) > bars(burstRow), 'the same edit count must not give the same share')
 })
+
+test('the timeline is stacked by agent, per thesis §6.5', async () => {
+  // A single undifferentiated line cannot say whether a project was worked by
+  // one agent or two, which is most of what you want to know about a shared
+  // repo. R7's mirrored tables carry the second series.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = (agent, session, offsets) => offsets.map(m => ({ at: now - m * 60_000, session, agent, path: `/r/${agent}.ts`, project: '/r' }))
+  const solo = mk('claude', 'a', [10, 12, 14, 16])
+  const both = [...mk('claude', 'a', [10, 12, 14, 16]), ...mk('codex', 'b', [40, 42, 44, 46])]
+  const state = events => ({
+    events,
+    projects: [{ name: 'r', root: '/r', agents: [...new Set(events.map(e => e.agent))], sessions: 1, files: 2, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  })
+  const row = s => (render(s, { cols: 120, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n').find(l => l.includes('▸')) ?? '')
+  // The mirrored form uses dots in the TOP half of the cell, which the
+  // bottom-filling single-series form never produces.
+  const hasUpper = l => [...l].some(c => c >= '⠁' && c <= '⣿' && (c.codePointAt(0) & 0b1001) !== 0)
+  assert.ok(hasUpper(row(state(both))), 'two agents should draw a mirrored pair')
+  assert.notEqual(row(state(solo)), row(state(both)), 'one agent and two must not look identical')
+})
+
+test('a zero is reported beside a comparison, not on its own', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [{ at: now, session: 's', agent: 'claude', path: '/r/a.ts', project: '/r' }]
+  const plain = render({
+    events, projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 1, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }, { cols: 120, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '')
+  // "0 collisions" reads as a broken tool; naming the window reads as news.
+  assert.match(plain, /no collisions in 24h/)
+  assert.doesNotMatch(plain, /· 0 collisions ·/)
+})
