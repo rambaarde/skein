@@ -6,6 +6,8 @@ import { hookLine } from './hook.js'
 import { isAbsolute, join } from 'node:path'
 import { install } from './install.js'
 import { listThemes, setTheme, setOpaque, setTransparent } from './theme.js'
+import { velocity } from './delivery.js'
+import { attentionOf, humanMs } from './attention.js'
 
 const HELP = `skein — every agent running across every repository, grouped by project.
 
@@ -190,6 +192,42 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
     }
   }
 
+  // Thesis §7 D13: no metric may exist in only one door. Anything the chart
+  // shows, the CLI answers, and the reverse — otherwise one door becomes
+  // second-class, which is the failure that makes most TUIs unscriptable.
+  if (cmd === 'velocity') {
+    const projects = [...byProject(recent).values()]
+      .filter(p => opts.all || !root || p.root === root)
+      .sort((a, b) => b.last - a.last)
+    const rows = projects.map(p => {
+      const v = velocity(p.root, p.events, { since, now, attention: attentionOf(p.events) })
+      return {
+        project: p.name,
+        // An absent number is an explicit null, never an omitted key or a
+        // zero standing in for one (AXI 5, thesis R2). "No git history here"
+        // and "you landed nothing" are different statements.
+        landed: v ? v.landed : null,
+        per_week: v ? Number(v.perWeek.toFixed(1)) : null,
+        lead: v && v.lead !== null ? humanMs(v.lead) : null,
+        per_ship: v && v.perShip !== null ? humanMs(v.perShip) : null,
+        rework: v && v.rework !== null ? `${Math.round(v.rework * 100)}%` : null,
+        attention: humanMs(attentionOf(p.events)),
+      }
+    })
+    const FIELDS = ['project', 'landed', 'per_week', 'lead', 'per_ship', 'rework', 'attention']
+    return {
+      code: 0,
+      text: out(opts, 'velocity', rows, FIELDS,
+        () => table(rows.map(r => Object.fromEntries(FIELDS.map(k => [k, r[k] ?? '—']))), [
+          { head: 'PROJECT', key: 'project' }, { head: 'LANDED', key: 'landed', right: true },
+          { head: '/WEEK', key: 'per_week', right: true }, { head: 'LEAD', key: 'lead', right: true },
+          { head: 'ATTN/SHIP', key: 'per_ship', right: true }, { head: 'REWORK', key: 'rework', right: true },
+          { head: 'ATTENTION', key: 'attention', right: true },
+        ]) + '\n\nlanded = trunk commits, releases excluded · lead = first edit after the previous landing' +
+             '\nrework is a proxy for change-failure-rate · mean-time-to-restore needs incident data and is not shown',
+        `no projects with git history in the last ${argvSince(opts)} (0 projects)`),
+    }
+  }
   return { code: 1, err: `skein: unknown command "${cmd}"\ntry: skein --help` }
 }
 
