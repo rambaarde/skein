@@ -18,7 +18,7 @@ import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
-import { chart, niceMax, smooth, smoothing, STYLES, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
+import { chart, niceMax, cumulative, STYLES, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -230,13 +230,13 @@ export function render(state, size) {
     // most of what you open a project page to find out.
     const VALWP = 7
     const gwP = Math.max(24, w - 11)
-    const bucketP = Math.max(1, (now - since) / Math.max(1, gwP - VALWP))
+    const colsP = Math.max(1, gwP - VALWP)
     const perAgentLines = (p.agents ?? [])
       .map(a => {
         const ev = (p.events ?? []).filter(e => e.agent === a)
         return {
           label: a,
-          values: smooth(attentionSeries(ev, Math.max(1, gwP - VALWP), since, now).map(ms => ms / bucketP), smoothing(gwP - VALWP)),
+          values: cumulative(attentionSeries(ev, colsP, since, now)),
           total: attentionOf(ev),
           agent: a,
         }
@@ -252,9 +252,9 @@ export function render(state, size) {
         color: hue(s.agent) || lineHue(i),
         value: humanMs(s.total),
       }))
-    const scaleP = niceMax(Math.max(0.002, ...perAgentLines.flatMap(s => s.values)))
+    const scaleP = niceMax(Math.max(60_000, ...perAgentLines.flatMap(s => s.values)))
     const rows = perAgentLines.length
-      ? chart(perAgentLines, { width: gwP, rows: rowsP, max: scaleP, since, now, lead: 6, pad: VALWP, caption: `attention · ${lookback}` })
+      ? chart(perAgentLines, { width: gwP, rows: rowsP, max: scaleP, since, now, lead: 6, pad: VALWP, fmt: humanMs, caption: `attention · ${lookback}` })
       : [` ${DIM}no activity in ${lookback}${R}`]
 
     const totalAll = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
@@ -576,7 +576,7 @@ export function render(state, size) {
     // height the line ends on.
     const VALW = 7
     const gwChart = Math.max(24, listW - 11)
-    const bucketMs = Math.max(1, (now - since) / Math.max(1, gwChart - VALW))
+    const cols = Math.max(1, gwChart - VALW)
     // Ranked by attention, so the lines that get a marker are the ones that
     // took the time. The rest are counted in the legend, never silently cut.
     const ranked = [...projects].sort((a, b) => att(b) - att(a))
@@ -586,16 +586,18 @@ export function render(state, size) {
       pattern: STYLES[i],
       color: lineHue(i),
       value: humanMs(att(x)),
-      // Attention landing in each slice, as a fraction of the slice. A project
-      // worked straight through a bucket reads 100%.
-      values: smooth(attentionSeries(x.events ?? [], Math.max(1, gwChart - VALW), since, now).map(ms => ms / bucketMs), smoothing(gwChart - VALW)),
+      // Attention ACCUMULATED, not attention per slice. The slice version is
+      // zero for most of any day, so it can only draw a floor with bumps on
+      // it; this climbs while you were in the repo, runs flat while you were
+      // not, and ends the day at its own total.
+      values: cumulative(attentionSeries(x.events ?? [], cols, since, now)),
     } : { label: x.name, marker: '', color: '', values: [] }))
-    // The floor is small on purpose. At 0.05 a thirty-day window — where a
-    // six-hour slice is rarely more than one percent worked — was pinned to a
-    // 5%% ceiling, so every line lay along the bottom under nine empty rows.
-    const scale = niceMax(Math.max(0.002, ...chartSeries.flatMap(s => s.values)))
+    // A minute of headroom, so a machine with almost nothing on it still gets
+    // a scale rather than a division by zero.
+    const scale = niceMax(Math.max(60_000, ...chartSeries.flatMap(s => s.values)))
     headRows.push(...chart(chartSeries, {
       width: gwChart, rows: graphRows, max: scale, since, now, lead: 6, pad: VALW,
+      fmt: humanMs,
       caption: `attention · ${lookback}`,
       // The project under the cursor wins any cell it shares, so moving the
       // selection reads its line out of the tangle.
