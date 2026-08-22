@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parse, median, leadTimes, velocity, bucket, failureRate, deployments, RELEASE, HOTFIX, VERSION_TAG, TRUNKS } from '../src/delivery.js'
+import { parse, median, leadTimes, velocity, bucket, failureRate, cfrSeries, deployments, RELEASE, HOTFIX, VERSION_TAG, TRUNKS } from '../src/delivery.js'
 
 const M = 60_000, H = 3_600_000
 // `run` is injectable so every test here reads a fixture rather than a real
@@ -171,4 +171,37 @@ test('fewer than two deployments is null, never zero', () => {
   assert.equal(failureRate(one, [{ at: 2 }]), null, 'one deployment cannot be judged against anything')
   assert.equal(failureRate(one, []), null)
   assert.equal(failureRate(null, [{ at: 1 }, { at: 2 }]), null)
+})
+
+test('the failure trend ends exactly where the table says it does', () => {
+  // A chart whose endpoint disagrees with the number printed beside it is
+  // worse than no chart. So the series is cumulative WITHIN the window: its
+  // right-hand edge is the change failure rate over every deployment in that
+  // window, which is the number the table prints.
+  const H = 3_600_000
+  const land = (at, subject, files, hotfix = false) => ({ at, subject, files, hotfix, release: false })
+  const all = [
+    land(1 * H, 'feat: a', ['a.ts']),
+    land(3 * H, 'fix: repair a', ['a.ts'], true),
+    land(5 * H, 'feat: b', ['b.ts']),
+    land(9 * H, 'feat: c', ['c.ts']),
+  ]
+  const deploys = [{ at: 2 * H }, { at: 6 * H }, { at: 10 * H }]
+  const f = failureRate(all, deploys)
+  const series = cfrSeries(f.verdicts, 40, 0, 12 * H)
+
+  assert.equal(series.length, 40)
+  assert.equal(series.at(-1), f.rate, 'the right edge IS the rate the table prints')
+  assert.equal(series[0], 0, 'before the second deployment there is nothing to judge')
+  assert.ok(series.every(v => v >= 0 && v <= 1), 'it is a rate, so it stays between none and all')
+
+  // The verdicts carry when each deployment was judged, so the trend and the
+  // rate are computed from one pass rather than from two that could disagree.
+  assert.equal(f.verdicts.length, f.judged)
+  assert.equal(f.verdicts.filter(v => v.failed).length, f.failed)
+})
+
+test('a trend with nothing to judge is flat, not absent', () => {
+  assert.deepEqual(cfrSeries([], 4, 0, 100), [0, 0, 0, 0])
+  assert.deepEqual(cfrSeries(null, 3, 0, 100), [0, 0, 0])
 })

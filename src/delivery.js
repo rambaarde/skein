@@ -205,7 +205,44 @@ export function failureRate(all, deploys) {
     if (after.some(s => s.files.some(f => batches[i].shipped.has(f)))) failed++
   }
   const judged = batches.length - 1
-  return { rate: failed / judged, failed, judged, deployments: deploys.length }
+  // Which deployment failed, and when, so a trend can be drawn without
+  // computing the whole thing again from a different angle and disagreeing
+  // with itself.
+  const verdicts = []
+  for (let i = 0; i < batches.length - 1; i++) {
+    const after = landed.filter(s => s.hotfix && s.at > batches[i].at && s.at <= batches[i + 1].at)
+    verdicts.push({ at: batches[i].at, failed: after.some(s => s.files.some(f => batches[i].shipped.has(f))) })
+  }
+  return { rate: failed / judged, failed, judged, deployments: deploys.length, verdicts }
+}
+
+// The change failure rate as it stood at each point across the window.
+//
+// Cumulative WITHIN the window, not over a trailing few deployments. Two
+// reasons, and the second one is the important one:
+//
+//   A trailing window is jumpier, which flatters a chart and misleads a
+//   reader: with four deployments in it, one hotfix moves the line 25 points.
+//
+//   The right-hand edge of this series is the CFR over every deployment in
+//   the window -- which is exactly the number the table prints. A chart whose
+//   endpoint disagrees with the number beside it is worse than no chart, and
+//   this codebase has already shipped that mistake once.
+//
+// Before the second deployment there is nothing to judge, so the series holds
+// at zero rather than inventing a rate.
+export function cfrSeries(verdicts, buckets, since, now) {
+  const out = new Array(Math.max(1, buckets)).fill(0)
+  if (!verdicts?.length) return out
+  const span = Math.max(1, now - since)
+  const asc = [...verdicts].sort((a, b) => a.at - b.at)
+  let i = 0, judged = 0, failed = 0
+  for (let c = 0; c < out.length; c++) {
+    const t = since + ((c + 1) / out.length) * span
+    while (i < asc.length && asc[i].at <= t) { judged++; if (asc[i].failed) failed++; i++ }
+    out[c] = judged ? failed / judged : 0
+  }
+  return out
 }
 
 // The numbers, per project. `attention` comes from the caller because it is
