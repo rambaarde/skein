@@ -13,6 +13,7 @@ import { box, tag, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
+import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from './live.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -179,6 +180,38 @@ export function render(state, size) {
     s.push(' ', fit(last, 6))
     return s.join('')
   }
+  // ---- the live strip: btop's cpu graph, with agents for cores ------------
+  //
+  // The ATTENTION timeline answers "where did my week go" and is identical
+  // between one fifty-one-minute bucket boundary and the next. This answers
+  // "is anything happening right now", and because it is a rolling window it
+  // slides left every few seconds whether or not anything changed.
+  const stream0 = Array.isArray(state.events) ? state.events : []
+  // The strip is the first thing to go when the pane is short. A live graph is
+  // worth four rows on a full screen and worth nothing at all if it costs the
+  // table its header.
+  const stripH = listH >= 14 ? 4 : listH >= 11 ? 3 : 0
+  const gwLive = Math.max(20, listW - 46)
+  const live = rateSeries(stream0, gwLive * 2, { now })
+  const peak = Math.max(1, ...live)
+  const rows2 = graph(live.map(v => (v === 0 ? 0 : Math.max(0.2, Math.sqrt(v / peak)))),
+                      { width: gwLive, rows: 2, tier, lut: LUT.activity })
+  const rate = ratePerMin(stream0, { now })
+  const agents = byAgent(stream0, { now })
+  const nSess = activeSessions(stream0, { now })
+
+  if (stripH >= 3) {
+    headRows.push(` ${DIM}${fit('EDITS/MIN', 10)}${R}${rows2[0]}${R} ${DIM}${fit(`peak ${peak.toFixed(1)}`, 12)}${R}`)
+    headRows.push(` ${BOLD}${fit(rate.toFixed(1), 10)}${R}${rows2[1]}${R} ${DIM}${fit(`${Math.round(WINDOW_MS / 60000)}m window`, 12)}${R}`)
+  }
+  if (stripH >= 4) {
+    headRows.push(` ${DIM}${fit(`${nSess} session${nSess === 1 ? '' : 's'} active`, 20)}${R}` +
+      (agents.length
+        ? agents.slice(0, 4).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, rate || 1), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  ')
+        : `${DIM}nothing is running${R}`))
+  }
+  if (stripH > 0) headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
+
   headRows.push(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', '   TIME', '   SHARE', ' COLL', fit(`ATTENTION (${lookback})`, gw), '  LAST')}${R}`)
   // byProject() attaches this; computing it here too means render survives a
   // hand-built project object, which is how every test constructs one.

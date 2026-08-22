@@ -16,7 +16,10 @@
 export const WIDE_AT = 100
 
 export function layout(w, h) {
-  const headH = Math.max(4, Math.min(Math.floor(h * 0.42), h - 8))
+  // The headline carries a live strip as well as the table, so it needs a bit
+  // more than btop's cpu box did — but never so much that the panes below it
+  // lose their own headers.
+  const headH = Math.max(4, Math.min(Math.floor(h * 0.5), h - 8))
 
   if (w < WIDE_AT) {
     // Stacked: headline, detail, feed. What we had, kept for narrow terminals.

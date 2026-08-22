@@ -67,6 +67,9 @@ uninstalled the first time it is wrong.
 
 ```
 ╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
+│ EDITS/MIN                                                                            peak 1.0                        │
+│ 0.0                                                                                  15m window                      │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │ PROJECT      AGENTS            SESS  FILES    TIME    SHARE  COLL ATTENTION (30d)                                LAST│
 │ ▸ atlas-api  claude+codex         8     75    2h46 ■■■·····     2 ⢠⡆⣰⢀⡆⣴⢠⡇⣠⢠⣄⣠⢀⣄⣦⢠⡄⣄⣠⡄⣆⣦⢀⡇⣴⢠⡆⣰⢰⣄⣴⣠⣆⣠⣠⣄⣴⣠⣤⣦⣤⣠⣆⣠     8s│
 │ ▸ atlas-web  claude+codex         5     61    2h09 ■■······     1 ⢀⡆⣤⢀⡀⣤⣀⡄⣤⢠⣀⣴⢠⣄⣤⣠⣄⣄⣤⡄⡄⣴⢀⡄⣼⢠⡄⣤⢠⡄⣠⣠⣄⣤⣤⣄⣤⣠⣄⣠⢠⢠⣀⣠     4m│
@@ -83,9 +86,6 @@ uninstalled the first time it is wrong.
 │ COLLISIONS                                     ││                                                                    │
 │ · src/auth/session.ts 20m apart    40m         ││                                                                    │
 │ · src/mod47.ts        10m apart     9d         ││                                                                    │
-│                                                ││                                                                    │
-│                                                ││                                                                    │
-│                                                ││                                                                    │
 │                                                ││                                                                    │
 │                                                ││                                                                    │
 │                                                ││                                                                    │

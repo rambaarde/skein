@@ -91,7 +91,8 @@ test('a quiet hour is still visible beside a busy one', async () => {
     sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
     since, now, lookback: '24h', windowMin: 30, tick: 0,
   }
-  const row = render(state, { cols: 120, rows: 20 }).split('\n')[2]
+  const lines = render(state, { cols: 120, rows: 20 }).split('\n')
+  const row = lines.find(l => l.includes('▸')) ?? ''
   const marks = [...row.replace(/\x1b\[[0-9;]*m/g, '')].filter(c => c >= '⠁' && c <= '⣿')
   assert.ok(marks.length >= 2, `the lone edit should still draw a mark, got ${marks.length}`)
 })
@@ -322,7 +323,7 @@ test('the name column is sized to the names, not to the leftover space', async (
   })
   const shortNames = render(state([mk('a'), mk('b')]), { cols: 120, rows: 12 }).replace(/\x1b\[[0-9;]*m/g, '')
   const longNames = render(state([mk('a-very-long-project-name')]), { cols: 120, rows: 12 }).replace(/\x1b\[[0-9;]*m/g, '')
-  const col = s => s.split('\n')[1].indexOf('AGENTS')
+  const col = s => (s.split('\n').find(l => l.includes('PROJECT') && l.includes('AGENTS')) ?? '').indexOf('AGENTS')
   assert.ok(col(shortNames) < col(longNames), 'short names should give the timeline more room')
 })
 
@@ -341,7 +342,7 @@ test('share is drawn as a meter, and collisions get their own column', async () 
   assert.ok(bigRow && smallRow, 'both projects should be on screen at 26 rows')
   const filled = s => (s.match(/■/g) ?? []).length
   assert.ok(filled(bigRow) > filled(smallRow), 'the busier project needs a longer bar')
-  assert.match(plain[1], /COLL/, 'collisions should have a column of their own')
+  assert.match(plain.find(l => l.includes('PROJECT')) ?? '', /COLL/, 'collisions should have a column of their own')
 })
 
 test('two panes side by side stay exactly aligned', async () => {
@@ -429,8 +430,9 @@ test('the headline metric is time, not a count of edits', async () => {
     sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
     since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
   }, { cols: 120, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
-  assert.match(plain[1], /TIME/, 'the column should be TIME')
-  assert.match(plain[1], /ATTENTION/, 'and the graph should be ATTENTION')
+  const header = plain.find(l => l.includes('PROJECT')) ?? ''
+  assert.match(header, /TIME/, 'the column should be TIME')
+  assert.match(header, /ATTENTION/, 'and the graph should be ATTENTION')
   const bars = l => (l.match(/■/g) ?? []).length
   const burstRow = plain.find(l => l.includes('burst')), spreadRow = plain.find(l => l.includes('spread'))
   assert.ok(bars(spreadRow) > bars(burstRow), 'the same edit count must not give the same share')
