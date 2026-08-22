@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.0](https://github.com/rambaarde/skein/compare/v0.2.0...v0.3.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** a sandbox to test in, real keybindings, and a timer that backs off ([#2](https://github.com/rambaarde/skein/issues/2)) ([4d2b3e2](https://github.com/rambaarde/skein/commit/4d2b3e2a6d514a701afe60be8e6a0442ebfb9258))
+
 ## [0.2.0](https://github.com/rambaarde/skein/compare/v0.1.0...v0.2.0) (2026-08-21)
 
 
