@@ -86,6 +86,6 @@ const colls = collisions(events, sessions, { windowMin: 30, since })
 
 const frame = render(
   { projects, sessions, sel: 0, expanded: new Set(), colls, tier: 'braille', since, now: NOW, lookback: '30d', windowMin: 30, tick: 3 },
-  { cols: 96, rows: 24 },
+  { cols: 120, rows: 26 },
 )
 process.stdout.write(frame.replace(/\x1b\[[0-9;]*m/g, '') + '\n')

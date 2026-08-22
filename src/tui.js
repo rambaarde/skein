@@ -10,6 +10,7 @@ import { byProject, gitRoot, projectName } from './project.js'
 import { graph, tierFor } from './symbols.js'
 import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, fit, width } from './box.js'
+import { layout, compose } from './layout.js'
 import { ago, short, trunc } from './format.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -83,6 +84,18 @@ function helpOverlay(w, h) {
   return out.slice(0, h).join('\n')
 }
 
+// A pane is exactly rect.h lines of exactly rect.w visible columns — that
+// invariant is what lets two of them sit side by side without the right one
+// drifting a character further out on every row.
+function pane(rect, { title, key, right = '', state = '', rows }) {
+  const b = box({ w: rect.w, title, key, right, state })
+  const body = rows.slice(0, Math.max(0, rect.h - 2))
+  const lines = [b.top, ...body.map(r => b.row(r))]
+  while (lines.length < rect.h - 1) lines.push(b.row(''))
+  lines.push(b.bottom)
+  return lines.slice(0, rect.h)
+}
+
 export function render(state, size) {
   const { cols, sel, expanded, colls, tier, since, now, lookback } = state
   const projects = state.projects
@@ -91,24 +104,11 @@ export function render(state, size) {
 
   if (state.help) return helpOverlay(w, h)
 
-  // Boxes are sized to what is in them. The old split gave the list a fixed
-  // 65% of the screen whether it held three projects or thirty, so a normal
-  // machine showed seven rows and thirteen blank ones — and a mostly-empty
-  // screen reads as frozen no matter how fast the clock ticks.
-  const expandedRows = projects.reduce(
-    (a, p) => a + (expanded.has(p.root ?? 'loose') ? Math.min(4, p.sessions) : 0), 0)
-  const listRows = Math.max(1, projects.length + expandedRows)
-  const listH = Math.min(Math.max(4, listRows + 2), Math.floor(h * 0.6))
-
-  const p0 = projects[sel]
-  const collsHere = p0 ? colls.filter(c => c.project === p0.root) : []
-  const detailRows = p0 ? Math.min(4, p0.sessions) + (collsHere.length ? Math.min(3, collsHere.length) + 1 : 0) : 1
-  const detailH = Math.min(Math.max(3, detailRows + 2), h - listH - 5)
-
-  // Whatever is left goes to a live feed of edits as they land. This is the
-  // part that actually moves: the project table changes once a minute at best,
-  // and a 24h sparkline shifts one cell every fifty-one minutes.
-  const feedH = h - listH - detailH
+  // btop's geometry, measured from a real capture: a full-width headline, a
+  // left column, and a tall right column for the one view that is a long list.
+  const L = layout(w, h)
+  const listH = L.head.h, detailH = L.detail.h, feedH = L.feed.h
+  const listW = L.head.w, detailW = L.detail.w, feedW = L.feed.w
 
   // Columns are chosen to fit, not assumed. btop tiles fixed boxes because it
   // knows its own metrics; a project list does not know how wide a name is or
@@ -123,7 +123,7 @@ export function render(state, size) {
     const optional = [
       ['agents', 16], ['edits', 6], ['share', 8], ['collisions', 5], ['files', 6], ['sessions', 5],
     ]
-    let budget = w - 2 - 1 - 6 - name          // borders, lead, LAST, name
+    let budget = listW - 2 - 1 - 6 - name      // borders, lead, LAST, name
     const on = new Set()
     for (const [key, need] of optional) {
       if (budget >= need + 1 + 10) { on.add(key); budget -= need + 1 }   // keep 10 for the graph
@@ -141,19 +141,23 @@ export function render(state, size) {
   // pulse advances every refresh, so an idle machine still shows a live tool.
   const pulse = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[(state.tick ?? 0) % 10]
   const clock = new Date(now).toTimeString().slice(0, 8)
-  const b = box({
-    w, title: 'skein', key: SUP[0],
-    right: `${clock} ${DIM}${pulse}${R}`,
-    state: [
+  const controls = w => (w >= 96
+    ? [tag('⏎', 'expand'), tag('s', state.sort ?? 'recent'), tag('/', state.filter || 'filter'),
+       tag('a', lookback), tag('c', state.onlyColliding ? 'colliding' : 'all'), tag('?', 'keys'), tag('q', 'quit')]
+    : detailW >= 70
+      ? [tag('s', state.sort ?? 'recent'), tag('a', lookback), tag('?', 'keys'), tag('q', 'quit')]
+      : [tag('?', 'keys'), tag('q', 'quit')]).join('')
+
+  const headRows = []
+  const headState = [
       `${projects.length} project${projects.length === 1 ? '' : 's'}`,
       `${colls.length} collision${colls.length === 1 ? '' : 's'}`,
       lookback,
       `by ${state.sort ?? 'recent'}`,
       state.filter ? `${BOLD}/${state.filter}${R}` : null,
       state.onlyColliding ? `${BOLD}collisions only${R}` : null,
-    ].filter(Boolean).join(' · '),
-  })
-  out.push(b.top)
+    ].filter(Boolean).join(' · ')
+  const b = box({ w: listW })
   const cells = (name, agents, sessions, files, edits, share, colls_, activity, last) => {
     const s = [' ', fit(name, plan.name)]
     if (plan.on.has('agents')) s.push(' ', fit(agents, 16))
@@ -166,7 +170,7 @@ export function render(state, size) {
     s.push(' ', fit(last, 6))
     return s.join('')
   }
-  out.push(b.row(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', ' EDITS', '   SHARE', ' COLL', fit(`ACTIVITY (${lookback})`, gw), '  LAST')}${R}`))
+  headRows.push(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', ' EDITS', '   SHARE', ' COLL', fit(`ACTIVITY (${lookback})`, gw), '  LAST')}${R}`)
   const totalEdits = Math.max(1, projects.reduce((a, x) => a + x.events.length, 0))
 
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
@@ -195,7 +199,7 @@ export function render(state, size) {
     // the one frame it is selected -- readable on any theme by definition.
     const plain = line.replace(/\x1b\[[0-9;]*m/g, '')
     const sel_ = `${THEME.selBg}${THEME.selFg}`
-    out.push(b.row(on ? `${sel_}${plain}${' '.repeat(Math.max(0, w - 2 - width(plain)))}${R}` : line))
+    headRows.push(on ? `${sel_}${plain}${' '.repeat(Math.max(0, listW - 2 - width(plain)))}${R}` : line)
 
     // Expanded projects list their sessions inline, which is design-language
     // D2 answered: expand-on-demand rather than a fixed-height sub-table.
@@ -206,32 +210,29 @@ export function render(state, size) {
       for (const s of kids) {
         const meta = state.sessions.get(s.session)
         const label = trunc(meta?.title, 34) ?? `${DIM}—${R}`
-        out.push(b.row(`   ${DIM}└${R} ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(meta?.branch ?? `${DIM}—${R}`, 16)} ${fit(label, Math.max(0, w - 39))}${ago(s.at, now).padStart(5)}`))
+        headRows.push(`   ${DIM}└${R} ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(meta?.branch ?? `${DIM}—${R}`, 16)} ${fit(label, Math.max(0, listW - 39))}${ago(s.at, now).padStart(5)}`)
       }
     }
   }
-  for (let i = view.length; i < listH - 2; i++) out.push(b.row(''))
-  out.push(b.bottom)
+  const headPane = pane(L.head, {
+    title: 'skein', key: SUP[0], right: `${clock} ${DIM}${pulse}${R}`,
+    state: `${headState}  ${controls(listW)}`, rows: headRows,
+  })
 
   // ---- detail: sessions under the selected project ------------------------
   const p = projects[sel]
-  const d = box({
-    w,
-    title: p ? p.name : 'no project',
-    key: SUP[1],
-    // Narrow terminals get the keys that matter; ? always survives, because it
-    // is how you find the rest.
-    // Controls hang off the border as labelled tags, btop-style, and each one
-    // shows its CURRENT value rather than just its key — so the border states
-    // what you are looking at instead of what you could press.
-    state: (w >= 96
-      ? [tag('⏎', 'expand'), tag('s', state.sort ?? 'recent'), tag('/', state.filter || 'filter'),
-         tag('a', lookback), tag('c', state.onlyColliding ? 'colliding' : 'all'), tag('?', 'keys'), tag('q', 'quit')]
-      : w >= 70
-        ? [tag('s', state.sort ?? 'recent'), tag('a', lookback), tag('?', 'keys'), tag('q', 'quit')]
-        : [tag('?', 'keys'), tag('q', 'quit')]).join(''),
-  })
-  out.push(d.top)
+  const collsHere = p ? colls.filter(c => c.project === p.root) : []
+  const detailRows_ = []
+  // Controls hang off the border as labelled tags, btop-style, each showing its
+  // CURRENT value — so the border states what you are looking at rather than
+  // what you could press.
+
+  // The detail box says what it is showing; the KEYS go on the headline's
+  // border, which is the full width of the screen and the only one with room
+  // for all of them.
+  const detailState = p
+    ? `${DIM}${p.sessions} session${p.sessions === 1 ? '' : 's'}${collsHere.length ? ` · ${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : ''}${R}`
+    : ''
   if (p) {
     const sessions = [...new Map(p.events.map(e => [e.session, e])).values()]
       .map(e => ({ ...e, meta: state.sessions.get(e.session), events: p.events.filter(x => x.session === e.session) }))
@@ -246,7 +247,7 @@ export function render(state, size) {
       const title = trunc(s.meta?.title, 30) ?? `${DIM}—${R}`
       const branch = s.meta?.branch ?? `${DIM}—${R}`
       const tw = Math.max(0, w - 2 - 1 - 9 - 1 - 16 - 1 - gw - 1 - 5 - 1)
-      out.push(d.row(` ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(branch, 16)} ${fit(title, tw)} ${g}${R} ${ago(s.at, now).padStart(5)}`))
+      detailRows_.push((` ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(branch, 16)} ${fit(title, tw)} ${g}${R} ${ago(s.at, now).padStart(5)}`))
     })
     const mine = colls.filter(c => c.project === p.root)
     // Only claim a COLLISIONS section if a row will actually fit under it. A
@@ -254,16 +255,16 @@ export function render(state, size) {
     // opposite of what it means.
     const roomForCollisions = Math.max(0, detailH - 4 - sessions.length)
     if (mine.length && roomForCollisions > 0) {
-      out.push(d.row(` ${DIM}${fit('COLLISIONS', 12)}${R}`))
+      detailRows_.push((` ${DIM}${fit('COLLISIONS', 12)}${R}`))
       for (const c of mine.slice(0, roomForCollisions)) {
         const fw = Math.max(10, w - 2 - 3 - 24 - 26)
-        out.push(d.row(` ${DIM}·${R} ${fit(short(c.path, c.project), fw)} ${fit(`${hue(c.a.agent)}${c.a.agent}${R}${DIM}/${R}${hue(c.b.agent)}${c.b.agent}${R}`, 22)} ${DIM}${fit(`${c.gapMin}m apart, ${ago(c.at, now)} ago`, 24)}${R}`))
+        detailRows_.push((` ${DIM}·${R} ${fit(short(c.path, c.project), fw)} ${fit(`${hue(c.a.agent)}${c.a.agent}${R}${DIM}/${R}${hue(c.b.agent)}${c.b.agent}${R}`, 22)} ${DIM}${fit(`${c.gapMin}m apart, ${ago(c.at, now)} ago`, 24)}${R}`))
       }
     }
   }
-  const detailEnd = listH + detailH - 1
-  while (out.length < detailEnd) out.push(d.row(''))
-  out.push(d.bottom)
+  const detailPane = pane(L.detail, {
+    title: p ? p.name : 'no project', key: SUP[1], state: detailState, rows: detailRows_,
+  })
 
   // ---- the live feed: edits as they land ----------------------------------
   //
@@ -273,6 +274,7 @@ export function render(state, size) {
   // A partial state must render, not throw: the feed is the newest panel and
   // the most likely thing a caller forgets to supply.
   const stream = Array.isArray(state.events) ? state.events : []
+  const feedRows = []
   if (feedH >= 3) {
     const seen = new Set()
     const feed = []
@@ -283,23 +285,26 @@ export function render(state, size) {
       feed.push(e)
       if (feed.length >= feedH - 2) break
     }
-    const f = box({
-      w, title: 'activity', key: SUP[2],
-      right: feed.length ? `${DIM}newest first${R}` : '',
-      state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${R}`,
-    })
-    out.push(f.top)
     for (const e of feed) {
       const at = new Date(e.at).toTimeString().slice(0, 8)
       const root = e.project ?? gitRoot(e.path)
-      const pw = Math.max(8, Math.min(20, Math.floor(w * 0.18)))
-      out.push(f.row(` ${DIM}${at}${R} ${hue(e.agent)}${fit(e.agent, 9)}${R} ${fit(projectName(root), pw)} ${DIM}${fit(short(e.path, root), Math.max(0, w - 29 - pw))}${R}${ago(e.at, now).padStart(6)}`))
+      const pw = Math.max(8, Math.min(20, Math.floor(feedW * 0.22)))
+      feedRows.push((` ${DIM}${at}${R} ${hue(e.agent)}${fit(e.agent, 9)}${R} ${fit(projectName(root), pw)} ${DIM}${fit(short(e.path, root), Math.max(0, feedW - 29 - pw))}${R}${ago(e.at, now).padStart(6)}`))
     }
-    while (out.length < h - 1) out.push(f.row(''))
-    out.push(f.bottom)
   }
 
-  return out.slice(0, h).join('\n')
+  const feedPane = pane(L.feed, {
+    title: 'activity', key: SUP[2],
+    right: `${DIM}newest first${R}`,
+    state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${R}`,
+    rows: feedRows,
+  })
+
+  return compose(h, [
+    { rect: L.head, lines: headPane },
+    { rect: L.detail, lines: detailPane },
+    { rect: L.feed, lines: feedPane },
+  ])
 }
 
 function build(windowMin, lookbackMs, now) {
