@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { plot, chart, legend, xaxis, axisLine, niceMax, STYLES, MARKERS, MAX_SERIES, BELOW } from '../src/chart.js'
+import { plot, chart, legend, xaxis, axisLine, niceMax, smooth, smoothing, STYLES, MARKERS, MAX_SERIES, BELOW } from '../src/chart.js'
 
 const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '')
 const at = (lines, ch) => lines.findIndex(l => plain(l).includes(ch))
@@ -23,13 +23,37 @@ test('a higher value draws higher up the grid', () => {
   assert.equal(plain(rows[2])[1], '#', 'half draws halfway')
 })
 
-test('a zero is a hole, not a point on the floor', () => {
-  // Every idle project drawing a solid line along the baseline for every hour
-  // it was untouched is the width of the chart in noise. A gap already means
-  // "nothing happened here" to anyone reading a chart.
-  const rows = plot([{ marker: '#', values: [1, 0, 1] }], { width: 3, rows: 4, max: 1 })
-  assert.equal(plain(rows.at(-1)), '   ', 'the baseline row is empty')
-  assert.equal(plain(rows[0]), '# #', 'and the line is broken where the value was zero')
+test('a quiet stretch is a line along the floor, not a gap', () => {
+  // Breaking the line at every zero turned the chart into scattered marks:
+  // columns of dots rather than lines you can follow across a day, which is
+  // the entire look this imitates. A flat run along the bottom is what a quiet
+  // stretch means in any real chart, and it reads correctly.
+  const rows = plot([{ marker: '#', pattern: '####', values: [1, 0, 1] }], { width: 3, rows: 4, max: 1 })
+  assert.equal(plain(rows.at(-1))[1], '#', 'the quiet middle sits on the floor rather than vanishing')
+  assert.equal(plain(rows.at(-1))[0], ' ', 'while the peak beside it stays at the top')
+  // The drop and the climb are drawn as runs, so the eye follows one line down
+  // and back up rather than reading three unrelated marks.
+  assert.ok(rows.every(l => plain(l)[1] === '#'), 'the fall to it is continuous')
+  assert.ok(rows.every(l => plain(l)[2] === '#'), 'as is the climb back out')
+})
+
+test('a series with nothing in the window is not drawn at all', () => {
+  // Drawing it would lay a flat line along the bottom row saying nothing, and
+  // six of those on top of each other is the width of the chart in noise.
+  const rows = plot([{ marker: '#', values: [0, 0, 0] }], { width: 3, rows: 3, max: 1 })
+  assert.deepEqual(rows.map(plain), ['   ', '   ', '   '])
+})
+
+test('a burst becomes a hump rather than a picket fence', () => {
+  // Attention bucketed at eleven minutes across a day is mostly zeros with a
+  // few full buckets, so it draws as isolated columns. Averaging each point
+  // with its neighbours is what turns the same data into a slope.
+  const spike = [0, 0, 0, 1, 0, 0, 0]
+  const curve = smooth(spike, smoothing(7 * 18))
+  assert.equal(curve.length, spike.length)
+  assert.ok(curve[2] > 0 && curve[4] > 0, 'the neighbours of a spike are lifted')
+  assert.ok(curve[3] > curve[2], 'and the peak is still the peak')
+  assert.deepEqual(smooth(spike, 1), spike, 'a window of one changes nothing')
 })
 
 test('the first column of a run always carries the marker', () => {

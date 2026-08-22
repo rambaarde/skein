@@ -26,10 +26,15 @@ export function layout(w, h, shown = null) {
   // preset. No split, no leftover panes.
   if (!on('detail') && !on('feed')) return { wide: w >= WIDE_AT, head: { x: 0, y: 0, w, h } }
 
-  // The headline carries a live strip as well as the table, so it needs a bit
-  // more than btop's cpu box did — but never so much that the panes below it
-  // lose their own headers.
-  const headH = Math.max(4, Math.min(Math.floor(h * 0.5), h - 8))
+  // The headline carries the chart, the live strip AND the project table, so
+  // it takes appreciably more than btop's cpu box did.
+  //
+  // At an even half the screen the chart was squeezed between a table that
+  // wanted its rows and a floor it could not go below, while the two panes
+  // underneath sat half empty — the activity feed is a long list, but the
+  // twentieth line of it is not worth a row of the graph. Nearly two thirds up
+  // top, never so much that the panes below lose their own headers.
+  const headH = Math.max(4, Math.min(Math.floor(h * 0.62), h - 8))
 
   // One pane below instead of two: it takes the full width rather than half of
   // it sitting beside a gap.
