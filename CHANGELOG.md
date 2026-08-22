@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.2](https://github.com/rambaarde/skein/compare/v0.16.1...v0.16.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** a carriage return was being printed into the border ([#44](https://github.com/rambaarde/skein/issues/44)) ([a7b6564](https://github.com/rambaarde/skein/commit/a7b6564a9aea43eab62f4510db4c280bee422bab))
+
 ## [0.16.1](https://github.com/rambaarde/skein/compare/v0.16.0...v0.16.1) (2026-08-22)
 
 
