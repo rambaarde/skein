@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.1](https://github.com/rambaarde/skein/compare/v0.16.0...v0.16.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the feed scrolls, the controls are clickable, and the colour reaches the screen ([#42](https://github.com/rambaarde/skein/issues/42)) ([def4aab](https://github.com/rambaarde/skein/commit/def4aab4d15f31aaac80c0c7d7a16c4c3576b0ea))
+
 ## [0.16.0](https://github.com/rambaarde/skein/compare/v0.15.1...v0.16.0) (2026-08-22)
 
 
