@@ -21,6 +21,7 @@ import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, cfrSeries, bucket } from './delivery.js'
+import { GLOSSARY } from './glossary.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -99,12 +100,40 @@ const KEYS = [
   ['q  esc', 'quit'],
 ]
 
-function helpOverlay(w, h) {
-  const b = box({ w, title: 'keys', key: SUP[8], state: `${DIM}any key returns${R}` })
+
+// Wrap on words, and hang the continuation under the definition rather than
+// under the term -- a definition that restarts in the term column reads as a
+// second term.
+const wrap = (s, n) => {
+  const out = []
+  let line = ''
+  for (const word of s.split(' ')) {
+    if (line && line.length + 1 + word.length > n) { out.push(line); line = word }
+    else line = line ? `${line} ${word}` : word
+  }
+  if (line) out.push(line)
+  return out
+}
+
+function helpOverlay(w, h, page = 1) {
+  const metrics = page === 2
+  const b = box({
+    w, title: metrics ? 'metrics' : 'keys', key: SUP[8],
+    state: `${DIM}${BOLD}tab${R}${DIM} ${metrics ? 'keys' : 'what the numbers mean'} · any other key returns${R}`,
+  })
   const out = [b.top, b.row('')]
-  for (const [k, what] of KEYS) out.push(b.row(`  ${BOLD}${fit(k, 10)}${R}  ${DIM}${what}${R}`))
-  out.push(b.row(''))
-  out.push(b.row(`  ${DIM}skein reports. It never starts, stops, routes or blocks anything.${R}`))
+  if (metrics) {
+    const col = 13
+    const text = Math.max(24, w - col - 8)
+    for (const [term, what] of GLOSSARY) {
+      wrap(what, text).forEach((l, i) => out.push(
+        b.row(`  ${BOLD}${fit(i === 0 ? term : '', col)}${R}  ${DIM}${l}${R}`)))
+    }
+  } else {
+    for (const [k, what] of KEYS) out.push(b.row(`  ${BOLD}${fit(k, 10)}${R}  ${DIM}${what}${R}`))
+    out.push(b.row(''))
+    out.push(b.row(`  ${DIM}skein reports. It never starts, stops, routes or blocks anything.${R}`))
+  }
   while (out.length < h - 1) out.push(b.row(''))
   out.push(b.bottom)
   return out.slice(0, h).join('\n')
@@ -128,7 +157,7 @@ export function render(state, size) {
   const w = Math.max(50, size.cols), h = Math.max(12, size.rows)
   const out = []
 
-  if (state.help) return helpOverlay(w, h)
+  if (state.help) return helpOverlay(w, h, state.help)
 
   // btop's geometry, measured from a real capture: a full-width headline, a
   // left column, and a tall right column for the one view that is a long list.
@@ -1354,7 +1383,7 @@ export function build(windowMin, lookbackMs, now) {
 export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin } = {}) {
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
-  let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
+  let sortIdx = 0, filter = '', typing = false, help = 0, onlyColliding = false, focus = null
   let preset = 0, tab = 0, feedTop = 0, page = null
   const expanded = new Set()
   const tier = tierFor()
@@ -1526,7 +1555,12 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
       return
     }
 
-    if (help) { help = false; draw(); return }          // any key dismisses it
+    // tab pages between the two halves -- how to move, and what the numbers
+    // mean. Anything else dismisses, as it always did.
+    if (help) {
+      help = (k === '\t' || k === '?' || k === 'h') ? (help === 1 ? 2 : 1) : 0
+      draw(); return
+    }
 
     // esc unwinds one level at a time: page, then focus, then preset, then
     // quit. Without the preset step a full-screen preset was a dead end — esc
@@ -1536,7 +1570,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     if (k === '\x1b' && focus) { focus = null; draw(); return }
     if (k === '\x1b' && preset !== 0) { preset = 0; draw(); return }
     if (k === 'q' || k === '\x1b' || k === '\x03') return quit()
-    else if (k === '?' || k === 'h') help = true
+    else if (k === '?' || k === 'h') help = 1
     else if (k === '\x1b[B' || k === 'j') sel = Math.min(state.projects.length - 1, sel + 1)
     else if (k === '\x1b[A' || k === 'k') sel = Math.max(0, sel - 1)
     // Enter opens the project's own page; space keeps the inline peek. Two
