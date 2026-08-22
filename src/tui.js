@@ -12,12 +12,21 @@ import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import { ago, short, trunc } from './format.js'
+import { attentionSeries, attentionOf, humanMs } from './attention.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
 const CLEAR = '\x1b[H\x1b[2J'
 
 // Bucket events into `n` slots across the lookback, normalised 0..1.
+// Square-root scaling with a floor under every non-empty bucket. Linear
+// normalisation against the peak rendered one quiet minute beside a busy hour
+// as nothing at all.
+export function normalise(values) {
+  const max = Math.max(1, ...values)
+  return values.map(v => (v === 0 ? 0 : Math.max(FLOOR, Math.sqrt(v / max))))
+}
+
 function series(events, n, since, now) {
   const buckets = new Array(n).fill(0)
   const span = Math.max(1, now - since)
@@ -44,7 +53,7 @@ const FLOOR = 0.25
 // Same here: the column you are sorted by is stated, not guessed at.
 export const SORTS = [
   { key: 'last', label: 'recent', cmp: (a, b) => b.last - a.last },
-  { key: 'edits', label: 'edits', cmp: (a, b) => b.events.length - a.events.length },
+  { key: 'time', label: 'time', cmp: (a, b) => (b.attention ?? 0) - (a.attention ?? 0) },
   { key: 'files', label: 'files', cmp: (a, b) => b.files - a.files },
   { key: 'sessions', label: 'sessions', cmp: (a, b) => b.sessions - a.sessions },
   { key: 'name', label: 'name', cmp: (a, b) => a.name.localeCompare(b.name) },
@@ -121,7 +130,7 @@ export function render(state, size) {
     const longest = projects.reduce((m, p) => Math.max(m, p.name.length + 2), 8)
     const name = Math.max(10, Math.min(28, longest))
     const optional = [
-      ['agents', 16], ['edits', 6], ['share', 8], ['collisions', 5], ['files', 6], ['sessions', 5],
+      ['agents', 16], ['time', 7], ['share', 8], ['collisions', 5], ['files', 6], ['sessions', 5],
     ]
     let budget = listW - 2 - 1 - 6 - name      // borders, lead, LAST, name
     const on = new Set()
@@ -163,15 +172,18 @@ export function render(state, size) {
     if (plan.on.has('agents')) s.push(' ', fit(agents, 16))
     if (plan.on.has('sessions')) s.push(' ', fit(sessions, 5))
     if (plan.on.has('files')) s.push(' ', fit(files, 6))
-    if (plan.on.has('edits')) s.push(' ', fit(edits, 6))
+    if (plan.on.has('time')) s.push(' ', fit(edits, 7))
     if (plan.on.has('share')) s.push(' ', fit(share, 8))
     if (plan.on.has('collisions')) s.push(' ', fit(colls_, 5))
     if (gw > 0) s.push(' ', activity)
     s.push(' ', fit(last, 6))
     return s.join('')
   }
-  headRows.push(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', ' EDITS', '   SHARE', ' COLL', fit(`ACTIVITY (${lookback})`, gw), '  LAST')}${R}`)
-  const totalEdits = Math.max(1, projects.reduce((a, x) => a + x.events.length, 0))
+  headRows.push(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', '   TIME', '   SHARE', ' COLL', fit(`ATTENTION (${lookback})`, gw), '  LAST')}${R}`)
+  // byProject() attaches this; computing it here too means render survives a
+  // hand-built project object, which is how every test constructs one.
+  const att = x => x.attention ?? attentionOf(x.events ?? [])
+  const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
 
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
   const offset = projects.indexOf(view[0] ?? projects[0])
@@ -179,7 +191,7 @@ export function render(state, size) {
     const p = view[i]
     const idx = offset + i
     const on = idx === sel
-    const spark = graph(series(p.events, gw * 2, since, now), { width: gw, rows: 1, tier, lut: LUT.activity })[0]
+    const spark = graph(normalise(attentionSeries(p.events, gw * 2, since, now)), { width: gw, rows: 1, tier, lut: LUT.activity })[0]
     const agents = p.agents.map(a => `${hue(a)}${a}${R}`).join(`${DIM}+${R}`)
     const open = expanded.has(p.root ?? 'loose')
     const marker = open ? '▾' : '▸'
@@ -189,8 +201,8 @@ export function render(state, size) {
       agents,
       String(p.sessions).padStart(5),
       String(p.files).padStart(6),
-      String(p.events.length).padStart(6),
-      meter(p.events.length / totalEdits, 8, LUT.activity),
+      humanMs(att(p)).padStart(7),
+      meter(att(p) / totalTime, 8, LUT.activity),
       mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
       `${spark}${R}`,
       ago(p.last, now).padStart(6))
@@ -234,36 +246,40 @@ export function render(state, size) {
     ? `${DIM}${p.sessions} session${p.sessions === 1 ? '' : 's'}${collsHere.length ? ` · ${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : ''}${R}`
     : ''
   if (p) {
-    const sessions = [...new Map(p.events.map(e => [e.session, e])).values()]
-      .map(e => ({ ...e, meta: state.sessions.get(e.session), events: p.events.filter(x => x.session === e.session) }))
-      .sort((a, b2) => b2.at - a.at)
-      .slice(0, Math.max(1, detailH - 4 - (colls.some(c => c.project === p.root) ? 2 : 0)))
+    // Thesis §5: the defensible claim is not the chart, it is that an agent can
+    // read this. So the pane shows the exact line an agent starting in this
+    // repository would be handed — the product, rather than a description of it.
+    const others = who(state.events ?? [], state.sessions ?? new Map(),
+                       { root: p.root, activeMin: state.windowMin ?? 30, now })
+    const iw = Math.max(12, detailW - 34)
 
-    // R7 -- mirrored pairs. The first agent's series hangs above the baseline,
-    // the second below, so two series share a row without fighting for colour.
-    sessions.forEach((s, i) => {
-      const mirrored = i % 2 === 1
-      const g = graph(series(s.events, gw * 2, since, now), { width: gw, rows: 1, tier, down: mirrored, lut: LUT.heat })[0]
-      const title = trunc(s.meta?.title, 30) ?? `${DIM}—${R}`
-      const branch = s.meta?.branch ?? `${DIM}—${R}`
-      const tw = Math.max(0, w - 2 - 1 - 9 - 1 - 16 - 1 - gw - 1 - 5 - 1)
-      detailRows_.push((` ${hue(s.agent)}${fit(s.agent, 9)}${R} ${fit(branch, 16)} ${fit(title, tw)} ${g}${R} ${ago(s.at, now).padStart(5)}`))
-    })
-    const mine = colls.filter(c => c.project === p.root)
-    // Only claim a COLLISIONS section if a row will actually fit under it. A
-    // bare header with nothing beneath reads as "none found", which is the
-    // opposite of what it means.
-    const roomForCollisions = Math.max(0, detailH - 4 - sessions.length)
-    if (mine.length && roomForCollisions > 0) {
-      detailRows_.push((` ${DIM}${fit('COLLISIONS', 12)}${R}`))
-      for (const c of mine.slice(0, roomForCollisions)) {
-        const fw = Math.max(10, w - 2 - 3 - 24 - 26)
-        detailRows_.push((` ${DIM}·${R} ${fit(short(c.path, c.project), fw)} ${fit(`${hue(c.a.agent)}${c.a.agent}${R}${DIM}/${R}${hue(c.b.agent)}${c.b.agent}${R}`, 22)} ${DIM}${fit(`${c.gapMin}m apart, ${ago(c.at, now)} ago`, 24)}${R}`))
+    if (others.length) {
+      detailRows_.push(` ${BOLD}${others.length} other agent${others.length === 1 ? '' : 's'} active in this repo${R}`)
+      for (const o of others.slice(0, Math.max(1, detailH - 5 - Math.min(3, collsHere.length)))) {
+        const verb = o.kind === 'add' ? 'added' : o.kind === 'delete' ? 'deleted' : 'editing'
+        detailRows_.push(`   ${hue(o.agent)}${fit(o.agent, 9)}${R}${DIM}${fit(verb, 8)}${R}${fit(short(o.path, p.root), iw)}${DIM}${ago(o.at, now).padStart(5)}${R}`)
+      }
+    } else {
+      // Silence is the correct answer when nobody else is here (PRD Q7), and
+      // saying so is more useful than an empty pane that looks broken.
+      detailRows_.push(` ${DIM}nobody else is in this repo — an agent starting${R}`)
+      detailRows_.push(` ${DIM}here right now would be told nothing.${R}`)
+    }
+
+    if (collsHere.length) {
+      const room = Math.max(0, detailH - 3 - detailRows_.length)
+      if (room > 0) {
+        detailRows_.push('')
+        detailRows_.push(` ${DIM}${fit('COLLISIONS', 12)}${R}`)
+        for (const c of collsHere.slice(0, room - 1)) {
+          detailRows_.push(` ${LUT.heat[90]}·${R} ${fit(short(c.path, c.project), Math.max(8, detailW - 30))}${DIM}${fit(`${c.gapMin}m apart`, 11)}${ago(c.at, now).padStart(5)}${R}`)
+        }
       }
     }
   }
   const detailPane = pane(L.detail, {
-    title: p ? p.name : 'no project', key: SUP[1], state: detailState, rows: detailRows_,
+    title: p ? `${p.name} — what an agent is told here` : 'no project',
+    key: SUP[1], state: detailState, rows: detailRows_,
   })
 
   // ---- the live feed: edits as they land ----------------------------------

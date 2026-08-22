@@ -67,27 +67,27 @@ uninstalled the first time it is wrong.
 
 ```
 ╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
-│ PROJECT      AGENTS            SESS  FILES  EDITS    SHARE  COLL ACTIVITY (30d)                                  LAST│
-│ ▸ atlas-api  claude+codex         8     75    314 ■■■·····     2 ⢠⡇⣴⢠⡆⣸⢠⡇⣰⢠⡄⣤ ⡆⣴⢠⡆⣤⢀⡆⢸⢠⡄⣼⢠⡇⣴⢠⡆⣤⢠⡆⣼⢠⡄⣴⢠⡇⣴⢰⡇⣴⢠⡇⣤     8s│
-│ ▸ atlas-web  claude+codex         5     61    249 ■■······     1 ⢠⡇⣴⢠⡄⣶⢠⡄⣦⢰⡄⣼⢠⡆⣶⢠⡇⣤⢠⡇⢰⢠⡇⣴⢠⡇⣴⢠⡆⣴⢠⡄⣼⢰⡄⣾⢠⡆⣼⢠⡆⢠⢰⡄⣤     4m│
-│ ▸ checkout   claude               3     29     97 ■·······     · ⢠⡆⢰⢰ ⣴⢠⡆ ⢠⡆⢠⢠⡆⣤⢠⡄⢠ ⡄⣴ ⡆⣶ ⡆⢠⢠⡆⡄⢠⡄⢠ ⡄⣤⢠⡆⣦⢠⡄⢰⢠⡆⣼    22m│
-│ ▸ notify-svc codex+opencode       2     18     55 ■·······     ·  ⡆⢰⢠⡆ ⢠⡆  ⡆⡄ ⡆⣤⢠ ⢠ ⡆ ⢠⡄⣴ ⡄⣴ ⡇⢰⢰⡆  ⡄     ⡄⢰ ⡆⢸     2h│
-│ ▸ docs-site  claude               2     12     32 ········     ·  ⡄  ⡆⢠ ⡄⢰  ⡄  ⢠  ⢸  ⢰ ⡄  ⡆⢠⢠⡄ ⢠⡄  ⡄  ⡆⢠ ⡄  ⡆⡆     9h│
-│ ▸ loose      claude+codex         7     40     89 ■·······     · ⢀⡆⣀⢀⡀⣠ ⡀⣤ ⡀⡀⢀⡄  ⡀⢠  ⣤ ⡄ ⢀⡄⣀⢀⡆⣤⢀⡄⣠⢠⡄⣠⢠⡄⣠⢠⡆  ⡇      1d│
+│ PROJECT      AGENTS            SESS  FILES    TIME    SHARE  COLL ATTENTION (30d)                                LAST│
+│ ▸ atlas-api  claude+codex         8     75    2h46 ■■■·····     2 ⢠⡆⣰⢀⡆⣴⢠⡇⣠⢠⣄⣠⢀⣄⣦⢠⡄⣄⣠⡄⣆⣦⢀⡇⣴⢠⡆⣰⢰⣄⣴⣠⣆⣠⣠⣄⣴⣠⣤⣦⣤⣠⣆⣠     8s│
+│ ▸ atlas-web  claude+codex         5     61    2h09 ■■······     1 ⢀⡆⣤⢀⡀⣤⣀⡄⣤⢠⣀⣴⢠⣄⣤⣠⣄⣄⣤⡄⡄⣴⢀⡄⣼⢠⡄⣤⢠⡄⣠⣠⣄⣤⣤⣄⣤⣠⣄⣠⢠⢠⣀⣠     4m│
+│ ▸ checkout   claude               3     29     52m ■·······     · ⢠⡆⢠⢠ ⣸⣠⡄ ⢀⡆⡀⡀⡄⡄⣀⡀⡀⢀⢀⡆⢠⢠⡆⣠ ⡀⣤⢀ ⡄ ⡀⣀⣀⢀⢠⢰⢠⡀⢠⣠⡄⣰    22m│
+│ ▸ notify-svc codex+opencode       2     18     28m ■·······     ·  ⡆⢰⢠⡆ ⢰⡇  ⡆⡄⢠⡄⣤⡄ ⡄⢰  ⣤⢠⡆⢠⢰⡆⣴⢠⡄⣶  ⢠     ⢠⢠⡆⡆⢰     2h│
+│ ▸ docs-site  claude               2     12     16m ········     ·  ⡄  ⡆⢠ ⡄⢰ ⢠   ⢠  ⣧  ⣤⢠  ⢰ ⡄⣤  ⣤  ⡄  ⢰ ⡄⢠  ⣤⡆     9h│
+│ ▸ loose      claude+codex         7     40     42m ■·······     · ⢠⡇⣤⢠⡄⣴⢠ ⣦ ⡄⡄⡄⡆ ⢠ ⡆ ⢰⡆⢰  ⣴⢠⡄⣼⣤⡆⣦⣤⣦⣦⣤⣴⣤⢰⣶⣼  ⡇      1d│
 │                                                                                                                      │
 ╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────╯
-╭─ atlas-api² ───────────────────────────────────╮╭─ activity³ ───────────────────────────────────────── newest first ─╮
-│ claude    main             Rotate the session …││                                                                    │
-│ codex     feat/rate-limit  Add rate limiting t…││                                                                    │
-│ codex     feat/rate-limit  —                  …││                                                                    │
-│ claude    main             —                  …││                                                                    │
-│ codex     —                —                  …││                                                                    │
-│ claude    —                Backfill the audit …││                                                                    │
-│ claude    —                —                  …││                                                                    │
-│ codex     —                —                  …││                                                                    │
+╭─ atlas-api — what an agent is told here² ──────╮╭─ activity³ ───────────────────────────────────────── newest first ─╮
+│ nobody else is in this repo — an agent starting││                                                                    │
+│ here right now would be told nothing.          ││                                                                    │
+│                                                ││                                                                    │
 │ COLLISIONS                                     ││                                                                    │
-│ · src/auth/session.ts                         …││                                                                    │
-│ · src/mod47.ts                                …││                                                                    │
+│ · src/auth/session.ts 20m apart    40m         ││                                                                    │
+│ · src/mod47.ts        10m apart     9d         ││                                                                    │
+│                                                ││                                                                    │
+│                                                ││                                                                    │
+│                                                ││                                                                    │
+│                                                ││                                                                    │
+│                                                ││                                                                    │
 │                                                ││                                                                    │
 │                                                ││                                                                    │
 │                                                ││                                                                    │

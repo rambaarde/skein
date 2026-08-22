@@ -3,6 +3,7 @@
 import { statSync } from 'node:fs'
 import { dirname, join, basename, parse } from 'node:path'
 import { HOME } from './paths.js'
+import { attentionOf } from './attention.js'
 
 const cache = new Map()
 
@@ -44,6 +45,10 @@ export function byProject(events) {
     p.events.sort((a, b) => a.at - b.at)
     p.last = p.events.at(-1)?.at ?? 0
     p.sessions = new Set(p.events.map(e => e.session)).size
+    // Thesis §2: the question is where the ATTENTION went, not how many edits
+    // there were. Two projects with a hundred edits each can be an afternoon
+    // and ten minutes.
+    p.attention = attentionOf(p.events)
     p.agents = [...new Set(p.events.map(e => e.agent))].sort()
     p.files = new Set(p.events.map(e => e.path)).size
   }
