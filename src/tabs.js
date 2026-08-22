@@ -13,7 +13,7 @@
 // than no dollar figure. Context pressure is the honest version of that column:
 // it is measured from your own transcripts and it is the thing that actually
 // bites, because a full window compacts and loses the thread.
-import { toolsOf, totalOf, shape } from './tools.js'
+import { toolsOf, totalOf, shape, shortTool } from './tools.js'
 
 export const TABS = ['info', 'sessions', 'files', 'tools', 'collisions']
 
@@ -97,7 +97,13 @@ export function toolsTab(p, ctx) {
   const total = totalOf(tools)
   const s = shape(tools)
   const pct = n => `${Math.round((n / Math.max(1, total)) * 100)}%`
-  const nameW = Math.max(10, detailW - 26)
+  // The bar, the count and the share cost 18 between them. Everything else
+  // is the name, because a tool truncated to `trueline_r…` is not a tool you
+  // can identify.
+  // Capped as well as floored: given a full-width pane the name column
+  // swallowed the space and pushed SHARE off the right edge. Tool names are
+  // short once the server namespace is off them.
+  const nameW = Math.max(10, Math.min(24, detailW - 18))
   const out = [
     // Short enough to survive a half-width pane. 'other' earns its place only
     // when it is big enough to change how the ratio reads.
@@ -106,11 +112,14 @@ export function toolsTab(p, ctx) {
     `${LUT.heat[60]}${pct(s.write)} write${R}${DIM} · ${R}` +
     `${pct(s.run)} run${R}${s.other / Math.max(1, total) >= 0.1 ? `${DIM} · ${pct(s.other)} other${R}` : ''}`,
     '',
-    ` ${DIM}${fit('TOOL', nameW)} ${fit('CALLS', 10)}${'SHARE'.padStart(6)}${R}`,
+    ` ${DIM}${fit('TOOL', nameW)}${fit('CALLS', 11)}${'SHARE'.padStart(5)}${R}`,
   ]
   const top = Math.max(1, ...tools.map(t => t.n))
   for (const t of tools.slice(0, Math.max(1, detailH - 6))) {
-    out.push(` ${fit(t.tool, nameW)} ${meter(t.n / top, 6, LUT.activity)} ${String(t.n).padStart(3)}${DIM}${pct(t.n).padStart(6)}${R}`)
+    // Shown short: an MCP tool arrives as `mcp__plugin_x_mcp__trueline_edit`
+    // and the namespace is the server, not the tool. Full names stay in the
+    // CLI, where something might be matching on them.
+    out.push(` ${fit(shortTool(t.tool), nameW)}${meter(t.n / top, 6, LUT.activity)} ${String(t.n).padStart(4)}${DIM}${pct(t.n).padStart(5)}${R}`)
   }
   if (tools.length > Math.max(1, detailH - 6)) {
     out.push(` ${DIM}+${tools.length - Math.max(1, detailH - 6)} more tool${tools.length - Math.max(1, detailH - 6) === 1 ? '' : 's'}${R}`)

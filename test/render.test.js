@@ -968,3 +968,34 @@ test('esc leaves a full-screen preset instead of quitting', async () => {
   assert.match(plain, /q quit/, 'the two pinned controls survive the trim')
   assert.match(plain, /\? keys/)
 })
+
+test('the project page ranks the tools, and drops the control that did nothing', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = Array.from({ length: 6 }, (_, i) => ({
+    at: now - i * 60_000, agent: 'claude', session: 's', path: `/w/a/f${i}.ts`, project: '/w/a',
+  }))
+  const p = { name: 'a', root: '/w/a', sessions: 1, files: 6, agents: ['claude'], last: now, events }
+  const page = render({
+    projects: [p], events,
+    sessions: new Map([['s', { agent: 'claude', tools: { Bash: 30, mcp__x__trueline_read: 10, Edit: 2 } }]]),
+    sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: '/w/a',
+  }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  // "1354 tool calls" on the border said a number and answered nothing. WHICH
+  // tools, in what proportion, is the question — the same one the files box
+  // answers about files.
+  assert.match(page, /─ tools ─/, 'the page has a tools box')
+  assert.match(page, /Bash .* 30/, 'ranked by calls, like files')
+  assert.match(page, /trueline_read/, 'and an MCP tool is shown by its own name')
+  assert.doesNotMatch(page, /mcp__x__/, 'not by its server')
+
+  // A control that does nothing is worse than an absent one: it makes the
+  // reader doubt the keyboard rather than the label. This page shows every box
+  // at once, so tab had no panes to switch between.
+  assert.doesNotMatch(page, /tab panes/, 'the inert control is gone')
+  assert.match(page, /esc back/, 'and the ones that work are still there')
+  assert.match(page, /q quit/)
+})
