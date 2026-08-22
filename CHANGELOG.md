@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.22.0](https://github.com/rambaarde/skein/compare/v0.21.1...v0.22.0) (2026-08-22)
+
+
+### Features
+
+* **tools:** tool-call stats, a user-facing README, and a recorded demo ([ed65115](https://github.com/rambaarde/skein/commit/ed6511569127decbee4a733083356fbf82227b70))
+* **tools:** tool-call stats, a user-facing README, and a recorded demo ([#71](https://github.com/rambaarde/skein/issues/71)) ([6c9b19f](https://github.com/rambaarde/skein/commit/6c9b19f976d2e3416b73e0ac0c04ed190c43ebe3))
+
 ## [0.21.1](https://github.com/rambaarde/skein/compare/v0.21.0...v0.21.1) (2026-08-22)
 
 
