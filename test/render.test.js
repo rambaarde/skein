@@ -1106,26 +1106,30 @@ test('an empty screen says what skein looked for and what it found', async () =>
   assert.match(plain, /skein doctor/, 'with the command that explains the rest')
 })
 
-test('every velocity row carries its own failure trend', async () => {
-  // The table used half the width and left the rest black. The chart above it
-  // compares the worst six; this answers the same question for the row you are
-  // actually looking at — the pattern the project table already uses for
-  // attention.
+test('the failure chart follows the cursor, and its colour is the verdict', async () => {
+  // Six lines at once was a comparison nobody asked for, and it forced colour
+  // to encode WHICH project rather than how bad it is -- so a repo failing a
+  // third of its deployments drew in whatever hue its rank gave it.
   const { render } = await import('../src/tui.js')
   const now = Date.now()
   const events = [{ at: now - 3600_000, agent: 'claude', session: 's', path: '/w/a/f.ts', project: '/w/a' }]
-  const plain = render({
-    projects: [{ name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], last: now, events }],
-    events, sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+  const mk = (name, root) => ({ name, root, sessions: 1, files: 1, agents: ['claude'], last: now, events })
+  const frame = sel => render({
+    projects: [mk('first', '/w/first'), mk('second', '/w/second')],
+    events, sessions: new Map(), sel, expanded: new Set(), colls: [], tier: 'braille',
     since: now - 7 * 86_400_000, now, lookback: '7d', windowMin: 30, tick: 0,
     sort: 'recent', filter: '', onlyColliding: false, preset: 3, tab: 0, feedTop: 0, page: null,
   }, { cols: 150, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
 
-  assert.match(plain, /FAILURE TREND/, 'the column exists, in the space the table was leaving black')
-  // This fixture has no git repository behind it, so the honest answer is that
-  // there is nothing to trend -- and the row says so rather than drawing an
-  // empty cell that would read as "measured, and flat".
-  const row = plain.split('\n').find(l => /\ba\b/.test(l) && /no git history/.test(l))
-  assert.ok(row, 'a project with no history says so')
-  assert.doesNotMatch(row, /⣀|⠿/, 'and draws no trend it cannot support')
+  // Whether it can draw or not, the screen names the project the cursor is on
+  // — so it can never be mistaken for a total across all of them. This fixture
+  // has no git behind it, so what it names is the reason it cannot draw.
+  assert.match(frame(0), /change failure · first|^.*first has no two deployments/m)
+  assert.match(frame(1), /change failure · second|^.*second has no two deployments/m)
+  assert.doesNotMatch(frame(0), /second has no two deployments/, 'and only that one')
+
+  // And the per-row column is gone: given the whole remaining width it drew a
+  // sixty-character rule of dots per row, and the dots buried the data.
+  assert.doesNotMatch(frame(0), /FAILURE TREND/)
 })
+

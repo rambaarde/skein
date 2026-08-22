@@ -435,15 +435,26 @@ export function render(state, size) {
     // ordering: the cursor moved one step through `projects` and the highlight
     // appeared to jump two rows or skip one, because the two lists disagreed
     // about what "next" meant. A screen must not have an order of its own.
-    const ranked = [...stats].sort((a, b) => (b.v?.cfr ?? -1) - (a.v?.cfr ?? -1))
-    const judged = ranked.filter(s => s.v?.cfrOf?.verdicts?.length)
-    const lines = judged.slice(0, MAX_SERIES).map((s, i) => ({
-      label: s.p.name,
-      marker: MARKERS[i],
-      color: lineHue(i),
-      value: `${Math.round(s.v.cfr * 100)}%`,
-      values: cfrSeries(s.v.cfrOf.verdicts, cols, since, now),
-    }))
+    // ONE line: the project under the cursor.
+    //
+    // Six at once was a comparison nobody asked for, and it forced the colours
+    // to encode WHICH project rather than how bad it is -- so a repo failing a
+    // third of its deployments drew in whatever hue its rank happened to give
+    // it. A failure rate is a verdict, and the verdict belongs in the colour.
+    // Move the cursor and the chart follows, the same way the info pane's live
+    // graph follows it in preset 1.
+    const here = stats.find(s => s.p === projects[sel]) ?? stats[0]
+    const lines = here?.v?.cfrOf?.verdicts?.length
+      ? [{
+          label: here.p.name,
+          marker: MARKERS[0],
+          // DORA's own bands, so the colour means something outside skein:
+          // 0-15% elite and high, 16-30% medium, above that low.
+          color: LUT.heat[here.v.cfr <= 0.15 ? 15 : here.v.cfr <= 0.30 ? 60 : 95],
+          value: `${Math.round(here.v.cfr * 100)}%`,
+          values: cfrSeries(here.v.cfrOf.verdicts, cols, since, now),
+        }]
+      : []
     const rowsOut = []
     if (lines.length) {
       rowsOut.push(...chart(lines, {
@@ -454,11 +465,10 @@ export function render(state, size) {
         max: 1,
         since, now, lead: 6, pad: 7, tier,
         fmt: v => `${Math.round(v * 100)}%`,
-        caption: `change failure · ${lookback}`,
-        focus: lines.findIndex(l => l.label === projects[sel]?.name),
+        caption: `change failure · ${here?.p?.name ?? ''} · ${lookback}`,
       }))
     } else {
-      rowsOut.push(` ${DIM}no project here has two deployments to compare${R}`)
+      rowsOut.push(` ${DIM}${here?.p?.name ?? 'this project'} has no two deployments to compare${R}`)
       rowsOut.push('')
       rowsOut.push(` ${DIM}a change failure rate is the share of deployments whose next${R}`)
       rowsOut.push(` ${DIM}shipment repaired what they shipped — it needs a second one${R}`)
@@ -479,9 +489,7 @@ export function render(state, size) {
     // black. The chart above compares the worst six; this answers the same
     // question for the row you are actually looking at, which is the pattern
     // the project table already uses for attention.
-    const fixed = nameW + 9 + 8 + 8 + 12 + 9 + 10 + 12
-    const trendW = Math.max(0, W - fixed - 2)
-    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${trendW >= 12 ? `  ${fit('FAILURE TREND', trendW - 2)}` : ''}${R}`)
+    rowsOut.push(`${THEME.header} ${fit('PROJECT', nameW)}${fit('  LANDED', 9)}${fit(weekly ? '  /WEEK' : '   /DAY', 8)}${fit('   LEAD', 8)}${fit('  ATTN/SHIP', 12)}${fit('     CFR', 9)}${fit('  DEPLOYS', 10)}${fit('  ATTENTION', 12)}${R}`)
     const topLanded = Math.max(1, ...stats.map(s => s.v?.landed ?? 0))
     // `stats`, not `ranked`: the table is in the app's order so one press of
     // an arrow key moves exactly one row.
@@ -498,20 +506,7 @@ export function render(state, size) {
           // The count, and how many of them could actually be judged. The
           // newest one never can — nothing has shipped after it yet.
           `${fit((v.cfrOf ? `${v.cfrOf.judged}/${v.cfrOf.deployments}` : '—').padStart(8), 10)}` +
-          `${fit(humanMs(att(p)).padStart(9), 12)}` +
-          // Colour runs cool to hot with the RATE, not with the row's own
-          // peak: this sparkline has an absolute meaning and 4% must not be
-          // painted like 90% because it happens to be that row's maximum.
-          (trendW >= 12 && v.cfrOf?.verdicts?.length
-            // Zero draws as empty, deliberately. Filling it with a baseline
-            // glyph was tried and made it worse: one text row is four braille
-            // levels, so a 17% rate and a drawn baseline land on the SAME
-            // level and become the same picture. The distinction it was meant
-            // to carry -- measured zero against nothing to judge -- is already
-            // in the two columns immediately to the left, `0% 4/5` against
-            // `— —`, and a row of dots against an empty one here.
-            ? `  ${graph(cfrSeries(v.cfrOf.verdicts, (trendW - 2) * 2, since, now), { width: trendW - 2, rows: 1, tier, lut: LUT.heat })[0]}${R}`
-            : trendW >= 12 ? `  ${DIM}${'·'.repeat(trendW - 2)}${R}` : '')
+          `${fit(humanMs(att(p)).padStart(9), 12)}`
         : `${DIM}${'no git history'.padStart(7)}${R}`
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
       hit.rows.push({ y: V.y + 1 + rowsOut.length, index: projects.indexOf(p) })
