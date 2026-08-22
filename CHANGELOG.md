@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.9.2](https://github.com/rambaarde/skein/compare/v0.9.1...v0.9.2) (2026-08-22)
+
+
+### Bug Fixes
+
+* stack the timeline by agent, and never report a bare zero ([#22](https://github.com/rambaarde/skein/issues/22)) ([aa3a6a4](https://github.com/rambaarde/skein/commit/aa3a6a464e99486143846a4930aca9a2245830e5))
+
 ## [0.9.1](https://github.com/rambaarde/skein/compare/v0.9.0...v0.9.1) (2026-08-22)
 
 
