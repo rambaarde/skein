@@ -491,7 +491,7 @@ export function render(state, size) {
           `${fit((weekly ? v.perWeek : v.perDay).toFixed(1).padStart(6), 8)}` +
           `${fit((v.lead === null ? '—' : humanMs(v.lead)).padStart(6), 8)}` +
           `${fit((v.perShip === null ? '—' : humanMs(v.perShip)).padStart(9), 12)}` +
-          `${v.cfr === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.heat[Math.round(v.cfr * 100)]}${`${Math.round(v.cfr * 100)}%`.padStart(7)}${R}`}  ` +
+          `${v.cfr === null ? `${DIM}${'—'.padStart(7)}${R}` : `${LUT.failure[Math.round(v.cfr * 100)]}${`${Math.round(v.cfr * 100)}%`.padStart(7)}${R}`}  ` +
           // The count, and how many of them could actually be judged. The
           // newest one never can — nothing has shipped after it yet.
           `${fit((v.cfrOf ? `${v.cfrOf.judged}/${v.cfrOf.deployments}` : '—').padStart(8), 10)}` +
@@ -515,9 +515,11 @@ export function render(state, size) {
     // happened to give it. A failure rate is a verdict, and the verdict
     // belongs in the colour.
     const here = stats.find(s => s.p === projects[sel]) ?? stats[0]
-    // DORA's own bands, so the colour means something outside skein:
-    // 0-15% elite and high, 16-30% medium, above that low.
-    const band = LUT.heat[here?.v?.cfr == null ? 0 : here.v.cfr <= 0.15 ? 15 : here.v.cfr <= 0.30 ? 60 : 95]
+    // Red at every value; the TONE carries the severity. The legend row still
+    // names DORA's band (0-15% elite and high, 16-30% medium, above that low)
+    // so the number means something outside skein — but the colour no longer
+    // has to encode which band, only how bad.
+    const band = LUT.failure[Math.round((here?.v?.cfr ?? 0) * 100)]
     const sideW = W - tableW - 2
     const side = []
     if (sideW >= 26 && bodyH >= 8) {
