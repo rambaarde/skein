@@ -343,7 +343,10 @@ test('share is drawn as a meter, and collisions get their own column', async () 
     events: [], projects: [big, small], sessions: new Map(), sel: 0, expanded: new Set(), colls,
     tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
   }, { cols: 120, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
-  const bigRow = plain.find(l => l.includes('big')), smallRow = plain.find(l => l.includes('small'))
+  // The chart's legend names every project too, so a bare includes() finds the
+  // legend row before the table row. Rows carry the expand marker; legends do not.
+  const row = name => plain.find(l => l.includes('▸') && l.includes(name))
+  const bigRow = row('big'), smallRow = row('small')
   assert.ok(bigRow && smallRow, 'both projects should be on screen at 26 rows')
   const filled = s => (s.match(/■/g) ?? []).length
   assert.ok(filled(bigRow) > filled(smallRow), 'the busier project needs a longer bar')
@@ -442,7 +445,9 @@ test('the headline metric is time, not a count of edits', async () => {
   assert.match(header, /ATTN/, 'the per-project sparkline should still be there')
   assert.match(header, /PEAK/, 'and it must carry a number beside it')
   const bars = l => (l.match(/■/g) ?? []).length
-  const burstRow = plain.find(l => l.includes('burst')), spreadRow = plain.find(l => l.includes('spread'))
+  // Table rows, not the chart legend, which also names both projects.
+  const row = name => plain.find(l => l.includes('▸') && l.includes(name))
+  const burstRow = row('burst'), spreadRow = row('spread')
   assert.ok(bars(spreadRow) > bars(burstRow), 'the same edit count must not give the same share')
 })
 
