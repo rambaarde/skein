@@ -32,7 +32,7 @@ skein install          # wires the hook into claude, codex and opencode
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-49%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-148%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -67,12 +67,17 @@ uninstalled the first time it is wrong.
 
 ```
 ╭─ skein¹ ────────────────────────────────────────────────────────────────────────────────────────────────────── preset 1 all  22:20:00 ⠸ ─╮
-│ 1.0   ┤                                                                                                                                  │
-│ 0.8   ┤                                                                                                                                  │
-│ 0.6   ┤                                                                             ⣤⣤⡄                                                  │
-│ 0.4   ┤                                                                             ⣿⣿⡇                         ⡀   ⢀⣿⣀   ⢀              │
-│ 0     ┤                                         ⢰⣶⣶        ⢰⣶⣶  ⣶⣶⡆                 ⣿⣿⡇  ⣶⣶⡆ ⣶⣶⡆              ⣶⣶⣷⣶⡆⢰⣾⣿⣿⡆ ⢰⣾              │
-│ EDITS/MIN · 6h    now 0.4   nobody running      quiet 15m  claude ■■···· 0.4                                                             │
+│ 5%    ┤                                                                                                                                  │
+│ 4%    ┤                                                                                                                                  │
+│       ┤                                                                                                                                  │
+│ 3%    ┤                                                                ##                                                                │
+│ 2%    ┤                +·  #                               *   #  ##   ##  *-                   #                           #            │
+│ 1%    ┤ ####  ##  ## *##·*## **# *##  *#  *# ###  *#  ##   #   #  *#   ##-###- ## *## ###  ## ### **# *##  ##  +#  ## ### *##  *# 2h46   │
+│ 0     ┤ x######x·### ##=·##= ### ### ### x## o·= ### *ox ### x##  o= ######=##### ##· x## ##= x## ### ##- ##= ### ##=  ## ##= ### 2h09   │
+│       └┬─────────────────────────────┬──────────────────────────────┬─────────────────────────────┬─────────────────────────────┬        │
+│        22:20                         10:20                          22:20                         10:20                       now        │
+│        attention · 30d  │ #: atlas-api 2h46 │ *: atlas-web 2h09 │ +: checkout 52m │ x: not in a repo 42m │ o: notify-svc 28m │ +1 more   │
+│ EDITS/MIN · 6h    now 0.4   nobody running      quiet 15m  claude ■■■■■■ 0.4                                                             │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │ PROJECT         DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST          │
 │ ▸ atlas-api     Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣝⣉⣏⣉⣙⣉⣹⣝⣋⣛⣏⣛⣫⣛    1%     8s          │
@@ -97,6 +102,11 @@ uninstalled the first time it is wrong.
 │                                                         ││ 20:20:00 opencode  notify-svc        src/mod7.ts                            2h│
 │                                                         ││ 20:20:00 codex     notify-svc        src/mod0.ts                            2h│
 │                                                         ││ 19:16:57 opencode  notify-svc        src/mod17.ts                           3h│
+│                                                         ││ 19:03:36 claude    checkout          src/mod6.ts                            3h│
+│                                                         ││ 18:29:52 claude    checkout          src/mod18.ts                           4h│
+│                                                         ││ 15:43:57 claude    checkout          src/mod24.ts                           7h│
+│                                                         ││ 15:18:07 codex     atlas-api         src/mod1.ts                            7h│
+│                                                         ││ 14:37:30 codex     atlas-web         src/mod57.ts                           8h│
 ╰─ 8 sessions · 2 collisions ─────────────────────────────╯╰─ 836 edits in 30d ────────────────────────────────────────────────────────────╯
 ```
 

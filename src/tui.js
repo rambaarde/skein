@@ -8,7 +8,7 @@ import { collect } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
-import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
+import { LUT, hue, lineHue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import { PRESETS, NAMES } from './presets.js'
@@ -17,7 +17,8 @@ import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
-import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER, WINDOW_MS } from './live.js'
+import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
+import { chart, niceMax, STYLES, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -208,8 +209,9 @@ export function render(state, size) {
     // finer ruler, and it was eating the panes that carry the actual detail.
     const GRAPH_MAX = 10
     const collH = collsHere.length ? Math.min(Math.max(4, collsHere.length + 3), Math.floor(h * 0.3)) : 0
-    const rowsP = Math.max(2, Math.min(GRAPH_MAX, h - collH - 14))
-    const headHp = rowsP + 3
+    const rowsP = Math.max(2, Math.min(GRAPH_MAX, h - collH - 15))
+    // rowsP graph rows, the chart's own rule/times/legend, and two borders.
+    const headHp = rowsP + CHART_BELOW + 2
     const lowerH = h - headHp - collH
     const third = Math.floor(w / 3)
     const rects = {
@@ -220,27 +222,40 @@ export function render(state, size) {
       colls: { x: 0, y: headHp + lowerH, w, h: collH },
     }
 
-    // --- the headline: this project's own rate graph, full width
-    const gwP = Math.max(20, w - 12)
-    const span = pickWindow(p.events ?? [], { now })
-    const series = rateSeries(p.events ?? [], gwP * 2, { now, windowMs: span.windowMs })
-    const peakP = Math.max(0.01, ...series)
-    const g = graph(series.map(v => v / peakP), { width: gwP, rows: rowsP, tier, lut: LUT.activity })
-    const rows = []
-    // A gradation that repeats the one above it is not a gradation. With a peak
-    // below one, ten rows all round to the same couple of values — so a label
-    // is drawn only where it differs from the last one printed.
-    let lastLabel = null
-    g.forEach((line, i) => {
-      const value = (peakP * (g.length - i)) / g.length
-      const raw = i === g.length - 1 ? '0' : value >= 10 ? String(Math.round(value)) : value.toFixed(peakP < 2 ? 2 : 1)
-      const label = raw === lastLabel ? '' : raw
-      if (label) lastLabel = raw
-      rows.push(` ${DIM}${fit(label, 6)}${R}${DIM}┤${R}${line}${R}`)
-    })
-    const agentRates = byAgent(p.events ?? [], { now, windowMs: span.windowMs })
-    rows.push(` ${DIM}${fit(`EDITS/MIN · ${span.label}`, 18)}${R}${BOLD}${fit(`peak ${peakP.toFixed(1)}`, 11)}${R}` +
-      agentRates.slice(0, 3).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / peakP, 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  '))
+    // --- the headline: this project's attention, one line per AGENT
+    //
+    // Thesis §6.5 one level down — the timeline is "per project, stacked by
+    // agent". A single undifferentiated line cannot say whether a repo was one
+    // agent working steadily or two agents in it at the same time, which is
+    // most of what you open a project page to find out.
+    const VALWP = 7
+    const gwP = Math.max(24, w - 11)
+    const bucketP = Math.max(1, (now - since) / Math.max(1, gwP - VALWP))
+    const perAgentLines = (p.agents ?? [])
+      .map(a => {
+        const ev = (p.events ?? []).filter(e => e.agent === a)
+        return {
+          label: a,
+          values: attentionSeries(ev, Math.max(1, gwP - VALWP), since, now).map(ms => ms / bucketP),
+          total: attentionOf(ev),
+          agent: a,
+        }
+      })
+      .sort((x, y) => y.total - x.total)
+      .slice(0, MAX_SERIES)
+      .map((s, i) => ({
+        ...s,
+        marker: MARKERS[i],
+        pattern: STYLES[i],
+        // An agent already has a hue everywhere else on screen; borrowing the
+        // chart palette here would give it two identities in one frame.
+        color: hue(s.agent) || lineHue(i),
+        value: humanMs(s.total),
+      }))
+    const scaleP = niceMax(Math.max(0.05, ...perAgentLines.flatMap(s => s.values)))
+    const rows = perAgentLines.length
+      ? chart(perAgentLines, { width: gwP, rows: rowsP, max: scaleP, since, now, lead: 6, pad: VALWP, caption: `attention · ${lookback}` })
+      : [` ${DIM}no activity in ${lookback}${R}`]
 
     const totalAll = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
     const stats = [
@@ -368,7 +383,11 @@ export function render(state, size) {
       ['files', 6, true],
       ['sessions', 5, varies(x => x.sessions)],
     ].filter(([, , keep]) => keep).map(([k, w]) => [k, w])
-    let budget = listW - 2 - 1 - 6 - name      // borders, lead, LAST, name
+    // LAST costs seven, not six: every column is written as a space plus its
+    // width, and the separator in front of the last one was never budgeted.
+    // One column over is enough for the row clipper to eat the end of it, so
+    // the header read `LA…` and every row's age was truncated with it.
+    let budget = listW - 2 - 1 - 7 - name      // borders, lead, LAST, name
     const on = new Set()
     for (const [key, need] of optional) {
       if (budget >= need + 1 + 10) { on.add(key); budget -= need + 1 }   // keep 10 for the graph
@@ -484,55 +503,61 @@ export function render(state, size) {
     s.push(' ', fit(c.last, 6))
     return s.join('')
   }
-  // ---- the live strip: btop's cpu graph, with agents for cores ------------
+  // ---- the headline chart: attention, per project, over the window --------
   //
-  // The ATTENTION timeline answers "where did my week go" and is identical
-  // between one fifty-one-minute bucket boundary and the next. This answers
-  // "is anything happening right now", and because it is a rolling window it
-  // slides left every few seconds whether or not anything changed.
+  // Founder thesis §6.5, restored. What stood here was ONE aggregate braille
+  // graph of edits per minute across every project at once — it moved, which
+  // proved the program was alive, and it answered nothing. Which project ate
+  // the afternoon was left to a fourteen-character sparkline in a table column.
+  // That is the core value of the tool (§2: "where did my week actually go —
+  // per project, over time") demoted to texture.
+  //
+  // So the headline is now the chart the thesis specified: one line per
+  // project, over the window the header already states. The y value is the
+  // share of each slice the project was actually being WORKED — attention, not
+  // an edit count (§2: two projects with a hundred edits each can be an
+  // afternoon and ten minutes). It reads as a real 0-100%, comparable between
+  // projects and between days.
+  //
+  // The liveness the old graph carried has not been dropped, it has been
+  // condensed: the strip below still states the rate, who is here, and who is
+  // writing, which is what anyone actually read off it.
   const stream0 = Array.isArray(state.events) ? state.events : []
-  // The strip is the first thing to go when the pane is short. A live graph is
-  // worth four rows on a full screen and worth nothing at all if it costs the
-  // table its header.
-  // btop's cpu graph is about ten rows tall, and that height is the whole
-  // reason you can read a spike off it: ten rows of braille is forty vertical
-  // levels. A one-row sparkline has four, which is texture, not shape.
-  //
-  // So the strip takes every row the table does not need, up to eight, and
-  // draws the aggregate — exactly the division btop makes between its big cpu
-  // graph and its one-line per-core sparklines.
   const expandedRows = projects.reduce(
     (a, x) => a + (expanded.has(x.root ?? 'loose') ? Math.min(4, x.sessions) : 0), 0)
-  const tableRows = Math.max(1, projects.length + expandedRows) + 2
 
-  // The strip gets a floor, and the table yields to it.
+  // How the headline splits between chart and table.
   //
-  // Before this the strip took whatever the table left over, so with twelve
-  // projects it got zero rows and the graph vanished outright — the same "where
-  // is the spike?" as the fixed window, arrived at from the other direction.
-  // The graph answers "is anything happening right now" and the table answers
-  // "where has my time gone"; a long list of the second must not silently
-  // delete the first. Four rows is enough to read a shape from.
-  const STRIP_MIN = 4
-  const stripH = listH - 2 <= STRIP_MIN + 3
-    ? Math.max(0, Math.min(8, listH - tableRows - 2))      // genuinely no room
-    : Math.max(STRIP_MIN, Math.min(8, listH - tableRows - 2))
-  // What the table can actually show once the strip has its floor. Rows beyond
-  // this are counted in the border rather than dropped in silence.
-  const tableBudget = Math.max(1, listH - stripH - 4)
-  const gwLive = Math.max(20, listW - 24)
-  // The span is chosen, not fixed. A 15m window is blank most of the time you
-  // would actually look at it, because editing is bursty — "where is the
-  // spike?" was answered by "your last edit was sixteen minutes ago".
+  // Before this the chart took what the table left over, capped at eight rows,
+  // while the table took a slice sized off the BOX rather than off its own
+  // content. On a six-project machine that drew a squashed graph above six
+  // rows of list and six rows of nothing — wrong twice, because the chart is
+  // the thing that gets better with height and blank rows are not a layout.
+  //
+  // Now the table asks for exactly the rows it has and every row it does not
+  // need goes to the chart, which is why btop's cpu box is a third of the
+  // screen and its process list is not.
+  const CHART_MIN = 5, CHART_MAX = 18
+  // Three rows belong to the chart block itself (rule, times, legend) and
+  // three more to what follows it (live strip, divider, column header).
+  const FIXED = CHART_BELOW + 3
+  const room = listH - 2 - FIXED
+  const wantTable = Math.max(1, projects.length + expandedRows)
+  // Below the minimum the chart is dropped outright rather than drawn two rows
+  // tall. Six lines crossing in two rows is not a smaller chart, it is a
+  // smudge, and the table is the thing worth keeping in a short terminal.
+  const graphRows = room <= CHART_MIN + 1
+    ? 0
+    : Math.max(CHART_MIN, Math.min(CHART_MAX, room - wantTable))
+  // What the table can actually show. Rows beyond this are counted in the
+  // border rather than dropped in silence.
+  const tableBudget = graphRows > 0 ? Math.max(1, room - graphRows) : Math.max(1, listH - 5)
+
+  // The span is chosen, not fixed, for the STRIP — a 15m rolling window is
+  // blank most of the time you would look at it, because editing is bursty.
+  // The chart above uses the header's own lookback, which is the question
+  // "where did the day go" rather than "what is happening this minute".
   const span = pickWindow(stream0, { now })
-  const live = rateSeries(stream0, gwLive * 2, { now, windowMs: span.windowMs })
-  const peak = Math.max(1, ...live)
-  const graphRows = Math.max(1, stripH - 1)
-  // Linear, and no floor. The sqrt-and-floor scaling exists for the per-project
-  // sparklines, where buckets are sparse and a quiet one would otherwise vanish
-  // beside a busy one. This series is a moving average, already continuous —
-  // flooring it just pins the whole line to the top.
-  const rowsN = graph(live.map(v => v / peak), { width: gwLive, rows: graphRows, tier, lut: LUT.activity })
   const rate = ratePerMin(stream0, { now })
   const agents = byAgent(stream0, { now })
   const nSess = activeSessions(stream0, { now })
@@ -541,18 +566,36 @@ export function render(state, size) {
   // said "nothing is running" while an agent was plainly running.
   const nLive = liveSessions(state.sessions, { now }).length
 
-  if (stripH > 0) {
-    // The scale sits on the graph, so a spike can be read as a value rather
-    // than admired as a shape. btop labels its axis the same way.
-    // A gradation on every row, the way btop and agtop both label theirs. With
-    // only the top and bottom marked, a spike is a shape; with the scale
-    // running down the side it is a value you can read off.
-    rowsN.forEach((line, i) => {
-      const top = rowsN.length - i          // this row covers up to top/rows of peak
-      const value = (peak * top) / rowsN.length
-      const label = rowsN.length <= 2 && i > 0 ? '0' : value >= 10 ? String(Math.round(value)) : value.toFixed(1)
-      headRows.push(` ${DIM}${fit(i === rowsN.length - 1 ? '0' : label, 6)}${R}${DIM}┤${R}${line}${R}`)
-    })
+  if (graphRows > 0) {
+    // Six columns on the right hold each line's own total, printed at the
+    // height the line ends on.
+    const VALW = 7
+    const gwChart = Math.max(24, listW - 11)
+    const bucketMs = Math.max(1, (now - since) / Math.max(1, gwChart - VALW))
+    // Ranked by attention, so the lines that get a marker are the ones that
+    // took the time. The rest are counted in the legend, never silently cut.
+    const ranked = [...projects].sort((a, b) => att(b) - att(a))
+    const chartSeries = ranked.map((x, i) => (i < MAX_SERIES ? {
+      label: x.name,
+      marker: MARKERS[i],
+      pattern: STYLES[i],
+      color: lineHue(i),
+      value: humanMs(att(x)),
+      // Attention landing in each slice, as a fraction of the slice. A project
+      // worked straight through a bucket reads 100%.
+      values: attentionSeries(x.events ?? [], Math.max(1, gwChart - VALW), since, now).map(ms => ms / bucketMs),
+    } : { label: x.name, marker: '', color: '', values: [] }))
+    const scale = niceMax(Math.max(0.05, ...chartSeries.flatMap(s => s.values)))
+    headRows.push(...chart(chartSeries, {
+      width: gwChart, rows: graphRows, max: scale, since, now, lead: 6, pad: VALW,
+      caption: `attention · ${lookback}`,
+      // The project under the cursor wins any cell it shares, so moving the
+      // selection reads its line out of the tangle.
+      top: ranked.indexOf(projects[sel]),
+    }))
+  }
+
+  if (graphRows > 0 || listH > 6) {
     // Built from (plain, painted) pairs: fit() counts characters, and every
     // one of these segments carries colour, so padding them as raw strings
     // measures the escape sequences too and blows a hole in the row.
@@ -560,8 +603,8 @@ export function render(state, size) {
     const push = (plain, painted, pad = 0) =>
       seg.push({ plain, painted, w: Math.max(plain.length, pad) })
 
-    // The span is stated because it moves. A graph whose meaning changes
-    // silently is worse than an empty one.
+    // The span is stated because it moves. A number whose window changes
+    // silently is worse than no number.
     push(`EDITS/MIN · ${span.label}`, `${DIM}EDITS/MIN · ${R}${BOLD}${span.label}${R}`, 18)
     push(`now ${rate.toFixed(1)}`, `${BOLD}now ${rate.toFixed(1)}${R}`, 10)
 
@@ -580,9 +623,10 @@ export function render(state, size) {
     }
 
     if (agents.length) {
+      const topRate = Math.max(0.1, ...agents.map(a => a.rate))
       for (const a of agents.slice(0, 3)) {
         const plain = `${a.agent} ------ ${a.rate.toFixed(1)}`
-        push(plain, `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, peak), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`, plain.length + 2)
+        push(plain, `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / topRate, 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`, plain.length + 2)
       }
     } else {
       push('no file written just now', `${DIM}no file written just now${R}`)
