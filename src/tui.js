@@ -12,7 +12,7 @@ import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import * as mouse from './mouse.js'
-import { highWater, humanTokens } from './context.js'
+import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from './live.js'
@@ -132,13 +132,20 @@ export function render(state, size) {
   // The scale is whatever the busiest session on this machine has actually
   // reached, rounded to something recognisable. Observed, so it self-corrects
   // when the window changes — a hardcoded limit would quietly go wrong.
-  const ceiling = highWater(state.sessions ?? new Map())
+  const ceiling = highWater(state.sessions ?? new Map())   // fallback, per-session limits win
+  // The fullest session, by FRACTION rather than by token count. Ceilings
+  // differ per agent — Codex states 258k, Claude runs to 1M — so the largest
+  // absolute number is not the one nearest to compacting.
   const ctxOf = x => {
-    let most = 0
+    let best = { tokens: 0, frac: 0 }
     for (const id of new Set((x.events ?? []).map(e => e.session))) {
-      most = Math.max(most, state.sessions?.get(id)?.context ?? 0)
+      const s = state.sessions?.get(id)
+      const tokens = s?.context ?? 0
+      if (!tokens) continue
+      const frac = Math.min(1, tokens / limitOf(s, ceiling))
+      if (frac > best.frac) best = { tokens, frac }
     }
-    return most
+    return best
   }
 
   const metaOf = x => {
@@ -174,7 +181,7 @@ export function render(state, size) {
       ['collisions', 5, colls.length > 0],
       // The fuel gauge: how full the fullest session in this project is. Shown
       // only when the agents actually report it.
-      ['ctx', 13, projects.some(x => ctxOf(x) > 0)],
+      ['ctx', 13, projects.some(x => ctxOf(x).tokens > 0)],
       ['files', 6, true],
       ['sessions', 5, varies(x => x.sessions)],
     ].filter(([, , keep]) => keep).map(([k, w]) => [k, w])
@@ -339,11 +346,10 @@ export function render(state, size) {
       share: meter(att(p) / totalTime, 8, LUT.activity),
       colls: mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
       ctx: (() => {
-        const c = ctxOf(p)
-        if (!c) return `${DIM}${'·'.padStart(13)}${R}`
-        const frac = Math.min(1, c / ceiling)
+        const { tokens, frac } = ctxOf(p)
+        if (!tokens) return `${DIM}${'·'.padStart(13)}${R}`
         // Hot as it fills: a full window is about to compact and lose the thread.
-        return `${meter(frac, 6, LUT.heat)} ${LUT.heat[Math.round(frac * 100)]}${humanTokens(c).padStart(6)}${R}`
+        return `${meter(frac, 6, LUT.heat)} ${LUT.heat[Math.round(frac * 100)]}${humanTokens(tokens).padStart(6)}${R}`
       })(),
       activity: `${spark}${R}`,
       // The busiest bucket as a share of its own span — a real percentage, the
@@ -405,7 +411,10 @@ export function render(state, size) {
     field('project', `${projectName(root)}${meta?.branch ? `${DIM}  ${meta.branch}${R}` : ''}`)
     field('when', `${new Date(focus.at).toTimeString().slice(0, 8)}${DIM}   ${ago(focus.at, now)} ago${R}`)
     if (meta?.title) field('session', trunc(meta.title, Math.max(8, detailW - 14)))
-    if (sc) field('context', `${humanTokens(sc)}${DIM} of ${humanTokens(ceiling)} observed${R}`)
+    if (sc) {
+      const cap = limitOf(meta, ceiling)
+      field('context', `${humanTokens(sc)}${DIM} of ${humanTokens(cap)} ${meta?.limit ? 'stated' : 'observed'}${R}`)
+    }
     detailRows_.push('')
     detailRows_.push(` ${DIM}esc or click a project row to go back${R}`)
   } else if (p) {
@@ -420,9 +429,10 @@ export function render(state, size) {
       detailRows_.push(` ${BOLD}${others.length} other agent${others.length === 1 ? '' : 's'} active in this repo${R}`)
       for (const o of others.slice(0, Math.max(1, detailH - 5 - Math.min(3, collsHere.length)))) {
         const verb = o.kind === 'add' ? 'added' : o.kind === 'delete' ? 'deleted' : 'editing'
-        const sc = state.sessions?.get(o.session)?.context ?? 0
+        const os = state.sessions?.get(o.session)
+        const sc = os?.context ?? 0
         const gauge = sc
-          ? ` ${LUT.heat[Math.round(Math.min(1, sc / ceiling) * 100)]}${humanTokens(sc)}${R}`
+          ? ` ${LUT.heat[Math.round(Math.min(1, sc / limitOf(os, ceiling)) * 100)]}${humanTokens(sc)}${R}`
           : ''
         detailRows_.push(`   ${hue(o.agent)}${fit(o.agent, 9)}${R}${DIM}${fit(verb, 8)}${R}${fit(short(o.path, p.root), Math.max(6, iw - 7))}${gauge}${DIM}${ago(o.at, now).padStart(5)}${R}`)
       }
@@ -495,7 +505,7 @@ export function render(state, size) {
   ])
 }
 
-function build(windowMin, lookbackMs, now) {
+export function build(windowMin, lookbackMs, now) {
   const since = now - lookbackMs
   const { events, sessions, dirty } = collect({ sinceMs: since })
   const recent = events.filter(e => e.at >= since && !isNoise(e.path))

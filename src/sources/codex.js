@@ -29,8 +29,12 @@ export function parse(lines, { session, seed }) {
     // Codex also states model_context_window outright, so for these sessions
     // the limit is known rather than inferred.
     const info = p.info ?? p
+    // Codex's cached_input_tokens is a SUBSET of input_tokens, not a sibling
+    // of it — adding the two double-counts and pushed sessions to 173% of a
+    // window Codex itself states as 258400. Its own total_tokens is the
+    // occupancy, and it already accounts for the split.
     const last = info.last_token_usage
-    if (last) meta.context = (last.input_tokens ?? 0) + (last.cached_input_tokens ?? 0)
+    if (last) meta.context = last.total_tokens ?? (last.input_tokens ?? 0) + (last.output_tokens ?? 0)
     if (info.model_context_window) meta.limit = info.model_context_window
     if (p.type === 'session_meta') meta.cwd ??= p.payload?.cwd ?? p.cwd ?? null
     if (p.type === 'turn_context') meta.cwd ??= p.cwd ?? p.workspace_roots?.[0] ?? null

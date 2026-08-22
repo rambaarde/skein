@@ -17,12 +17,26 @@ export const ago = (t, now = Date.now()) => {
 // absolute path: the loose bucket has no root, and printing
 // /Users/<you>/Documents/... put a home directory on screen and into every
 // screenshot taken of it.
+// Display paths are always forward-slashed. relative() hands back native
+// separators, so Windows drew 'src\\a.ts'; more seriously, the ~ substitution
+// tested HOME + '/' and a Windows home is 'C:\\Users\\you', so it never matched
+// and the home directory this function exists to hide went straight to screen.
+const slash = s => s.replace(/\\/g, '/')
+
 export const short = (p, root) => {
+  // Normalise BEFORE relative(), not after: the separator is a property of the
+  // string, not of the host, and skein reads transcripts written on machines
+  // other than this one. Doing it here also means the behaviour is testable on
+  // any platform instead of only on the one that produced the bug.
+  const q = slash(p)
+  const home = slash(HOME).replace(/\/+$/, '')
   if (root) {
-    const r = relative(root, p)
-    if (!r.startsWith('..')) return r
+    const r = slash(relative(slash(root), q))
+    if (r && !r.startsWith('..')) return r
   }
-  return p.startsWith(HOME + '/') ? `~/${p.slice(HOME.length + 1)}` : p
+  // Windows paths are case-insensitive; a home that differs only in case is
+  // still the user's home.
+  return q.toLowerCase().startsWith(home.toLowerCase() + '/') ? `~/${q.slice(home.length + 1)}` : q
 }
 
 export const trunc = (s, n) =>
