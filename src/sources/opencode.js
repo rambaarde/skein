@@ -11,6 +11,21 @@ import { readFileSync } from 'node:fs'
 
 const EDIT_TOOLS = new Set(['edit', 'write', 'patch', 'multiedit'])
 
+// The tool name of any completed tool part, edit or not.
+//
+// parsePart drops everything that is not an edit, which is right for the
+// collision primitive and wrong for counting work: a session is mostly reads,
+// greps and shell commands, and reporting only its writes describes a fraction
+// of what it did. opencode is the one agent that states the tool name plainly
+// on every part, so this costs a field read.
+export function toolOf(json) {
+  let d
+  try { d = typeof json === 'string' ? JSON.parse(json) : json } catch { return null }
+  if (d?.type !== 'tool' || typeof d.tool !== 'string' || !d.tool) return null
+  if (d?.state?.status && d.state.status !== 'completed') return null
+  return { session: d.sessionID ?? 'unknown', tool: d.tool, at: d?.state?.time?.start ?? 0 }
+}
+
 export function parsePart(json, { file }) {
   let d
   try { d = typeof json === 'string' ? JSON.parse(json) : json } catch { return null }

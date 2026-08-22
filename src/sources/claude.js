@@ -20,7 +20,7 @@ const isEditTool = name =>
 
 export function parse(lines, { session, seed }) {
   const events = []
-  const meta = { cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
+  const meta = { tools: { ...(seed?.tools ?? {}) }, cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
 
   for (const line of lines) {
     if (!line) continue
@@ -43,6 +43,19 @@ export function parse(lines, { session, seed }) {
     if (d.type === 'ai-title' && typeof d.aiTitle === 'string') meta.title = d.aiTitle
     if (d.type === 'last-prompt' && typeof d.lastPrompt === 'string' && !meta.title) meta.title = d.lastPrompt
     if (d.type === 'pr-link') meta.prLink = true
+
+    // Tool calls are tallied BEFORE the sidechain skip, unlike edits. A
+    // subagent's edits must not collide with its parent's, but its tool calls
+    // are work the parent session caused -- counting the session's own calls
+    // and not its subagents' would understate what it actually did.
+    const blocks = d?.message?.content
+    if (Array.isArray(blocks)) {
+      for (const b of blocks) {
+        if (b?.type === 'tool_use' && typeof b.name === 'string') {
+          meta.tools[b.name] = (meta.tools[b.name] ?? 0) + 1
+        }
+      }
+    }
 
     // Subagent work belongs to its parent session: a session must never
     // collide with its own subagent.

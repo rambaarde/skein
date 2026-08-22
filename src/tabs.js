@@ -13,7 +13,9 @@
 // than no dollar figure. Context pressure is the honest version of that column:
 // it is measured from your own transcripts and it is the thing that actually
 // bites, because a full window compacts and loses the thread.
-export const TABS = ['info', 'sessions', 'files', 'collisions']
+import { toolsOf, totalOf, shape } from './tools.js'
+
+export const TABS = ['info', 'sessions', 'files', 'tools', 'collisions']
 
 // Everything below returns an array of already-rendered strings, the same
 // contract the pane already had. Each takes one context object so the tab
@@ -72,6 +74,50 @@ export function filesTab(p, ctx) {
   return out
 }
 
+// What the agents DID, as opposed to what they left behind.
+//
+// The files tab counts what was written; this counts what was called. A
+// session is mostly reads, searches and shell commands, so a project showing
+// nine files touched can be nine minutes of editing or four hours of reading
+// the codebase to find the nine. The read:write ratio is the difference.
+export function toolsTab(p, ctx) {
+  const { detailW, detailH, F } = ctx
+  const { fit, DIM, R, BOLD, LUT, meter } = F
+  const tools = toolsOf(p, ctx.state?.sessions)
+  if (!tools.length) {
+    // Absence has two causes here and they are not the same thing, so the
+    // pane says which one it is rather than printing a zero (AXI 5).
+    return [
+      ` ${DIM}no tool calls recorded for this project${R}`,
+      '',
+      ` ${DIM}the agents state these in their own transcripts; a session${R}`,
+      ` ${DIM}that only ever edited files has nothing else to report.${R}`,
+    ]
+  }
+  const total = totalOf(tools)
+  const s = shape(tools)
+  const pct = n => `${Math.round((n / Math.max(1, total)) * 100)}%`
+  const nameW = Math.max(10, detailW - 26)
+  const out = [
+    // Short enough to survive a half-width pane. 'other' earns its place only
+    // when it is big enough to change how the ratio reads.
+    ` ${BOLD}${total}${R}${DIM} calls · ${R}` +
+    `${LUT.activity[70]}${pct(s.read)} read${R}${DIM} · ${R}` +
+    `${LUT.heat[60]}${pct(s.write)} write${R}${DIM} · ${R}` +
+    `${pct(s.run)} run${R}${s.other / Math.max(1, total) >= 0.1 ? `${DIM} · ${pct(s.other)} other${R}` : ''}`,
+    '',
+    ` ${DIM}${fit('TOOL', nameW)} ${fit('CALLS', 10)}${'SHARE'.padStart(6)}${R}`,
+  ]
+  const top = Math.max(1, ...tools.map(t => t.n))
+  for (const t of tools.slice(0, Math.max(1, detailH - 6))) {
+    out.push(` ${fit(t.tool, nameW)} ${meter(t.n / top, 6, LUT.activity)} ${String(t.n).padStart(3)}${DIM}${pct(t.n).padStart(6)}${R}`)
+  }
+  if (tools.length > Math.max(1, detailH - 6)) {
+    out.push(` ${DIM}+${tools.length - Math.max(1, detailH - 6)} more tool${tools.length - Math.max(1, detailH - 6) === 1 ? '' : 's'}${R}`)
+  }
+  return out
+}
+
 export function collisionsTab(p, ctx) {
   const { collsHere, now, detailW, detailH, lookback, F } = ctx
   const { fit, short, ago, DIM, R, BOLD, LUT } = F
@@ -105,5 +151,6 @@ export const TAB_TITLES = [
   'what an agent is told here',
   'sessions and their context',
   'files, hottest first',
+  'tool calls, most used first',
   'collisions',
 ]

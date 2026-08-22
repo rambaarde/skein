@@ -7,6 +7,7 @@ import { isAbsolute, join } from 'node:path'
 import { install } from './install.js'
 import { listThemes, setTheme, setOpaque, setTransparent } from './theme.js'
 import { velocity } from './delivery.js'
+import { toolsOf, totalOf, classify } from './tools.js'
 import { attentionOf, humanMs } from './attention.js'
 
 const HELP = `skein — every agent running across every repository, grouped by project.
@@ -189,6 +190,38 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
           return `no collisions${here} in the last ${argvSince(opts)} (0 collisions)${context}` +
                  (root && !opts.all ? ' · --all for every project' : '')
         })()),
+    }
+  }
+
+  // What the agents called, not only what they wrote. Same door rule.
+  if (cmd === 'tools') {
+    const projects = [...byProject(recent).values()]
+      .filter(p => opts.all || !root || p.root === root)
+      .sort((a, b) => b.last - a.last)
+    const rows = []
+    for (const p of projects) {
+      const t = toolsOf(p, sessions)
+      const n = totalOf(t)
+      for (const { tool, n: calls } of t.slice(0, opts.all ? t.length : 12)) {
+        rows.push({
+          project: p.name, tool, calls,
+          share: `${Math.round((calls / Math.max(1, n)) * 100)}%`,
+          kind: classify(tool),
+        })
+      }
+      // A project that recorded none says so, rather than vanishing from a
+      // list it belongs on (AXI 5).
+      if (!t.length) rows.push({ project: p.name, tool: null, calls: null, share: null, kind: null })
+    }
+    return {
+      code: 0,
+      text: out(opts, 'tools', rows, ['project', 'tool', 'calls', 'share', 'kind'],
+        () => table(rows.map(r => ({ ...r, tool: r.tool ?? '—', calls: r.calls ?? '—', share: r.share ?? '—', kind: r.kind ?? '—' })), [
+          { head: 'PROJECT', key: 'project' }, { head: 'TOOL', key: 'tool' },
+          { head: 'CALLS', key: 'calls', right: true }, { head: 'SHARE', key: 'share', right: true },
+          { head: 'KIND', key: 'kind' },
+        ]) + '\n\ncounted from the agents\' own transcripts · a null tool means the project recorded none',
+        `no tool calls recorded in the last ${argvSince(opts)} (0 projects)`),
     }
   }
 
