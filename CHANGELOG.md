@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.29.0](https://github.com/rambaarde/skein/compare/v0.28.3...v0.29.0) (2026-08-22)
+
+
+### Features
+
+* say what every number means, in all three doors ([5b2b46b](https://github.com/rambaarde/skein/commit/5b2b46b21ad1aa5e8dd52b5b138aa88c705f4a37))
+* say what every number means, in all three doors ([#121](https://github.com/rambaarde/skein/issues/121)) ([f478f4a](https://github.com/rambaarde/skein/commit/f478f4a15b8875ef97839a63ccb241c7936f7677))
+
 ## [0.28.3](https://github.com/rambaarde/skein/compare/v0.28.2...v0.28.3) (2026-08-22)
 
 
