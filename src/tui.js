@@ -104,8 +104,8 @@ function helpOverlay(w, h) {
 // A pane is exactly rect.h lines of exactly rect.w visible columns — that
 // invariant is what lets two of them sit side by side without the right one
 // drifting a character further out on every row.
-function pane(rect, { title, key, right = '', state = '', rows }) {
-  const b = box({ w: rect.w, title, key, right, state })
+function pane(rect, { title, key, right = '', state = '', rows, line = null }) {
+  const b = box({ w: rect.w, title, key, right, state, line })
   const body = rows.slice(0, Math.max(0, rect.h - 2))
   const lines = [b.top, ...body.map(r => b.row(r))]
   while (lines.length < rect.h - 1) lines.push(b.row(''))
@@ -222,14 +222,16 @@ export function render(state, size) {
   // is how to get help and how to get out, so those are the last to go.
   const bare = s => s.replace(/\x1b\[[0-9;]*m/g, '')
   const controls = w => {
-    const pinned = [tag('?', 'keys'), tag('q', 'quit')]
+    const TAG_KEY = new Map()
+    const mk = (k, label) => { const s = tag(k, label); TAG_KEY.set(s, k); return s }
+    const pinned = [mk('?', 'keys'), mk('q', 'quit')]
     const optional = [
-      tag('⏎', 'expand'),
-      tag('s', state.sort ?? 'recent'),
-      tag('p', NAMES[state.preset ?? 0] ?? 'preset'),
-      tag('a', lookback),
-      tag('/', state.filter || 'filter'),
-      tag('c', state.onlyColliding ? 'colliding' : 'all'),
+      mk('\r', 'expand'),
+      mk('s', state.sort ?? 'recent'),
+      mk('p', NAMES[state.preset ?? 0] ?? 'preset'),
+      mk('a', lookback),
+      mk('/', state.filter || 'filter'),
+      mk('c', state.onlyColliding ? 'colliding' : 'all'),
     ]
     const plain = bare
     const sepW = plain(TAG_SEP).length
@@ -241,7 +243,19 @@ export function render(state, size) {
       used += cost
       keep.push(c)
     }
-    return [...keep, ...pinned].join(TAG_SEP)
+    // Report where each tag ended up, so the same labels the border already
+    // shows can be clicked. hit.tags has existed since the mouse landed and was
+    // never populated — the controls were readable but not reachable, which is
+    // most of "where are the presets?": they were on screen and inert.
+    const all = [...keep, ...pinned]
+    const spans = []
+    let at = 0
+    for (const c of all) {
+      const len = plain(c).length
+      spans.push({ x0: at, x1: at + len, key: TAG_KEY.get(c) ?? null })
+      at += len + sepW
+    }
+    return { text: all.join(TAG_SEP), spans }
   }
 
   const headRows = []
@@ -390,8 +404,9 @@ export function render(state, size) {
     headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
   }
 
-  headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', ctx: '  CONTEXT', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
+  headRows.push(`${THEME.header}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', ctx: '  CONTEXT', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
   const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
+  const topAtt = Math.max(1, ...projects.map(att))
 
   // Hit map: filled while drawing, because the layout decides row positions at
   // render time and recomputing them in the input handler is how the two drift.
@@ -432,13 +447,18 @@ export function render(state, size) {
     // first — states something untrue about every other session in it.
     const m = p.root ? metaOf(p) : { branch: null, doing: null }
     const line = cells({
-      name: `${marker} ${p.name}`,
-      branch: m.branch ?? `${DIM}—${R}`,
-      doing: m.doing ? trunc(m.doing, 30) : `${DIM}—${R}`,
+      // Colour by ROLE, so the eye can skip what it is not looking for: the
+      // name is the thing you scan, the branch and task are context. All three
+      // were plain text, which is most of why the table read as a wall.
+      name: `${DIM}${marker}${R} ${THEME.fg}${p.name}${R}`,
+      branch: `${THEME.dim}${m.branch ?? '—'}${R}`,
+      doing: `${THEME.dim}${m.doing ? trunc(m.doing, 30) : '—'}${R}`,
       agents,
       sessions: String(p.sessions).padStart(5),
       files: String(p.files).padStart(6),
-      time: humanMs(att(p)).padStart(7),
+      // btop's rule: colour maps to VALUE. Attention as a share of the busiest
+      // project, so the eye finds where the time went without reading numbers.
+      time: `${LUT.activity[Math.round(Math.min(1, att(p) / Math.max(1, topAtt)) * 100)]}${humanMs(att(p)).padStart(7)}${R}`,
       share: meter(att(p) / totalTime, 8, LUT.activity),
       colls: mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
       ctx: (() => {
@@ -451,7 +471,8 @@ export function render(state, size) {
       // The busiest bucket as a share of its own span — a real percentage, the
       // way btop's cores read, so a spike carries a value and not just a shape.
       busiest: `${Math.round(Math.max(0, ...attentionSeries(p.events, Math.max(2, gw * 2), since, now)) / ((now - since) / Math.max(2, gw * 2)) * 100)}%`.padStart(5),
-      last: ago(p.last, now).padStart(6),
+      // Recency the same way: fresh is bright, stale recedes.
+      last: `${LUT.activity[Math.round(Math.max(0, 1 - (now - p.last) / (6 * 3600_000)) * 100)]}${ago(p.last, now).padStart(6)}${R}`,
     })
     // Selection reverses fg/bg on a plain line. Interleaving REV with 24-bit
     // colour leaves gaps wherever a reset lands, so the row drops its hues for
@@ -476,7 +497,7 @@ export function render(state, size) {
     }
   }
   const headPane = pane(L.head, {
-    title: 'skein', key: SUP[0],
+    title: 'skein', key: SUP[0], line: THEME.boxHead,
     // btop prints 'preset N' in the cpu box border. Same place, same reason:
     // the layout you are looking at is state, and state belongs in the border.
     right: `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`,
@@ -488,7 +509,16 @@ export function render(state, size) {
     // that quietly ends at row nine reads as "you have nine projects".
     state: (() => {
       const s = hidden > 0 ? `${headState}${DIM} · ${hidden} more below${R}` : headState
-      return `${s}  ${controls(Math.max(18, listW - bare(s).length - 8))}`
+      const c = controls(Math.max(18, listW - bare(s).length - 8))
+      // box() lays the bottom border out as ╰ ─ ' ' state ' ' … so the state
+      // text begins three columns in. Every tag's absolute position follows
+      // from that plus its offset within the row.
+      const originX = L.head.x + 3 + bare(s).length + 2
+      const y = L.head.y + L.head.h - 1
+      for (const sp of c.spans) {
+        if (sp.key) hit.tags.push({ y, x0: originX + sp.x0, x1: originX + sp.x1, key: sp.key })
+      }
+      return `${s}  ${c.text}`
     })(),
     rows: headRows,
   })
@@ -510,6 +540,23 @@ export function render(state, size) {
   // Clicking a feed row opens the whole record, because the feed necessarily
   // truncates the path and hides the session behind it.
   const focus = state.focus
+
+  // The tab bar is drawn whether or not a feed row is focused. It used to be
+  // inside the else-branch, so clicking anything in the activity feed replaced
+  // the whole pane and the tabs disappeared — with no way to tell they had ever
+  // been there. A drill-down is a state OF the info tab, not a different pane.
+  const tabI = Math.min(state.tab ?? 0, TABS.length - 1)
+  if (L.detail) {
+    let tx = 1
+    const bar = TABS.map((name, i) => {
+      hit.tabs.push({ y: L.detail.y + 1, x0: L.detail.x + tx, x1: L.detail.x + tx + name.length, index: i })
+      tx += name.length + 2
+      return i === tabI ? `${BOLD}${THEME.hi}${name}${R}` : `${DIM}${name}${R}`
+    }).join('  ')
+    detailRows_.push(` ${bar}`)
+    detailRows_.push(` ${DIM}${TABS.map((n, i) => (i === tabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`)
+  }
+
   if (focus) {
     const root = focus.project ?? gitRoot(focus.path)
     const meta = state.sessions?.get(focus.session)
@@ -527,18 +574,7 @@ export function render(state, size) {
     detailRows_.push('')
     detailRows_.push(` ${DIM}esc or click a project row to go back${R}`)
   } else if (p && L.detail) {
-    // The tab bar, agtop-style: one pane, several questions, switched rather
-    // than tiled. The active tab is bright and underscored; the rest are dim.
-    const tabI = Math.min(state.tab ?? 0, TABS.length - 1)
-    let tx = 1
-    const bar = TABS.map((name, i) => {
-      hit.tabs.push({ y: L.detail.y + 1, x0: L.detail.x + tx, x1: L.detail.x + tx + name.length, index: i })
-      tx += name.length + 2
-      return i === tabI ? `${BOLD}${THEME.hi}${name}${R}` : `${DIM}${name}${R}`
-    }).join('  ')
-    detailRows_.push(` ${bar}`)
-    detailRows_.push(` ${DIM}${TABS.map((n, i) => (i === tabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`)
-
+    // agtop's shape: one pane, several questions, switched rather than tiled.
     const ctx = { state, now, detailW, detailH: detailH - 2, collsHere, lookback,
       F: { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling } }
 
@@ -599,7 +635,7 @@ export function render(state, size) {
             ? `${p.name} — ${TAB_TITLES[Math.min(state.tab ?? 0, TABS.length - 1)]}`
             : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
         : 'no project',
-    key: SUP[1], state: detailState, rows: detailRows_,
+    key: SUP[1], state: detailState, rows: detailRows_, line: THEME.boxDetail,
   })
 
   // ---- the live feed: edits as they land ----------------------------------
@@ -611,16 +647,26 @@ export function render(state, size) {
   // the most likely thing a caller forgets to supply.
   const stream = Array.isArray(state.events) ? state.events : []
   const feedRows = []
+  let feedTotal = 0, feedFrom = 0
   if (feedH >= 3) {
     const seen = new Set()
-    const feed = []
+    const all = []
+    // Build the WHOLE deduped list, then window it. This used to stop at
+    // feedH-2 entries, which is why the feed could not scroll: the rows below
+    // the fold were never built, so there was nothing to scroll to. 232 edits
+    // in the border and fourteen on screen is a promise the pane did not keep.
     for (const e of [...stream].sort((a, b2) => b2.at - a.at)) {
       const k = `${e.session}:${e.path}`
       if (seen.has(k)) continue
       seen.add(k)
-      feed.push(e)
-      if (feed.length >= feedH - 2) break
+      all.push(e)
     }
+    feedTotal = all.length
+    const rows = Math.max(1, feedH - 2)
+    // Clamped here rather than in the handler, because the handler does not
+    // know how many rows fit — that is decided at render time by the layout.
+    feedFrom = Math.max(0, Math.min(state.feedTop ?? 0, Math.max(0, feedTotal - rows)))
+    const feed = all.slice(feedFrom, feedFrom + rows)
     for (const e of feed) {
       const at = new Date(e.at).toTimeString().slice(0, 8)
       const root = e.project ?? gitRoot(e.path)
@@ -630,12 +676,20 @@ export function render(state, size) {
     }
   }
 
+  // Where you are in the list, stated. Scrolling with no position indicator is
+  // how you lose track of whether there is more below.
+  const feedPos = feedFrom > 0
+    ? `${DIM}${feedFrom + 1}–${feedFrom + feedRows.length} of ${feedTotal}${R}`
+    : `${DIM}newest first${R}`
   const feedPane = L.feed && pane(L.feed, {
-    title: 'activity', key: SUP[2],
-    right: `${DIM}newest first${R}`,
-    state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${R}`,
+    title: 'activity', key: SUP[2], line: THEME.boxFeed,
+    right: feedPos,
+    state: `${DIM}${stream.length} edit${stream.length === 1 ? '' : 's'} in ${lookback}${feedFrom > 0 ? ` · ${BOLD}g${R}${DIM} for newest` : ''}${R}`,
     rows: feedRows,
   })
+  // The handler needs to know how far it may scroll, and only the layout knows.
+  state.feedMax = Math.max(0, feedTotal - Math.max(1, feedH - 2))
+  state.feedRect = L.feed ?? null
 
   return compose(h, [
     { rect: L.head, lines: headPane },
@@ -657,7 +711,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
-  let preset = 0, tab = 0
+  let preset = 0, tab = 0, feedTop = 0
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -676,7 +730,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab,
+      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus, preset, tab, feedTop,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -751,7 +805,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   stdout.on('resize', draw)
   const current = () => state.projects[sel]
 
-  stdin.on('data', k => {
+  const onData = k => {
     wake()
 
     // Mouse first: a click arrives as an escape sequence and would otherwise
@@ -759,10 +813,24 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     const ev = mouse.parseMouse(k)
     if (ev) {
       if (ev.kind === 'wheel') {
-        sel = Math.max(0, Math.min(state.projects.length - 1, sel + ev.dir))
+        // The wheel scrolls whatever is UNDER the pointer. It used to move the
+        // project selection wherever you pointed it, which is why the activity
+        // feed read as unscrollable — the wheel was working, just not on the
+        // thing you were looking at.
+        const fr = state.feedRect
+        const overFeed = fr && ev.x >= fr.x && ev.x < fr.x + fr.w && ev.y >= fr.y && ev.y < fr.y + fr.h
+        if (overFeed) {
+          feedTop = Math.max(0, Math.min(state.feedMax ?? 0, feedTop + ev.dir * 3))
+        } else {
+          sel = Math.max(0, Math.min(state.projects.length - 1, sel + ev.dir))
+        }
       } else {
         const tabHit = mouse.hitTab(state.hit ?? {}, ev.x, ev.y)
         if (tabHit !== null) { tab = tabHit; draw(); return }
+        // A clicked control runs the key it displays, through this very
+        // function — so clicking 'p all' and pressing p cannot diverge.
+        const tagKey = mouse.hitTag(state.hit ?? {}, ev.x, ev.y)
+        if (tagKey) return onData(tagKey)
         const ftarget = mouse.hitFeed(state.hit ?? {}, ev.y)
         if (ftarget) { focus = ftarget; draw(); return }
         const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
@@ -823,9 +891,14 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     else if (k === 'P') preset = (preset - 1 + PRESETS.length) % PRESETS.length
     else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) preset = Number(k) - 1
     else if (k === 'r') reload()
-    else if (k === 'g') sel = 0
+    // The feed is the one pane with more rows than fit, so it gets the paging
+    // keys. g returns it to the newest, which is where it starts.
+    else if (k === '\x1b[6~') feedTop = Math.min(state.feedMax ?? 0, feedTop + 10)
+    else if (k === '\x1b[5~') feedTop = Math.max(0, feedTop - 10)
+    else if (k === 'g') { sel = 0; feedTop = 0 }
     else if (k === 'G') sel = Math.max(0, state.projects.length - 1)
     draw()
-  })
+  }
+  stdin.on('data', onData)
   process.on('SIGINT', quit)
 }

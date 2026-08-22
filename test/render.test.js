@@ -653,3 +653,52 @@ test('presets change what is on screen, not just its size', async () => {
   assert.match(at(0), /preset 1 all/)
   assert.match(at(2), /preset 3 table/)
 })
+
+test('truncation keeps colour — the reason the TUI looked plain', async () => {
+  const { fit, clip, width } = await import('../src/box.js')
+  const RED = '\x1b[38;2;255;0;0m', OFF = '\x1b[0m'
+
+  // Both fit() and the row clipper used to strip every escape before cutting.
+  // Table rows are built to fill their pane, so they overshoot by a character
+  // or two — and every one of them arrived at the terminal grey. The colour was
+  // being computed correctly and thrown away one layer before the screen.
+  const painted = `${RED}docs/readme-library${OFF}`
+  const cut = fit(painted, 12)
+  assert.equal(width(cut), 12, 'still exactly the asked width')
+  assert.match(cut, /\x1b\[38;2;255;0;0m/, 'and still red')
+  assert.match(cut, /…$|…\x1b\[0m$/)
+
+  // A plain string must come back plain: appending a reset to uncoloured text
+  // is invisible but not equal, and rendered output is compared by equality.
+  assert.equal(fit('abcdef', 4), 'abc…')
+  assert.equal(clip('abcdef', 4), 'abc…')
+
+  // Padding is unchanged, and escapes never count toward the width.
+  assert.equal(width(fit(painted, 30)), 30)
+  assert.equal(width(fit(`${RED}ab${OFF}`, 5)), 5)
+})
+
+test('the frame is not one grey box — each pane owns its outline', async () => {
+  const { render } = await import('../src/tui.js')
+  const { THEME } = await import('../src/theme.js')
+  const now = 1_700_000_000_000
+  const state = {
+    projects: [{ name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], attention: 1, last: now,
+                 events: [{ at: now, agent: 'claude', path: '/w/a/x.ts', session: 's' }] }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], events: [],
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0,
+  }
+  const raw = render(state, { cols: 120, rows: 30, now })
+  // btop gives cpu_box, mem_box, net_box and proc_box four separate theme keys
+  // (design language R6). skein had one DIM for all three panes.
+  for (const [name, colour] of [['head', THEME.boxHead], ['detail', THEME.boxDetail], ['feed', THEME.boxFeed]]) {
+    assert.ok(raw.includes(colour), `${name} draws in its own colour`)
+  }
+  // One project and one event, so most of the gradient range never appears —
+  // the real screen runs to about 35. Six is still far above what this rendered
+  // before, when the only 24-bit colour on screen came from the two gradients
+  // and every border, title and header fell back to the terminal's grey.
+  const distinct = new Set([...raw.matchAll(/\x1b\[38;2;[\d;]+m/g)].map(m => m[0]))
+  assert.ok(distinct.size >= 6, `a painted screen, got ${distinct.size} distinct colours`)
+})

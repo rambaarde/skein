@@ -79,9 +79,31 @@ export function parseTheme(text) {
 // --transparent is the way back.
 const DEFAULT_BG = '\x1b[48;2;0;0;0m'
 
+// The chrome had no colour at all: fg, hi and title were empty strings and
+// every border was DIM, so the whole frame fell back to whatever grey the
+// terminal paints. The two gradients were the only colour on screen, which is
+// why it read as plain beside btop — btop ships a real palette, and it gives
+// EVERY box its own outline colour (cpu_box, mem_box, net_box, proc_box are
+// four separate theme keys, design-language R6). One grey for three panes
+// throws that away.
+const fgOf = hex => {
+  const [r, g, b] = [1, 3, 5].map(i => parseInt(hex.slice(i, i + 2), 16))
+  return `\x1b[38;2;${r};${g};${b}m`
+}
+
 const INHERIT = {
-  fg: '', dim: DIM, title: BOLD, hi: '', inactive: DIM,
-  selBg: REV, selFg: '', box: DIM, surface: DEFAULT_BG,
+  fg: fgOf('#c8d3e0'),          // main text: light, not terminal-default white
+  dim: fgOf('#6b7688'),         // labels and units — readable, not invisible
+  title: `${BOLD}${fgOf('#e6edf5')}`,
+  hi: fgOf('#e5b567'),          // keybind letters, so a control reads as pressable
+  inactive: fgOf('#4d5666'),
+  selBg: REV, selFg: '', surface: DEFAULT_BG,
+  // Per-pane outlines, btop's four box colours mapped onto skein's three.
+  box: fgOf('#3f4b5e'),
+  boxHead: fgOf('#4fb3c8'),     // cpu: the headline
+  boxDetail: fgOf('#7cb87c'),   // mem: the pane you inspect with
+  boxFeed: fgOf('#b48ead'),     // proc: the long list
+  header: fgOf('#8fa6c4'),      // column headers, so the table has a top edge
   activity: gradient('#4a5a8a', '#49b7a0', '#e8d17a'),
   heat: gradient('#3b6ea5', '#d99a3a', '#d1495b'),
   agent: {
@@ -118,6 +140,12 @@ export function buildTheme(nameOrPath) {
     activity: grad('cpu_start', 'cpu_mid', 'cpu_end', INHERIT.activity),
     // temp_* runs cool→hot, which is what a collision heat line wants.
     heat: grad('temp_start', 'temp_mid', 'temp_end', INHERIT.heat),
+    // btop names one theme key per box; skein reads the same four and maps
+    // proc onto its long list, which is what proc is.
+    boxHead: fg(t.cpu_box) ?? INHERIT.boxHead,
+    boxDetail: fg(t.mem_box) ?? INHERIT.boxDetail,
+    boxFeed: fg(t.proc_box) ?? INHERIT.boxFeed,
+    header: fg(t.title) ?? INHERIT.header,
     agent: {
       claude: fg(t.cpu_end) ?? INHERIT.agent.claude,
       codex: fg(t.hi_fg) ?? INHERIT.agent.codex,
