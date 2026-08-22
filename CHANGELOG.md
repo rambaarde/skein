@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.3.1](https://github.com/rambaarde/skein/compare/v0.3.0...v0.3.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **cli:** stop killing the TUI a millisecond after opening it ([#4](https://github.com/rambaarde/skein/issues/4)) ([cde1e36](https://github.com/rambaarde/skein/commit/cde1e36d393c623a7982573f2a3fcb11f3e6acce))
+
 ## [0.3.0](https://github.com/rambaarde/skein/compare/v0.2.0...v0.3.0) (2026-08-22)
 
 
