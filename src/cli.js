@@ -207,6 +207,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         // zero standing in for one (AXI 5, thesis R2). "No git history here"
         // and "you landed nothing" are different statements.
         landed: v ? v.landed : null,
+        per_day: v ? Number(v.perDay.toFixed(2)) : null,
         per_week: v ? Number(v.perWeek.toFixed(1)) : null,
         lead: v && v.lead !== null ? humanMs(v.lead) : null,
         per_ship: v && v.perShip !== null ? humanMs(v.perShip) : null,
@@ -214,13 +215,13 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         attention: humanMs(attentionOf(p.events)),
       }
     })
-    const FIELDS = ['project', 'landed', 'per_week', 'lead', 'per_ship', 'rework', 'attention']
+    const FIELDS = ['project', 'landed', 'per_day', 'per_week', 'lead', 'per_ship', 'rework', 'attention']
     return {
       code: 0,
       text: out(opts, 'velocity', rows, FIELDS,
         () => table(rows.map(r => Object.fromEntries(FIELDS.map(k => [k, r[k] ?? '—']))), [
           { head: 'PROJECT', key: 'project' }, { head: 'LANDED', key: 'landed', right: true },
-          { head: '/WEEK', key: 'per_week', right: true }, { head: 'LEAD', key: 'lead', right: true },
+          { head: '/DAY', key: 'per_day', right: true }, { head: '/WEEK', key: 'per_week', right: true }, { head: 'LEAD', key: 'lead', right: true },
           { head: 'ATTN/SHIP', key: 'per_ship', right: true }, { head: 'REWORK', key: 'rework', right: true },
           { head: 'ATTENTION', key: 'attention', right: true },
         ]) + '\n\nlanded = trunk commits, releases excluded · lead = first edit after the previous landing' +

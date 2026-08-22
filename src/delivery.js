@@ -136,6 +136,12 @@ export function velocity(root, events, { since, now, attention = 0, ships = null
   const days = Math.max(1, (now - since) / 86_400_000)
   return {
     landed: landed.length,
+    days,
+    // Both rates, because which one is honest depends on the window. Twenty
+    // five landings in a day is 175 a week only if you keep it up for a week,
+    // and printing that as a measurement is a projection wearing a
+    // measurement's clothes.
+    perDay: landed.length / days,
     perWeek: (landed.length / days) * 7,
     lead: median(leadTimes(landed, events, since)),
     // Hours per landing is the join no other tool can make: skein knows the
