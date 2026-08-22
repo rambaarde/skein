@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.26.0](https://github.com/rambaarde/skein/compare/v0.25.1...v0.26.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** an empty screen says what skein looked for, and honour XDG ([d69d832](https://github.com/rambaarde/skein/commit/d69d832d74635f96f11923fc8422091fa418a661))
+* **tui:** an empty screen says what skein looked for, and honour XDG ([#97](https://github.com/rambaarde/skein/issues/97)) ([81ec7d7](https://github.com/rambaarde/skein/commit/81ec7d76240dc8ff499986ed43d92f864f785cb7))
+
 ## [0.25.1](https://github.com/rambaarde/skein/compare/v0.25.0...v0.25.1) (2026-08-22)
 
 
