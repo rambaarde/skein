@@ -20,7 +20,7 @@ const isEditTool = name =>
 
 export function parse(lines, { session, seed }) {
   const events = []
-  const meta = { cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null }
+  const meta = { cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
 
   for (const line of lines) {
     if (!line) continue

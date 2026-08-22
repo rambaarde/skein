@@ -537,8 +537,14 @@ test('the aggregate graph is tall and carries a scale', async () => {
   const braille = l => [...l].filter(c => c >= '⠁' && c <= '⣿').length
   const tall = lines.filter(l => braille(l) > 20 && !l.includes('▸'))
   assert.ok(tall.length >= 3, `the aggregate graph should be several rows, got ${tall.length}`)
-  assert.ok(lines.some(l => /\d+\.\d\/min/.test(l)), 'the top of the axis should be labelled')
-  assert.ok(lines.some(l => /^\│ 0 /.test(l)), 'and the baseline should be labelled 0')
+  // Every row carries a gradation now, the way btop and agtop label theirs —
+  // with only the ends marked a spike is a shape, not a value.
+  const axis = lines.filter(l => /^\│\s+[\d.]+\s+┤/.test(l))
+  assert.ok(axis.length >= 3, `the axis should be graduated on every row, got ${axis.length}`)
+  assert.ok(lines.some(l => /^\│\s+0\s+┤/.test(l)), 'and the baseline should read 0')
+  // labels must descend
+  const values = axis.map(l => Number(l.match(/^\│\s+([\d.]+)/)[1]))
+  assert.deepEqual(values, [...values].sort((a, b) => b - a), 'the scale must run downward')
 })
 
 test('a per-project sparkline is short and stands next to a number', async () => {

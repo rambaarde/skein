@@ -276,9 +276,14 @@ export function render(state, size) {
   if (stripH > 0) {
     // The scale sits on the graph, so a spike can be read as a value rather
     // than admired as a shape. btop labels its axis the same way.
+    // A gradation on every row, the way btop and agtop both label theirs. With
+    // only the top and bottom marked, a spike is a shape; with the scale
+    // running down the side it is a value you can read off.
     rowsN.forEach((line, i) => {
-      const label = i === 0 ? `${peak.toFixed(1)}/min` : i === rowsN.length - 1 ? `0` : ''
-      headRows.push(` ${DIM}${fit(label, 8)}${R}${line}${R}`)
+      const top = rowsN.length - i          // this row covers up to top/rows of peak
+      const value = (peak * top) / rowsN.length
+      const label = rowsN.length <= 2 && i > 0 ? '0' : value >= 10 ? String(Math.round(value)) : value.toFixed(1)
+      headRows.push(` ${DIM}${fit(i === rowsN.length - 1 ? '0' : label, 6)}${R}${DIM}┤${R}${line}${R}`)
     })
     headRows.push(` ${DIM}${fit(`EDITS/MIN · ${Math.round(WINDOW_MS / 60000)}m`, 18)}${R}${BOLD}${fit(`now ${rate.toFixed(1)}`, 10)}${R}` +
       `${DIM}${fit(`${nSess} session${nSess === 1 ? '' : 's'} active`, 20)}${R}` +
@@ -296,6 +301,7 @@ export function render(state, size) {
   const hit = state.hit ?? (state.hit = mouse.hits())
   hit.rows.length = 0
   hit.tags.length = 0
+  hit.feed.length = 0
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
   const offset = projects.indexOf(view[0] ?? projects[0])
   for (let i = 0; i < view.length && i < listH - 2; i++) {
@@ -386,7 +392,23 @@ export function render(state, size) {
   const detailState = p
     ? `${DIM}${p.sessions} session${p.sessions === 1 ? '' : 's'}${collsHere.length ? ` · ${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : ''}${R}`
     : ''
-  if (p) {
+  // Clicking a feed row opens the whole record, because the feed necessarily
+  // truncates the path and hides the session behind it.
+  const focus = state.focus
+  if (focus) {
+    const root = focus.project ?? gitRoot(focus.path)
+    const meta = state.sessions?.get(focus.session)
+    const sc = meta?.context ?? 0
+    const field = (k, v) => detailRows_.push(` ${DIM}${fit(k, 9)}${R}${fit(v, Math.max(8, detailW - 13))}`)
+    field('agent', `${hue(focus.agent)}${focus.agent}${R}`)
+    field('file', short(focus.path, root))
+    field('project', `${projectName(root)}${meta?.branch ? `${DIM}  ${meta.branch}${R}` : ''}`)
+    field('when', `${new Date(focus.at).toTimeString().slice(0, 8)}${DIM}   ${ago(focus.at, now)} ago${R}`)
+    if (meta?.title) field('session', trunc(meta.title, Math.max(8, detailW - 14)))
+    if (sc) field('context', `${humanTokens(sc)}${DIM} of ${humanTokens(ceiling)} observed${R}`)
+    detailRows_.push('')
+    detailRows_.push(` ${DIM}esc or click a project row to go back${R}`)
+  } else if (p) {
     // Thesis §5: the defensible claim is not the chart, it is that an agent can
     // read this. So the pane shows the exact line an agent starting in this
     // repository would be handed — the product, rather than a description of it.
@@ -423,9 +445,11 @@ export function render(state, size) {
     }
   }
   const detailPane = pane(L.detail, {
-    title: p
-      ? (p.root ? `${p.name} — what an agent is told here` : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
-      : 'no project',
+    title: focus
+      ? `${projectName(focus.project ?? gitRoot(focus.path))} — ${short(focus.path, focus.project ?? gitRoot(focus.path)).split('/').pop()}`
+      : p
+        ? (p.root ? `${p.name} — what an agent is told here` : `${NO_REPO} — ${p.sessions} unrelated session${p.sessions === 1 ? '' : 's'}`)
+        : 'no project',
     key: SUP[1], state: detailState, rows: detailRows_,
   })
 
@@ -452,6 +476,7 @@ export function render(state, size) {
       const at = new Date(e.at).toTimeString().slice(0, 8)
       const root = e.project ?? gitRoot(e.path)
       const pw = Math.max(8, Math.min(20, Math.floor(feedW * 0.22)))
+      hit.feed.push({ y: L.feed.y + 1 + feedRows.length, event: e })
       feedRows.push((` ${DIM}${at}${R} ${hue(e.agent)}${fit(e.agent, 9)}${R} ${fit(projectName(root), pw)} ${DIM}${fit(short(e.path, root), Math.max(0, feedW - 29 - pw))}${R}${ago(e.at, now).padStart(6)}`))
     }
   }
@@ -482,7 +507,7 @@ function build(windowMin, lookbackMs, now) {
 export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin } = {}) {
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
-  let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false
+  let sortIdx = 0, filter = '', typing = false, help = false, onlyColliding = false, focus = null
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -501,7 +526,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state = {
       ...built, projects: list, sel, expanded, tier, now: t,
       lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, onlyColliding,
+      sort: SORTS[sortIdx].label, filter, help, onlyColliding, focus,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -514,6 +539,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     state.tick = tick
     state.help = help
     state.filter = filter
+    state.focus = focus
     stdout.write(CLEAR + render(state, { cols: stdout.columns || 100, rows: stdout.rows || 30 }))
   }
 
@@ -585,8 +611,11 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
       if (ev.kind === 'wheel') {
         sel = Math.max(0, Math.min(state.projects.length - 1, sel + ev.dir))
       } else {
+        const ftarget = mouse.hitFeed(state.hit ?? {}, ev.y)
+        if (ftarget) { focus = ftarget; draw(); return }
         const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
         if (row !== null) {
+          focus = null
           // Clicking the row you are on expands it, the way a file tree does.
           if (row === sel) {
             const p = state.projects[sel]
@@ -615,6 +644,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
 
     if (help) { help = false; draw(); return }          // any key dismisses it
 
+    if (k === '\x1b' && focus) { focus = null; draw(); return }
     if (k === 'q' || k === '\x1b' || k === '\x03') return quit()
     else if (k === '?' || k === 'h') help = true
     else if (k === '\x1b[B' || k === 'j') sel = Math.min(state.projects.length - 1, sel + 1)

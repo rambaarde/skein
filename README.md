@@ -67,12 +67,12 @@ uninstalled the first time it is wrong.
 
 ```
 ╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
-│ 1.0/min                                                                                                                                  │
-│                                                                                                                                          │
-│                                                                                                                                          │
-│                                                                                              ⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶      ⢰⣶             │
-│ 0                                                                                            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿      ⢸⣿             │
-│ EDITS/MIN · 15m   now 0.4   2 sessions active   claude ■■···· 0.4                                                                        │
+│ 3.1   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
+│ 2.5   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
+│ 1.9   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
+│ 1.2   ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
+│ 0     ┤                                                                                     ⣿⣿⡇                          ⢸⣿              │
+│ EDITS/MIN · 15m   now 0.4   2 sessions active   claude ■····· 0.4                                                                        │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
 │ PROJECT         DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST          │
 │ ▸ atlas-api     Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣝⣉⣏⣉⣙⣉⣹⣝⣋⣛⣏⣛⣫⣛    1%     8s          │
@@ -111,8 +111,10 @@ identical to btop's, character for character.
 `↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
 `a` window · `c` collisions only · `?` all keys · `q` quit
 
-**The mouse works**: click a row to select it, click it again to expand, and
-scroll the wheel to move through projects.
+**The mouse works**: click a project row to select it, click it again to expand,
+scroll the wheel to move through projects — and **click any line in the activity
+feed** to open the whole record: agent, full path, branch, session title and
+context, with `esc` to go back.
 
 It redraws every two seconds while work is landing, and backs off to sixteen
 when nothing changes — **0.11% of one core idle**, measured over thirty seconds.

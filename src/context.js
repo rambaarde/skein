@@ -27,6 +27,12 @@ export const contextOf = usage => {
 // self-corrects the day you move to a bigger or smaller window, which a
 // hardcoded table would not.
 export function highWater(sessions) {
+  // A stated limit beats an inferred one. Codex reports model_context_window
+  // outright; Claude does not, so its sessions fall back to observation.
+  let stated = 0
+  for (const s of sessions.values()) stated = Math.max(stated, s.limit ?? 0)
+  if (stated) return stated
+
   let max = 0
   for (const s of sessions.values()) max = Math.max(max, s.context ?? 0)
   // Round up to something a person recognises, so the gauge does not rescale
