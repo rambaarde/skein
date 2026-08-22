@@ -251,3 +251,51 @@ test('a theme changes what is drawn', async () => {
   const strip = s => s.replace(/\x1b\[[0-9;]*m/g, '')
   assert.equal(strip(plainRun), strip(themed), 'but only the colour, never the layout')
 })
+
+test('the layout fills the terminal instead of padding a fixed split', async () => {
+  // Before: the list box took a fixed ~65% whether it held three projects or
+  // thirty, so a normal machine drew seven rows and thirteen blank ones — and
+  // a mostly-empty screen reads as frozen however fast the clock ticks.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const ev = (i) => ({ session: `s${i % 3}`, at: now - i * 60_000, agent: 'claude', path: `/r/f${i}.ts`, kind: 'edit', project: '/r' })
+  const events = Array.from({ length: 40 }, (_, i) => ev(i))
+  const state = {
+    events,
+    projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 3, files: 40, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  for (const rows of [16, 24, 40]) {
+    const lines = render(state, { cols: 100, rows }).split('\n')
+    assert.equal(lines.length, rows)
+    const blank = lines.filter(l => /^.\s+.$/.test(l.replace(/\x1b\[[0-9;]*m/g, ''))).length
+    assert.ok(blank < rows / 3, `at ${rows} rows, ${blank} were blank — the screen should be filled`)
+  }
+})
+
+test('the activity feed is newest-first and deduplicated', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = (sess, path, secsAgo) => ({ session: sess, path, at: now - secsAgo * 1000, agent: 'claude', kind: 'edit', project: '/r' })
+  const events = [mk('a', '/r/old.ts', 900), mk('a', '/r/new.ts', 5), mk('a', '/r/new.ts', 60)]
+  const state = {
+    events,
+    projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 2, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  const plain = render(state, { cols: 100, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '')
+  const newAt = plain.indexOf('new.ts'), oldAt = plain.indexOf('old.ts')
+  assert.ok(newAt > -1 && oldAt > -1, 'both files should be listed')
+  assert.ok(newAt < oldAt, 'the newer edit must come first')
+  assert.equal(plain.split('new.ts').length - 1, 1, 'the same file in one session should appear once')
+})
+
+test('a recent age counts in seconds so it visibly ticks', async () => {
+  const { ago } = await import('../src/format.js')
+  const now = 1_700_000_000_000
+  assert.equal(ago(now - 5_000, now), '5s')
+  assert.equal(ago(now - 90_000, now), '90s', 'a minute and a half must still tick, not freeze at 2m')
+  assert.equal(ago(now - 300_000, now), '5m')
+})

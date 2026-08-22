@@ -66,3 +66,11 @@ test('the collision reports the path the agent actually wrote', () => {
   const c = collisions([ev('a', '/r/x.ts', 0), ev('b', '/r/x.ts', 5)], live('a', 'b'))
   assert.equal(c[0].path, '/r/x.ts')
 })
+
+test('a path that still holds a shell variable is not a file', async () => {
+  // These come out of command lines the reader parsed, not off the disk:
+  // "$CLAUDE_JOB_DIR/tmp/x.mjs" names nothing and should never reach the feed.
+  assert.equal(isNoise('/r/$CLAUDE_JOB_DIR/tmp/x.mjs'), true)
+  assert.equal(isNoise('$HOME/x.ts'), true)
+  assert.equal(isNoise('/r/src/index.ts'), false)
+})
