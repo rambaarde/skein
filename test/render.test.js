@@ -891,7 +891,7 @@ test('a keypress is on screen in the next frame, not the next poll', async () =>
 
   assert.ok(seen.projects, 'the fixture home produced a project to act on')
   assert.ok(seen.painted, 'a keypress paints immediately')
-  assert.match(seen.tab, /files {2}collisions/, 'the new tab is what got drawn')
+  assert.match(seen.tab, /files {2}tools {2}collisions/, 'the new tab is what got drawn')
   assert.match(seen.enter, /esc back/, 'enter opens the page in the same frame')
   assert.match(seen.esc, /activity/, 'and esc comes straight back')
   assert.match(seen.preset, /preset 2 watch/, 'preset switches in the same frame')

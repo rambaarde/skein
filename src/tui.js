@@ -12,7 +12,7 @@ import { LUT, hue, lineHue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import { PRESETS, NAMES } from './presets.js'
-import { TABS, TAB_TITLES, sessionsTab, filesTab, collisionsTab } from './tabs.js'
+import { TABS, TAB_TITLES, sessionsTab, filesTab, toolsTab, collisionsTab } from './tabs.js'
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
@@ -20,6 +20,7 @@ import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, bucket } from './delivery.js'
+import { toolsOf, totalOf, shape } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -89,7 +90,7 @@ const KEYS = [
   ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
   ['space', 'peek at a project inline without leaving the list'],
   ['esc', 'back one level: page, then detail, then preset 1, then quit'],
-  ['tab', 'switch the detail pane: info · sessions · files · collisions'],
+  ['tab', 'switch the detail pane: info · sessions · files · tools · collisions'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
   ['?  h', 'this'],
@@ -275,6 +276,16 @@ export function render(state, size) {
       vp ? `${vp.landed} landed` : null,
       vp && vp.lead !== null ? `${humanMs(vp.lead)} lead` : null,
       vp && vp.rework !== null ? `${Math.round(vp.rework * 100)}% rework` : null,
+      // What the agents did, not only what they left behind. A project with
+      // nine files touched can be nine minutes of editing or four hours of
+      // reading the codebase to find the nine.
+      (() => {
+        const t = toolsOf(p, state.sessions)
+        if (!t.length) return null
+        const sh = shape(t)
+        const n = totalOf(t)
+        return `${n} tool call${n === 1 ? '' : 's'} · ${Math.round((sh.read / n) * 100)}% read`
+      })(),
       collsHere.length ? `${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : 'no collisions',
     ].filter(Boolean).join(`${DIM} · ${R}`)
 
@@ -981,7 +992,8 @@ export function render(state, size) {
 
     if (tabI === 1) detailRows_.push(...sessionsTab(p, ctx))
     else if (tabI === 2) detailRows_.push(...filesTab(p, ctx))
-    else if (tabI === 3) detailRows_.push(...collisionsTab(p, ctx))
+    else if (tabI === 3) detailRows_.push(...toolsTab(p, ctx))
+    else if (tabI === 4) detailRows_.push(...collisionsTab(p, ctx))
     else infoTab()
 
     function infoTab() {
