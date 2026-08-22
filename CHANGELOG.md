@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.0](https://github.com/rambaarde/skein/compare/v0.16.2...v0.17.0) (2026-08-22)
+
+
+### Features
+
+* **page:** a project opens its own screen ([#46](https://github.com/rambaarde/skein/issues/46)) ([2631e1c](https://github.com/rambaarde/skein/commit/2631e1ca59621243d359df901a77a7c5de437b29))
+
 ## [0.16.2](https://github.com/rambaarde/skein/compare/v0.16.1...v0.16.2) (2026-08-22)
 
 
