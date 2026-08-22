@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.14.0](https://github.com/rambaarde/skein/compare/v0.13.1...v0.14.0) (2026-08-22)
+
+
+### Features
+
+* show context pressure — the fuel gauge, not the receipt ([#34](https://github.com/rambaarde/skein/issues/34)) ([914b3a8](https://github.com/rambaarde/skein/commit/914b3a8a0502ff6d283761c051c4ccdb18fbaaa7))
+
 ## [0.13.1](https://github.com/rambaarde/skein/compare/v0.13.0...v0.13.1) (2026-08-22)
 
 
