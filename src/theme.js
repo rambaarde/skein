@@ -106,6 +106,16 @@ const INHERIT = {
   header: fgOf('#8fa6c4'),      // column headers, so the table has a top edge
   activity: gradient('#4a5a8a', '#49b7a0', '#e8d17a'),
   heat: gradient('#3b6ea5', '#d99a3a', '#d1495b'),
+  // A failure rate is red at every value, and only the TONE moves: a light
+  // red for a few, a deep one for many. The heat ramp could not say that —
+  // it starts blue, so a project failing one deployment in eight was drawn in
+  // the same family as one failing none, and the reader had to know the band
+  // table to tell them apart. Severity is the only thing this ramp encodes.
+  //
+  // Deliberately NOT themed: heat and activity map onto btop's own cpu_* and
+  // temp_* ramps because those measure the same kind of thing. No btop theme
+  // has a red-only ramp, and borrowing temp_* here would put the blue back.
+  failure: gradient('#eba3a3', '#dc3a3a', '#9e101c'),
   // One hue per LINE in the multi-project chart. R3 says colour encodes value,
   // and §7.2 rules that a widget picks one encoding or the other and never
   // both — the chart's job is telling projects apart, so it carries identity
@@ -216,5 +226,9 @@ export const setOpaque = (hex = '#000000') => {
   THEME.surface = `\x1b[48;2;${(n >> 16) & 255};${(n >> 8) & 255};${n & 255}m`
   return true
 }
-export const LUT = { get activity() { return THEME.activity }, get heat() { return THEME.heat } }
+export const LUT = {
+  get activity() { return THEME.activity },
+  get heat() { return THEME.heat },
+  get failure() { return INHERIT.failure },
+}
 export const SUP = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹']
