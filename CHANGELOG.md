@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.6.0](https://github.com/rambaarde/skein/compare/v0.5.0...v0.6.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** stop leaving gaps where data should be ([#10](https://github.com/rambaarde/skein/issues/10)) ([4dd1a9c](https://github.com/rambaarde/skein/commit/4dd1a9c002a6222f1cc5832ce60d267e8a81ae92))
+
 ## [0.5.0](https://github.com/rambaarde/skein/compare/v0.4.0...v0.5.0) (2026-08-22)
 
 
