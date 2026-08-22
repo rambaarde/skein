@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.17.1](https://github.com/rambaarde/skein/compare/v0.17.0...v0.17.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **tui:** the screen was a poll behind every key you pressed ([#48](https://github.com/rambaarde/skein/issues/48)) ([0696a13](https://github.com/rambaarde/skein/commit/0696a1376d62abff1e996922acc0ee57de2d79a9))
+
 ## [0.17.0](https://github.com/rambaarde/skein/compare/v0.16.2...v0.17.0) (2026-08-22)
 
 
