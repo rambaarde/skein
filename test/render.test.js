@@ -594,4 +594,12 @@ test('a home directory never reaches the screen', async () => {
   assert.equal(out, '~/Documents/thing/file.ts')
   assert.doesNotMatch(out, /\/Users\/|\/home\//)
   assert.equal(short('/w/repo/src/a.ts', '/w/repo'), 'src/a.ts', 'a repo still wins')
+
+  // Windows. relative() returns native separators and a home is C:\Users\you,
+  // so both branches above were broken there — the second one silently, by
+  // printing the whole absolute path this test is named after.
+  const win = 'C:\\Users\\you'
+  assert.equal(short(`${win}\\repo\\src\\a.ts`, `${win}\\repo`), 'src/a.ts', 'no backslash reaches the screen')
+  assert.doesNotMatch(short(`${HOME}\\Documents\\x.ts`, null), /\\/, 'nor via the home branch')
+  assert.doesNotMatch(short(`${HOME}/Documents/x.ts`, null), /Users|home/i, 'a home is still hidden')
 })
