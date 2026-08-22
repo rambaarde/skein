@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.11.0](https://github.com/rambaarde/skein/compare/v0.10.0...v0.11.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** a tall graph with a scale, and short sparklines with numbers ([#26](https://github.com/rambaarde/skein/issues/26)) ([29d2bbf](https://github.com/rambaarde/skein/commit/29d2bbf80cffdfea16c840b1de0af92f9c386c95))
+
 ## [0.10.0](https://github.com/rambaarde/skein/compare/v0.9.2...v0.10.0) (2026-08-22)
 
 
