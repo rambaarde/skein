@@ -9,6 +9,7 @@ import { listThemes, setTheme, setOpaque, setTransparent } from './theme.js'
 import { velocity } from './delivery.js'
 import { toolsOf, totalOf, classify } from './tools.js'
 import { attentionOf, humanMs } from './attention.js'
+import { GLOSSARY } from './glossary.js'
 
 const HELP = `skein — every agent running across every repository, grouped by project.
 
@@ -16,6 +17,10 @@ const HELP = `skein — every agent running across every repository, grouped by 
   skein ls                  one line per project
   skein who [path]          who else is in this repo, or in one file
   skein collisions          recent same-file overlaps
+  skein velocity            what landed, how long it took, what failed
+  skein tools               which tools the agents actually called
+  skein glossary            what every number on these screens counts
+  skein doctor              why is my screen empty
   skein hook                print the ambient line and exit
   skein themes              list the btop themes it can find
   skein install             wire the hook into your agents
@@ -108,6 +113,19 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
         () => table(rows, [{ head: 'THEME', key: 'theme' }, { head: 'FILE', key: 'file' }]) +
               `\n\n${rows.length} themes · skein --theme <name> · btop's own files, read as-is`,
         `no btop themes found (0 themes) · install btop, or pass a path to a .theme file`),
+    }
+  }
+
+  // D13: a definition that lives only in the TUI is a definition the person
+  // piping skein never sees, and the agent reading it never sees at all. One
+  // array, three doors -- so they cannot drift into disagreeing.
+  if (cmd === 'glossary') {
+    const rows = GLOSSARY.filter(([term]) => term).map(([term, means]) => ({ term, means }))
+    return {
+      code: 0,
+      text: out(opts, 'glossary', rows, ['term', 'means'],
+        () => GLOSSARY.map(([term, means]) => `${term.padEnd(13)}  ${means}`).join('\n\n'),
+        'no glossary'),
     }
   }
 

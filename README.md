@@ -123,26 +123,71 @@ total. The project you have selected is lit; the rest fade back.
 | **1 all** | the chart, the project table, a detail pane and the live activity feed |
 | **2 watch** | the chart and the feed at full width — what is happening right now |
 | **3 table** | the project table alone, the most projects on screen |
-| **4 velocity** | what landed on each trunk, and how long it took |
+| **4 velocity** | what landed on each trunk, how long it took, and what had to be repaired |
 
 `⏎` opens a project's own screen: its agents, its sessions and their context
 pressure, its files, its tool calls, its collisions.
 
+---
+
+## What the numbers mean
+
+Every term below is also in the tool: press `?` then `tab` for the metrics page,
+or run `skein glossary` (`--json` for agents). One list, three doors — they
+cannot drift apart.
+
+### Attention
+
+**ATTENTION** is wall-clock time an agent spent *editing* a project. Gaps longer
+than a few minutes are not counted, so it is time worked, not time elapsed.
+Everything else on the velocity screen is git's; this is the half only skein has.
+
 ### Velocity, for one developer
 
-DORA is an org metric and three quarters of it does not survive being pointed at
-one person, so skein ships the part that does and says so:
+DORA is an org metric and half of it does not survive being pointed at one
+person. skein ships the part that does, and names the part it cannot:
 
 | | |
 |---|---|
-| **LANDED** · **/DAY** | trunk commits, release commits excluded |
-| **LEAD** | first edit after the previous landing, until it lands. Measured from when you *started*, which git cannot see through a squash merge |
-| **ATTN/SHIP** | your hours divided by what came out of them — the number that needs both halves |
-| **REWORK** | share of landings typed `fix` or `revert`. A proxy for change-failure, and labelled one |
-| ~~MTTR~~ | needs incident data. Not derivable, not shown |
+| **LANDED** | commits on the trunk's first-parent line (`main`, `master`, `develop`) inside the window. Release commits excluded — they are bookkeeping, not work |
+| **/DAY** · **/WEEK** | landed divided by the window. Under seven days the column reads `/DAY`, because a weekly rate extrapolated from two days is a projection, not a measurement |
+| **LEAD** | median time from the first edit made *after the previous landing* until this one lands — from when you started, which git cannot see through a squash merge |
+| **ATTN/SHIP** | attention divided by landings: what one shipped change cost in agent time. The join no other tool can make — skein knows the time, git knows what came out of it |
+| ~~MTTR~~ | mean time to restore needs incident data a laptop does not have. Absent, not faked |
+| ~~deploy frequency~~ | for one developer that is the **LANDED** column. Not printed twice |
 
-A rate over a window shorter than a week is a projection, not a measurement, so
-the column reads `/DAY` under seven days and `/WEEK` above.
+### Change failure rate
+
+The share of your deployments that had to be repaired. It gets its own graph
+beside the table, for whichever project the cursor is on.
+
+| | |
+|---|---|
+| **a deployment** | a version tag. Where a repo tags nothing, a release commit instead — never both, or a release bot counts one publish twice |
+| **DEPLOYS n/m** | `m` deployments in the window, `n` of them judged. The newest can never be judged: nothing has shipped after it yet, so it leaves the denominator rather than counting as a success |
+| **CFR** | of the judged deployments, the share whose **next** deployment carried a `fix` or `revert` **touching a file that deployment shipped** |
+
+Both halves of that last rule matter:
+
+- **The unit is the deployment, not the commit.** A fix that lands before the
+  next release means nothing ever shipped broken. Counting those made every
+  fast-moving repo look broken — 92% on this one, against 30% by the rule above.
+- **The hotfix has to touch what went out.** "A fix happened afterwards" is true
+  of every repository anyone is working on.
+
+Colour is red at every value and only the *tone* moves, so it reads as severity
+at a glance. The legend names DORA's band: **0–15%** elite and high, **16–30%**
+medium, above that low.
+
+A project with fewer than two deployments has no change failure rate. That is
+not the same as never failing, and the screen says so instead of drawing a zero.
+
+### Collisions
+
+Two **sessions** editing one file close enough together to overwrite each other,
+*and* whose lifetimes actually overlapped — two edits half an hour apart are a
+handover, not a conflict. Frequently the same agent twice, and the screen says
+that rather than claiming two agents.
 
 ---
 
@@ -156,8 +201,9 @@ skein                     the dashboard
 skein ls                  one line per project
 skein who [path]          who else is in this repo, or in one file
 skein collisions          recent same-file overlaps
-skein velocity            what landed, and how long it took
+skein velocity            what landed, how long it took, what failed
 skein tools               what the agents called, not only what they wrote
+skein glossary            what every number on these screens counts
 skein doctor              why is my screen empty: what each store held, and
                           what skein could read out of it
 skein hook                the ambient line, for a session-start hook
@@ -183,7 +229,7 @@ answers.
 | `/` | filter by name |
 | `c` | only projects that collided |
 | `esc` | back one level, then quit |
-| `?` | every key |
+| `?` | every key — then `tab` for what every number means |
 
 The mouse works too: rows, tabs, feed entries and the controls on the border are
 all clickable.
