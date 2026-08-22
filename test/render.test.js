@@ -520,31 +520,49 @@ test('a column must differ between rows to be drawn', async () => {
   assert.match(h2, /COLL/, 'and there is a collision to report')
 })
 
-test('the aggregate graph is tall and carries a scale', async () => {
-  // A one-row sparkline is four braille levels — texture, not shape. btop's cpu
-  // graph is about ten rows for exactly this reason, and it labels its axis so
-  // a spike can be read as a value.
+test('the headline is a chart per project, tall and graduated', async () => {
+  // Founder thesis §6.5. The headline used to be ONE aggregate braille graph of
+  // every project's edits at once — it moved, and it answered nothing. What it
+  // has to answer is which project the time went to, so it is one line per
+  // project, and the lines have to be tellable apart without colour, because
+  // in a shared cell only one hue survives.
   const { render } = await import('../src/tui.js')
+  const { MARKERS } = await import('../src/chart.js')
   const now = Date.now()
-  const events = Array.from({ length: 60 }, (_, i) => ({ at: now - i * 8_000, session: 's', agent: 'claude', path: `/r/f${i}.ts`, project: '/r' }))
+  // Two projects, worked at different times of day, in bursts — a lone edit is
+  // one MIN_STRETCH and would draw a dot rather than a line.
+  const burst = (root, agent, offsets) => offsets.flatMap(o =>
+    Array.from({ length: 12 }, (_, i) => ({ at: now - o + i * 20_000, session: `s-${root}`, agent, path: `${root}/f${i}.ts`, project: root })))
+  const events = [...burst('/r', 'claude', [3_600_000, 7_200_000]), ...burst('/q', 'codex', [20_000, 5_400_000])]
+  const mk = (name, root) => ({ name, root, agents: [...new Set(events.filter(e => e.project === root).map(e => e.agent))],
+                                sessions: 1, files: 9, events: events.filter(e => e.project === root), last: now })
   const state = {
     events,
-    projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 9, events, last: now }],
+    projects: [mk('r', '/r'), mk('q', '/q')],
     sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
     since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
   }
   const lines = render(state, { cols: 140, rows: 32 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
-  const braille = l => [...l].filter(c => c >= '⠁' && c <= '⣿').length
-  const tall = lines.filter(l => braille(l) > 20 && !l.includes('▸'))
-  assert.ok(tall.length >= 3, `the aggregate graph should be several rows, got ${tall.length}`)
-  // Every row carries a gradation now, the way btop and agtop label theirs —
-  // with only the ends marked a spike is a shape, not a value.
-  const axis = lines.filter(l => /^\│\s+[\d.]+\s+┤/.test(l))
-  assert.ok(axis.length >= 3, `the axis should be graduated on every row, got ${axis.length}`)
+
+  // Every row carries a gradation, the way btop and agtop label theirs — with
+  // only the ends marked a spike is a shape, not a value.
+  const axis = lines.filter(l => /^\│\s+[\d.]+%?\s+┤/.test(l))
+  assert.ok(axis.length >= 5, `the chart should be several graduated rows, got ${axis.length}`)
   assert.ok(lines.some(l => /^\│\s+0\s+┤/.test(l)), 'and the baseline should read 0')
-  // labels must descend
   const values = axis.map(l => Number(l.match(/^\│\s+([\d.]+)/)[1]))
   assert.deepEqual(values, [...values].sort((a, b) => b - a), 'the scale must run downward')
+
+  // Both projects are on the chart, each with its own marker.
+  const plotted = axis.join('')
+  assert.ok(plotted.includes(MARKERS[0]), 'the busiest project is drawn')
+  assert.ok(plotted.includes(MARKERS[1]), 'and so is the second, with a different marker')
+
+  // Which line is which, what it means, and when — all three, or the markers
+  // are a cipher and the x axis is a shape rather than a measurement.
+  assert.ok(lines.some(l => l.includes(`${MARKERS[0]}: r`) || l.includes(`${MARKERS[0]}: q`)), 'the legend names the lines')
+  assert.ok(lines.some(l => l.includes('attention · 24h')), 'and says what the axis measures')
+  assert.ok(lines.some(l => /└┬/.test(l)), 'the x axis is ruled with ticks')
+  assert.ok(lines.some(l => /\d\d:\d\d.*now\s*│/.test(l)), 'and labelled with clock times ending at now')
 })
 
 test('a per-project sparkline is short and stands next to a number', async () => {
@@ -789,7 +807,11 @@ test('a project opens its own page, not two inline rows', async () => {
   for (const box of ['agents', 'sessions', 'files', 'collisions']) {
     assert.match(page, new RegExp(box), `the page has a ${box} box`)
   }
-  assert.match(page, /EDITS\/MIN/, 'and this project\'s own graph')
+  // Thesis §6.5 one level down: the page's own chart is stacked BY AGENT, so
+  // it can say whether a repo was one agent working or two agents in it.
+  assert.match(page, /attention · 24h/, "and this project's own chart")
+  assert.match(page, /#: claude/, 'with a line for each agent that worked here')
+  assert.match(page, /\*: codex/)
   assert.match(page, /esc/, 'and says how to get back')
   assert.match(page, /claude ↔ codex/, 'collisions name both sides')
 

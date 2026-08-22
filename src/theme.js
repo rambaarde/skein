@@ -106,6 +106,11 @@ const INHERIT = {
   header: fgOf('#8fa6c4'),      // column headers, so the table has a top edge
   activity: gradient('#4a5a8a', '#49b7a0', '#e8d17a'),
   heat: gradient('#3b6ea5', '#d99a3a', '#d1495b'),
+  // One hue per LINE in the multi-project chart. R3 says colour encodes value,
+  // and §7.2 rules that a widget picks one encoding or the other and never
+  // both — the chart's job is telling projects apart, so it carries identity
+  // here and no value gradient at all.
+  series: ['#4fb3c8', '#e5b567', '#7cb87c', '#b48ead', '#d9866a', '#8fa6c4'].map(fgOf),
   agent: {
     claude: '\x1b[38;2;217;138;90m',
     codex: '\x1b[38;2;110;170;220m',
@@ -146,6 +151,10 @@ export function buildTheme(nameOrPath) {
     boxDetail: fg(t.mem_box) ?? INHERIT.boxDetail,
     boxFeed: fg(t.proc_box) ?? INHERIT.boxFeed,
     header: fg(t.title) ?? INHERIT.header,
+    // Six distinct lines out of keys every btop theme already sets, so a
+    // borrowed palette needs no new fields to colour the chart.
+    series: ['cpu_end', 'hi_fg', 'mem_box', 'proc_box', 'temp_end', 'cpu_start']
+      .map((k, i) => fg(t[k]) ?? INHERIT.series[i]),
     agent: {
       claude: fg(t.cpu_end) ?? INHERIT.agent.claude,
       codex: fg(t.hi_fg) ?? INHERIT.agent.codex,
@@ -159,6 +168,10 @@ export let THEME = { ...INHERIT, name: null }
 export const setTheme = nameOrPath => { THEME = buildTheme(nameOrPath); return THEME }
 
 export const hue = a => THEME.agent[a] ?? ''
+
+// One colour per chart line, by rank. Wraps rather than running out, so a
+// caller that asks for more lines than the palette has still gets a frame.
+export const lineHue = i => THEME.series[i % THEME.series.length] ?? ''
 
 // Paint the theme's background through a line.
 //

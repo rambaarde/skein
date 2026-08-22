@@ -12,9 +12,12 @@ name: ci
 
 on:
   push:
-    branches: [main]
+    branches: [main, develop]
   pull_request:
-    branches: [main]
+    # develop is here because work now lands there first. Without it a PR into
+    # develop gets zero checks, and the branch that is supposed to catch things
+    # before main becomes the one place nothing is verified.
+    branches: [main, develop]
   workflow_dispatch:
 
 jobs:
