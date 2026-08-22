@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.19.0](https://github.com/rambaarde/skein/compare/v0.18.1...v0.19.0) (2026-08-22)
+
+
+### Features
+
+* **chart:** plot attention as a running total, not per slice ([e580314](https://github.com/rambaarde/skein/commit/e5803148eaff63dbd749b0cdd808c525b50757ad))
+* **chart:** plot attention as a running total, not per slice ([#56](https://github.com/rambaarde/skein/issues/56)) ([d6b8df4](https://github.com/rambaarde/skein/commit/d6b8df4ab03a78dca11f1cd7e646b32b366273d7))
+
 ## [0.18.1](https://github.com/rambaarde/skein/compare/v0.18.0...v0.18.1) (2026-08-22)
 
 
