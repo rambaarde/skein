@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.16.0](https://github.com/rambaarde/skein/compare/v0.15.1...v0.16.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** presets, tabs, real liveness, and a graph that has something in it ([#40](https://github.com/rambaarde/skein/issues/40)) ([2f98ff7](https://github.com/rambaarde/skein/commit/2f98ff7df63bc4052b2b7c663d4b3c844fe34b6d))
+
 ## [0.15.1](https://github.com/rambaarde/skein/compare/v0.15.0...v0.15.1) (2026-08-22)
 
 
