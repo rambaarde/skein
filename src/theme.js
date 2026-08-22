@@ -9,7 +9,7 @@
 // no btop code is used, per the licence discipline in the founder thesis.
 import { readFileSync, existsSync, readdirSync } from 'node:fs'
 import { join, basename, isAbsolute } from 'node:path'
-import { HOME } from './paths.js'
+import { HOME, XDG_CONFIG, XDG_DATA } from './paths.js'
 import { gradient } from './symbols.js'
 
 export const R = '\x1b[0m'
@@ -35,8 +35,8 @@ const bg = hex => {
 // path given outright. Sharing btop's directories is the point — a theme you
 // already use in btop should just work here.
 export const THEME_DIRS = [
-  join(HOME, '.config', 'btop', 'themes'),
-  join(HOME, '.local', 'share', 'btop', 'themes'),
+  join(XDG_CONFIG, 'btop', 'themes'),
+  join(XDG_DATA, 'btop', 'themes'),
   '/opt/homebrew/share/btop/themes',
   '/usr/share/btop/themes',
   '/usr/local/share/btop/themes',

@@ -20,6 +20,29 @@ const listFiles = (dir, ext, out = []) => {
   return out
 }
 
+// What skein looked for, and what it found there.
+//
+// A first run that finds nothing showed an empty grid and the words "0
+// projects". That reads as a broken program, and it is the one moment where a
+// user has no way to tell a bug from an empty machine -- reported by a real
+// one on Linux, running an agent skein does not read, with no way to discover
+// that from the screen (AXI 5: a definitive empty state, never an ambiguous
+// blank).
+//
+// Cheap on purpose: readdir and stat, no parsing. It runs only when there is
+// nothing to show, so it never costs anything on a machine that has data.
+export function probe({ now = Date.now() } = {}) {
+  return Object.entries(STORES).map(([agent, dir]) => {
+    if (!existsSync(dir)) return { agent, dir, found: false, files: 0, newest: 0 }
+    const files = listFiles(dir, agent === 'opencode' ? '.json' : '.jsonl')
+    let newest = 0
+    for (const f of files) {
+      try { newest = Math.max(newest, statSync(f).mtimeMs) } catch {}
+    }
+    return { agent, dir, found: true, files: files.length, newest }
+  })
+}
+
 // `sinceMs` bounds the COLD read: a transcript untouched since then cannot
 // contain an event we care about, so it is never opened. Without this, a first
 // run pays for every byte of history ever written -- 2.5 GB and 16 s on the

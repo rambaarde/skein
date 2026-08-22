@@ -109,3 +109,15 @@ test('a row can never push the border off the frame', async () => {
   assert.equal(width(b.row(huge)), 40, 'an over-long row must be truncated, not overflow')
   assert.equal(width(b.row('')), 40, 'an empty row must still be padded')
 })
+
+test('an empty rollup says where it looked', async () => {
+  // Reported by a real user on Linux: an empty screen with no way to tell a
+  // bug from an empty machine. The agent door has to answer it too, or the
+  // person who pipes skein gets the ambiguous blank instead.
+  const { run } = await import('../src/cli.js')
+  const out = run(['ls', '--since', '1m'])
+  assert.equal(out.code, 0, 'nothing found is not an error')
+  assert.match(out.text, /0 projects/)
+  for (const agent of ['claude', 'codex', 'opencode']) assert.match(out.text, new RegExp(agent))
+  assert.match(out.text, /XDG_DATA_HOME/)
+})

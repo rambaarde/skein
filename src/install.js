@@ -12,7 +12,7 @@
 // own hooks in these files; appending is the only acceptable behaviour.
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { HOME } from './paths.js'
+import { HOME, XDG_CONFIG, XDG_DATA } from './paths.js'
 
 const MARKER = 'skein hook'
 
@@ -20,7 +20,7 @@ const TARGETS = {
   claude: join(HOME, '.claude', 'settings.json'),
   codex: join(HOME, '.codex', 'hooks.json'),
 }
-const OPENCODE_PLUGIN = join(HOME, '.config', 'opencode', 'plugins', 'skein.js')
+const OPENCODE_PLUGIN = join(XDG_CONFIG, 'opencode', 'plugins', 'skein.js')
 
 const readJson = f => {
   try { return JSON.parse(readFileSync(f, 'utf8')) } catch { return {} }
@@ -82,7 +82,7 @@ export function install(args = []) {
     catch (e) { lines.push(`  ${agent.padEnd(9)} failed: ${e.message}`) }
   }
   if (want('opencode')) {
-    if (!existsSync(join(HOME, '.config', 'opencode')) && !existsSync(join(HOME, '.local', 'share', 'opencode'))) {
+    if (!existsSync(join(XDG_CONFIG, 'opencode')) && !existsSync(join(XDG_DATA, 'opencode'))) {
       lines.push(`  opencode  not installed — skipped`)
     } else {
       try { lines.push(`  opencode  ${installOpencodePlugin()}  ${OPENCODE_PLUGIN.replace(HOME, '~')}`) }
