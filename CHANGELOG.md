@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.27.0](https://github.com/rambaarde/skein/compare/v0.26.0...v0.27.0) (2026-08-22)
+
+
+### Features
+
+* **sandbox:** prove skein on Linux, against a hostile environment ([14ef2d0](https://github.com/rambaarde/skein/commit/14ef2d05c6382b5700806ce70878d7c686c27176))
+* **sandbox:** prove skein on Linux, against a hostile environment ([#100](https://github.com/rambaarde/skein/issues/100)) ([808c091](https://github.com/rambaarde/skein/commit/808c09165d0ad0480286ddbc69bfb6c63d50c3cb))
+
 ## [0.26.0](https://github.com/rambaarde/skein/compare/v0.25.1...v0.26.0) (2026-08-22)
 
 
