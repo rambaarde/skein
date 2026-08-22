@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.1](https://github.com/rambaarde/skein/compare/v0.31.0...v0.31.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **ci:** the publish guard names the binary the bin map names ([33c7613](https://github.com/rambaarde/skein/commit/33c761338e0620686c56624bbb982c9c14f17535))
+* **ci:** the publish guard names the binary the bin map names ([#130](https://github.com/rambaarde/skein/issues/130)) ([a6ef447](https://github.com/rambaarde/skein/commit/a6ef4473d7183c8131970974323517f208a138fe))
+
 ## [0.31.0](https://github.com/rambaarde/skein/compare/v0.30.0...v0.31.0) (2026-08-22)
 
 
