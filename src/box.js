@@ -11,6 +11,31 @@ const SQUARE = { tl: '┌', tr: '┐', bl: '└', br: '┘', h: '─', v: '│' 
 
 export const width = s => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length
 
+// Truncate to a VISIBLE width while keeping the colour.
+//
+// This used to be `fit(inner.replace(/escapes/g, ''), room)` — strip every
+// escape, then cut. Table rows are built to fill the pane, so they overshoot by
+// a character or two and every one of them came out grey. That is why skein
+// read as a colourless program next to btop while its borders were painted
+// perfectly: the colour was being generated and then thrown away one layer
+// before the screen.
+export function clip(s, n) {
+  let out = '', seen = 0, painted = false
+  for (let i = 0; i < s.length;) {
+    if (s[i] === '\x1b') {
+      const m = /^\x1b\[[0-9;]*m/.exec(s.slice(i))
+      // Only close what was actually opened. A plain string must come back
+      // plain — appending a reset to uncoloured text is invisible noise that
+      // still changes the string, and equality on rendered output is how this
+      // module is tested.
+      if (m) { out += m[0]; painted = true; i += m[0].length; continue }
+    }
+    if (seen >= n - 1) return painted ? `${out}…${R}` : `${out}…`
+    out += s[i]; seen++; i++
+  }
+  return out
+}
+
 // btop hangs labelled controls off its border with ┘…└ brackets. Copied
 // faithfully, those brackets rendered as detached vertical ticks in a terminal
 // whose font does not join box-drawing to a horizontal rule — the row read as
@@ -24,36 +49,43 @@ export const tag = (key, label) =>
   `${BOLD}${THEME.hi}${key}${R}${THEME.dim} ${label}${R}`
 export const TAG_SEP = ` ${'·'} `
 
-export function box({ w, title = '', state = '', right = '', rounded = true, key = '' }) {
+// `line` is btop's line_color argument to createBox: every box names its own
+// outline colour, which is what stops three panes reading as one grey frame.
+export function box({ w, title = '', state = '', right = '', rounded = true, key = '', line = null }) {
   const c = rounded ? ROUND : SQUARE
+  const B = line ?? THEME.box
   // Border text is decoration; the frame is not. Anything that will not fit is
   // dropped rather than allowed to push the corner off the right edge.
   const room = Math.max(0, w - 6)
   const clamp = s => (width(s) <= room ? s : `${[...s.replace(/\x1b\[[0-9;]*m/g, '')].slice(0, room).join('')}`)
   title = clamp(title); state = clamp(state)
-  const head = title ? `${THEME.box}${c.h}${R} ${BOLD}${title}${R}${key ? `${DIM}${key}${R}` : ''} ` : ''
-  const foot = state ? `${THEME.box}${c.h} ${state} ${R}` : ''
+  const head = title ? `${B}${c.h}${R} ${BOLD}${title}${R}${key ? `${DIM}${key}${R}` : ''} ` : ''
+  const foot = state ? `${B}${c.h} ${state} ${R}` : ''
   const pad = n => c.h.repeat(Math.max(0, n))
   // A right-hand tag on the top edge: btop puts the clock there, and a clock
   // that moves is the cheapest possible proof the program has not wedged.
-  const tail = right ? `${THEME.box}${c.h} ${right} ${c.h}${R}` : ''
+  const tail = right ? `${B}${c.h} ${right} ${c.h}${R}` : ''
   return {
-    top: paint(`${THEME.box}${c.tl}${R}${head}${THEME.box}${pad(w - 2 - width(head) - width(tail))}${R}${tail}${DIM}${c.tr}${R}`),
-    bottom: paint(`${THEME.box}${c.bl}${R}${foot}${THEME.box}${pad(w - 2 - width(foot))}${c.br}${R}`),
+    top: paint(`${B}${c.tl}${R}${head}${B}${pad(w - 2 - width(head) - width(tail))}${R}${tail}${DIM}${c.tr}${R}`),
+    bottom: paint(`${B}${c.bl}${R}${foot}${B}${pad(w - 2 - width(foot))}${c.br}${R}`),
     // A row that is too long is a bug in the caller, but it must not be
     // allowed to push the right border off the screen and corrupt the frame.
     // Pad short, truncate long, never overflow.
     row: inner => {
       const room = w - 2
-      const over = width(inner) - room
-      const body = over > 0 ? fit(inner.replace(/\x1b\[[0-9;]*m/g, ''), room) : inner
-      return paint(`${THEME.box}${c.v}${R}${body}${' '.repeat(Math.max(0, room - width(body)))}${THEME.box}${c.v}${R}`)
+      const body = width(inner) > room ? clip(inner, room) : inner
+      return paint(`${B}${c.v}${R}${body}${' '.repeat(Math.max(0, room - width(body)))}${B}${c.v}${R}`)
     },
   }
 }
 
+// Pad to n, or truncate to n WITH its colour intact. The truncating branch used
+// to strip every escape first, so a value that happened to be too long for its
+// column lost its colour while its shorter neighbours kept theirs — the same
+// defect as the row clipper, one layer further in, and between them they took
+// most of the colour off the table.
 export const fit = (s, n) => {
-  const plain = s.replace(/\x1b\[[0-9;]*m/g, '')
-  if ([...plain].length <= n) return s + ' '.repeat(n - [...plain].length)
-  return `${[...plain].slice(0, Math.max(0, n - 1)).join('')}…`
+  const len = width(s)
+  if (len <= n) return s + ' '.repeat(Math.max(0, n - len))
+  return clip(s, n)
 }

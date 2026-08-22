@@ -81,7 +81,8 @@ uninstalled the first time it is wrong.
 │ ▸ notify-svc    —                              codex+opencode       2     18     28m ■·······     · ⣈⡃⡇⡈⣉⡀⠛⣃⣛⣨⢀⠀⠈⣟    0%     2h          │
 │ ▸ docs-site     —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⢠⢸⢰⢰⣴⢰⢠⢰⣤⢸    0%     9h          │
 │ ▸ not in a repo —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣈⣀⡁⡉⡛⢘⢙⣍⣝⣌⣯⡇    0%     1d          │
-╰─ 6 projects · 3 collisions · 30d · by recent  ⏎ expand · s recent · p all · a 30d · / filter · c all · ? keys · q quit ──────────────────╯
+╰─ 6 projects · 3 collisions · 30d · by recent  
+ expand · s recent · p all · a 30d · / filter · c all · ? keys · q quit ──────────────────╯
 ╭─ atlas-api — what an agent is told here² ───────────────╮╭─ activity³ ──────────────────────────────────────────────────── newest first ─╮
 │ info  sessions  files  collisions                       ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
 │ ────                                                    ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│
@@ -115,6 +116,10 @@ identical to btop's, character for character.
 idea, and its config format: `all` · `watch` (feed full width) · `table` (the
 project list alone). **Tabs** (`tab`) switch the detail pane between `info`,
 `sessions`, `files` and `collisions`.
+
+**Scrolling**: the wheel scrolls whatever is under the pointer — the project
+table or the activity feed — and the feed border shows your position (`21–35 of
+292`). `g` returns to newest.
 
 **The mouse works**: click a project row to select it, click it again to expand,
 scroll the wheel to move through projects — and **click any line in the activity

@@ -40,6 +40,13 @@ export function hitTab(map, x, y) {
   return t ? t.index : null
 }
 
+// The control tags on the head border. Same column-aware lookup as tabs;
+// returns the KEY the tag stands for, so a click runs the identical code path
+// as pressing it — one behaviour, not two that can drift apart.
+export function hitTag(map, x, y) {
+  return map.tags?.find(t => t.y === y && x >= t.x0 && x < t.x1)?.key ?? null
+}
+
 export function hitFeed(map, y) {
   return map.feed?.find(f => f.y === y)?.event ?? null
 }
@@ -48,6 +55,3 @@ export function hitRow(map, y) {
   return map.rows.find(r => r.y === y)?.index ?? null
 }
 
-export function hitTag(map, x, y) {
-  return map.tags.find(t => t.y === y && x >= t.x && x < t.x + t.w)?.key ?? null
-}
