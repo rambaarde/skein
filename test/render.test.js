@@ -553,3 +553,31 @@ test('a per-project sparkline is short and stands next to a number', async () =>
   const spark = [...row].filter(c => c >= '⠁' && c <= '⣿').length
   assert.ok(spark <= 14, `the inline sparkline should stay short, was ${spark}`)
 })
+
+test('a theme background is actually painted, not just parsed', async () => {
+  // main_bg was read from every btop theme since the first day and never used,
+  // so a translucent terminal showed straight through the panes.
+  const { setTheme, setOpaque, THEME } = await import('../src/theme.js')
+  const { box } = await import('../src/box.js')
+  setTheme(null)
+  assert.equal(box({ w: 20 }).row('x').includes('\x1b[48;2;'), false, 'default inherits the terminal')
+  setOpaque('#101020')
+  const painted = box({ w: 20 }).row('x')
+  assert.ok(painted.includes('\x1b[48;2;16;16;32m'), 'the surface must reach the row')
+  // and it must survive the resets inside the line
+  const resets = painted.split('\x1b[0m').length - 1
+  const bgs = painted.split('\x1b[48;2;16;16;32m').length - 1
+  assert.ok(bgs >= resets - 1, `background re-armed ${bgs} times against ${resets} resets`)
+  setTheme(null)
+})
+
+test('a home directory never reaches the screen', async () => {
+  // The loose bucket has no git root, so paths there printed in full —
+  // /Users/<you>/... on screen and in every screenshot taken of it.
+  const { short } = await import('../src/format.js')
+  const { HOME } = await import('../src/paths.js')
+  const out = short(`${HOME}/Documents/thing/file.ts`, null)
+  assert.equal(out, '~/Documents/thing/file.ts')
+  assert.doesNotMatch(out, /\/Users\/|\/home\//)
+  assert.equal(short('/w/repo/src/a.ts', '/w/repo'), 'src/a.ts', 'a repo still wins')
+})

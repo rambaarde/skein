@@ -1,5 +1,6 @@
 // Output shapes. Two doors, one set of numbers (PRD D13).
 import { relative } from 'node:path'
+import { HOME } from './paths.js'
 
 export const ago = (t, now = Date.now()) => {
   const s = Math.max(0, Math.round((now - t) / 1000))
@@ -12,10 +13,16 @@ export const ago = (t, now = Date.now()) => {
   return `${Math.round(s / 86400)}d`
 }
 
+// Repo-relative where there is a repo; otherwise home-relative. Never the
+// absolute path: the loose bucket has no root, and printing
+// /Users/<you>/Documents/... put a home directory on screen and into every
+// screenshot taken of it.
 export const short = (p, root) => {
-  if (!root) return p
-  const r = relative(root, p)
-  return r.startsWith('..') ? p : r
+  if (root) {
+    const r = relative(root, p)
+    if (!r.startsWith('..')) return r
+  }
+  return p.startsWith(HOME + '/') ? `~/${p.slice(HOME.length + 1)}` : p
 }
 
 export const trunc = (s, n) =>

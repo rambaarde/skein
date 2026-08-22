@@ -123,5 +123,32 @@ export let THEME = { ...INHERIT, name: null }
 export const setTheme = nameOrPath => { THEME = buildTheme(nameOrPath); return THEME }
 
 export const hue = a => THEME.agent[a] ?? ''
+
+// Paint the theme's background through a line.
+//
+// btop looks solid because its themes set main_bg — "#1a1b26" for tokyo-night,
+// "#282a36" for dracula — and it fills with it. skein parsed that key from the
+// first day and never used it, so a translucent terminal showed straight
+// through the panes.
+//
+// A background cannot simply be prefixed: every reset inside the line clears it
+// again, and there are resets after every coloured span. So re-arm the colour
+// after each one. Erase-to-end-of-line would be cheaper but is wrong the moment
+// two panes sit side by side.
+export const paint = line => {
+  const s = THEME.surface
+  if (!s) return line
+  return s + line.replaceAll(R, R + s) + R
+}
+
+// An explicit solid background, for when you want btop's look without adopting
+// one of its palettes.
+export const setOpaque = (hex = '#000000') => {
+  const m = /^#?([0-9a-f]{6})$/i.exec(hex)
+  if (!m) return false
+  const n = parseInt(m[1], 16)
+  THEME.surface = `\x1b[48;2;${(n >> 16) & 255};${(n >> 8) & 255};${n & 255}m`
+  return true
+}
 export const LUT = { get activity() { return THEME.activity }, get heat() { return THEME.heat } }
 export const SUP = ['¹', '²', '³', '⁴', '⁵', '⁶', '⁷', '⁸', '⁹']

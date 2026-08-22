@@ -5,7 +5,7 @@ import { toon, table, ago, short, trunc } from './format.js'
 import { hookLine } from './hook.js'
 import { isAbsolute, join } from 'node:path'
 import { install } from './install.js'
-import { listThemes, setTheme } from './theme.js'
+import { listThemes, setTheme, setOpaque } from './theme.js'
 
 const HELP = `skein — every agent running across every repository, grouped by project.
 
@@ -22,6 +22,7 @@ const HELP = `skein — every agent running across every repository, grouped by 
   --since <30d|24h|90m>    lookback window            (default 30d)
   --window <minutes>       collision window           (default ${WINDOW_MIN})
   --theme <name|path>      any btop .theme file — skein themes lists them
+  --opaque [#rrggbb]       paint a solid background instead of inheriting
   --all                    every project, not just the active ones
   --help                   this
 
@@ -42,6 +43,11 @@ export function parseArgs(argv) {
     if (a === '--json') opts.json = true
     else if (a === '--toon') opts.toon = true
     else if (a === '--all') opts.all = true
+    else if (a === '--opaque') {
+      // Optional value: bare --opaque means black.
+      const next = argv[i + 1]
+      opts.opaque = next && !next.startsWith('-') ? argv[++i] : '#000000'
+    }
     else if (a === '--theme') {
       opts.theme = argv[++i]
       if (!opts.theme) return { error: `--theme expects a theme name or a path to a .theme file` }
@@ -81,6 +87,11 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   const wanted = opts.theme ?? process.env.SKEIN_THEME
   if (wanted && !setTheme(wanted).name) {
     return { code: 1, err: `skein: no theme called "${wanted}"\ntry: skein themes` }
+  }
+  // After the theme, so it overrides a palette's own main_bg on request.
+  const opaque = opts.opaque ?? process.env.SKEIN_OPAQUE
+  if (opaque && !setOpaque(opaque === '1' || opaque === 'true' ? '#000000' : opaque)) {
+    return { code: 1, err: `skein: --opaque expects a colour like #000000` }
   }
 
   if (cmd === 'themes') {

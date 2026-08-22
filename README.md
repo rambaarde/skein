@@ -123,6 +123,11 @@ skein themes                    # every .theme skein can find
 skein --theme tokyo-night
 ```
 
+```sh
+skein --opaque              # solid black, btop's look
+skein --opaque '#1a1b26'    # or any colour
+```
+
 skein reads **btop's own `.theme` files** and looks in btop's own directories,
 so a palette you already use in btop works here with no porting — 36 of them
 ship with btop, and the community has written many more. `theme[main_bg]=""`
