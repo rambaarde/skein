@@ -160,10 +160,17 @@ for (const p of PROJECTS.slice(0, 3)) {
 
 // ---- a runner, so nobody has to remember the env var ----------------------
 const runner = join(OUT, 'skein')
+const BIN = resolve(dirname(new URL(import.meta.url).pathname), '..', 'bin', 'skein.js')
 writeFileSync(runner, `#!/bin/sh
 # Runs skein against THIS sandbox only. HOME is what scopes it: every agent
 # store, and skein's own cache, resolve from the home directory.
+#
+# It runs the CHECKOUT this sandbox was seeded from, not whatever is installed
+# globally -- otherwise you test the last release while looking at your working
+# tree, which is a confusing hour. Set SKEIN_BIN to override.
 export HOME="${HOME}"
+BIN="\${SKEIN_BIN:-${BIN}}"
+if [ -f "$BIN" ]; then exec node "$BIN" "$@"; fi
 exec "$(command -v skein || echo skein)" "$@"
 `)
 chmodSync(runner, 0o755)
