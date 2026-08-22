@@ -562,14 +562,15 @@ test('the headline is a chart per project, tall and graduated', async () => {
   const values = axis.map(l => mins(l.match(/^\│\s+(\S+)/)[1]))
   assert.deepEqual(values, [...values].sort((a, b) => b - a), 'the scale must run downward')
 
-  // Both projects are on the chart, each with its own marker.
+  // The lines are drawn in braille — 2x4 subpixels a cell, so the line is one
+  // dot thick rather than one character thick. Identity is the hue.
   const plotted = axis.join('')
-  assert.ok(plotted.includes(MARKERS[0]), 'the busiest project is drawn')
-  assert.ok(plotted.includes(MARKERS[1]), 'and so is the second, with a different marker')
+  assert.ok([...plotted].some(c => c >= '\u2800' && c <= '\u28ff'), 'the chart is drawn')
+  assert.ok(!plotted.includes(MARKERS[0]), 'and not stamped with markers')
 
-  // Which line is which, what it means, and when — all three, or the markers
-  // are a cipher and the x axis is a shape rather than a measurement.
-  assert.ok(lines.some(l => l.includes(`${MARKERS[0]}: r`) || l.includes(`${MARKERS[0]}: q`)), 'the legend names the lines')
+  // Which line is which, what it means, and when — all three, or the lines are
+  // a cipher and the x axis is a shape rather than a measurement.
+  assert.ok(lines.some(l => l.includes('⣿⣿ r') || l.includes('⣿⣿ q')), 'the legend names the lines')
   assert.ok(lines.some(l => l.includes('attention · 24h')), 'and says what the axis measures')
   assert.ok(lines.some(l => /└┬/.test(l)), 'the x axis is ruled with ticks')
   assert.ok(lines.some(l => /\d\d:\d\d.*now\s*│/.test(l)), 'and labelled with clock times ending at now')
@@ -820,8 +821,8 @@ test('a project opens its own page, not two inline rows', async () => {
   // Thesis §6.5 one level down: the page's own chart is stacked BY AGENT, so
   // it can say whether a repo was one agent working or two agents in it.
   assert.match(page, /attention · 24h/, "and this project's own chart")
-  assert.match(page, /#: claude/, 'with a line for each agent that worked here')
-  assert.match(page, /\*: codex/)
+  assert.match(page, /⣿⣿ claude/, 'with a line for each agent that worked here')
+  assert.match(page, /⣿⣿ codex/)
   assert.match(page, /esc/, 'and says how to get back')
   assert.match(page, /claude ↔ codex/, 'collisions name both sides')
 

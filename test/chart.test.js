@@ -18,7 +18,7 @@ test('a series is identified by marker as well as by colour', () => {
 })
 
 test('a higher value draws higher up the grid', () => {
-  const rows = plot([{ marker: '#', values: [1, 0.5] }], { width: 2, rows: 5, max: 1 })
+  const rows = plot([{ marker: '#', values: [1, 0.5] }], { width: 2, rows: 5, max: 1, tier: 'tty' })
   assert.equal(rows.length, 5)
   assert.equal(plain(rows[0])[0], '#', 'a full value reaches the top row')
   assert.equal(plain(rows[4])[0], ' ', 'and does not smear down to the floor')
@@ -30,7 +30,7 @@ test('a quiet stretch is a line along the floor, not a gap', () => {
   // columns of dots rather than lines you can follow across a day, which is
   // the entire look this imitates. A flat run along the bottom is what a quiet
   // stretch means in any real chart, and it reads correctly.
-  const rows = plot([{ marker: '#', values: [1, 0, 1] }], { width: 3, rows: 4, max: 1 })
+  const rows = plot([{ marker: '#', values: [1, 0, 1] }], { width: 3, rows: 4, max: 1, tier: 'tty' })
   assert.equal(plain(rows.at(-1))[1], '#', 'the quiet middle sits on the floor rather than vanishing')
   assert.equal(plain(rows.at(-1))[0], ' ', 'while the peak beside it stays at the top')
   // The drop and the climb are drawn as runs, so the eye follows one line down
@@ -42,7 +42,7 @@ test('a quiet stretch is a line along the floor, not a gap', () => {
 test('a series with nothing in the window is not drawn at all', () => {
   // Drawing it would lay a flat line along the bottom row saying nothing, and
   // six of those on top of each other is the width of the chart in noise.
-  const rows = plot([{ marker: '#', values: [0, 0, 0] }], { width: 3, rows: 3, max: 1 })
+  const rows = plot([{ marker: '#', values: [0, 0, 0] }], { width: 3, rows: 3, max: 1, tier: 'tty' })
   assert.deepEqual(rows.map(plain), ['   ', '   ', '   '])
 })
 
@@ -72,7 +72,7 @@ test('a line is drawn solid, in its own marker', () => {
   // Three quarters of that is filler, and on screen it read as dotted leader
   // lines rather than as data. gnuplot draws `##########`, which is why its
   // lines look like lines.
-  const rows = plot([{ marker: '*', values: [1, 1, 1, 1] }], { width: 4, rows: 2, max: 1 })
+  const rows = plot([{ marker: '*', values: [1, 1, 1, 1] }], { width: 4, rows: 2, max: 1, tier: 'tty' })
   assert.equal(plain(rows[0]), '****', 'every column of the line carries the marker')
 })
 
@@ -80,7 +80,7 @@ test('series share one scale, so the lines are comparable', () => {
   const rows = plot([
     { marker: '#', values: [1, 1] },
     { marker: '*', values: [0.5, 0.5] },
-  ], { width: 2, rows: 5, max: 1 })
+  ], { width: 2, rows: 5, max: 1, tier: 'tty' })
   assert.equal(at(rows, '#'), 0)
   assert.equal(at(rows, '*'), 2, 'half the value sits half way up, not at its own peak')
 })
@@ -89,12 +89,12 @@ test('a later series wins a shared cell', () => {
   const rows = plot([
     { marker: '#', values: [1] },
     { marker: '*', values: [1] },
-  ], { width: 1, rows: 3, max: 1 })
+  ], { width: 1, rows: 3, max: 1, tier: 'tty' })
   assert.equal(plain(rows[0]), '*', 'the last one drawn is the one you can read')
 })
 
 test('each line prints its own value at the height it ends on', () => {
-  const rows = plot([{ marker: '#', values: [1, 1], value: '2h' }], { width: 6, rows: 4, max: 1, pad: 3 })
+  const rows = plot([{ marker: '#', values: [1, 1], value: '2h' }], { width: 6, rows: 4, max: 1, pad: 3, tier: 'tty' })
   assert.ok(plain(rows[0]).includes('2h'), 'the number sits on the line, not in a footnote')
   assert.ok(rows.every(r => plain(r).length === 6), 'and inside the width it was given')
 })
@@ -134,13 +134,33 @@ test('a legend counts what it could not fit', () => {
 test('the block is graph rows plus a fixed three', () => {
   const now = Date.now()
   const out = chart([{ marker: '#', label: 'r', value: '2h', values: [1, 0.5, 1] }], {
-    width: 60, rows: 6, max: 1, since: now - 3600_000, now, caption: 'attention · 24h',
+    width: 60, rows: 6, max: 1, since: now - 3600_000, now, caption: 'attention · 24h', tier: 'tty',
   })
   assert.equal(out.length, 6 + BELOW, 'rule, times and legend — the caller budgets for exactly these')
   assert.ok(out.slice(0, 6).every(l => plain(l).includes('┤')), 'every graph row carries a gradation')
   assert.match(plain(out[5]), /^\s+0\s+┤/, 'and the last one reads 0')
   assert.ok(plain(out.at(-1)).includes('attention · 24h'), 'the caption says what the axis measures')
   assert.ok(plain(out.at(-1)).includes('#: r'), 'and the legend says which line is which')
+})
+
+test('the braille tier draws a line one dot thick', () => {
+  // This is the whole difference between a chart that looks like a tool and a
+  // wall of hashes, and it is why btop, ratatui and blessed-contrib all look
+  // the way they do. A cell is 2x4 subpixels, so eight rows of braille is
+  // thirty-two levels of vertical resolution rather than eight.
+  const rows = plot([{ marker: '#', color: '', values: [0, 0.25, 0.5, 0.75, 1] }], { width: 5, rows: 4, max: 1 })
+  const body = rows.map(plain).join('')
+  assert.ok([...body].every(c => c === ' ' || (c >= '\u2800' && c <= '\u28ff')), 'every drawn cell is a braille glyph')
+  assert.ok(!body.includes('#'), 'the marker does not appear in the plot — its identity is the hue')
+  // The rise reaches the top row and starts at the bottom one.
+  assert.ok(plain(rows[0]).trim().length, 'the peak reaches the top')
+  assert.ok(plain(rows.at(-1)).trim().length, 'and the floor is drawn')
+})
+
+test('the legend key follows the tier, because identity does', () => {
+  const s = [{ marker: '#', label: 'r', value: '2h', color: '' }]
+  assert.ok(plain(legend(s, { width: 40, tier: 'tty' })).startsWith('#:'), 'markers draw the line, so markers key it')
+  assert.ok(plain(legend(s, { width: 40, tier: 'braille' })).startsWith('⣿⣿'), 'braille draws it, so a swatch keys it')
 })
 
 test('a rendered chart carries no control characters', () => {
