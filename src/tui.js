@@ -18,7 +18,7 @@ import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
-import { chart, niceMax, cumulative, STYLES, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
+import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -246,7 +246,6 @@ export function render(state, size) {
       .map((s, i) => ({
         ...s,
         marker: MARKERS[i],
-        pattern: STYLES[i],
         // An agent already has a hue everywhere else on screen; borrowing the
         // chart palette here would give it two identities in one frame.
         color: hue(s.agent) || lineHue(i),
@@ -551,9 +550,16 @@ export function render(state, size) {
   // CHART_MIN + 1 rows of room there IS a chart to draw and a row for the
   // table, and dropping it there left the headline padding out blank rows
   // instead — which is what the layout is meant never to do.
+  //
+  // The chart takes a guaranteed SHARE, not the table's leftovers. "Every row
+  // the table does not need" sounded fair and is not: six projects on a
+  // thirty-row terminal claim every row going, and the chart lands on its
+  // floor — five rows, where cumulative lines are near-horizontal and unread-
+  // able. The rows the table then loses are counted in the border, which is
+  // how the list already handles being longer than its pane.
   const graphRows = room <= CHART_MIN
     ? 0
-    : Math.max(CHART_MIN, Math.min(CHART_MAX, room - wantTable))
+    : Math.max(CHART_MIN, Math.min(CHART_MAX, Math.max(room - wantTable, Math.round(room * 0.6))))
   // What the table can actually show. Rows beyond this are counted in the
   // border rather than dropped in silence.
   const tableBudget = graphRows > 0 ? Math.max(1, room - graphRows) : Math.max(1, listH - 5)
@@ -583,7 +589,6 @@ export function render(state, size) {
     const chartSeries = ranked.map((x, i) => (i < MAX_SERIES ? {
       label: x.name,
       marker: MARKERS[i],
-      pattern: STYLES[i],
       color: lineHue(i),
       value: humanMs(att(x)),
       // Attention ACCUMULATED, not attention per slice. The slice version is

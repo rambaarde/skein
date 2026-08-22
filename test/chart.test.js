@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { plot, chart, legend, xaxis, axisLine, niceMax, cumulative, DURATIONS, STYLES, MARKERS, MAX_SERIES, BELOW } from '../src/chart.js'
+import { plot, chart, legend, xaxis, axisLine, niceMax, cumulative, DURATIONS, MARKERS, MAX_SERIES, BELOW } from '../src/chart.js'
 
 const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '')
 const at = (lines, ch) => lines.findIndex(l => plain(l).includes(ch))
@@ -10,9 +10,11 @@ test('a series is identified by marker as well as by colour', () => {
   // survives. The marker is what still tells them apart there.
   assert.equal(MARKERS.length, MAX_SERIES)
   assert.equal(new Set(MARKERS).size, MARKERS.length, 'every marker is distinct')
-  assert.ok(STYLES.every(s => s[0] === MARKERS[STYLES.indexOf(s)]), 'the marker leads its own line style')
-  assert.ok(STYLES.every(s => [...s].every(c => c.codePointAt(0) < 0x2000)),
+  assert.ok(MARKERS.every(m => m.codePointAt(0) < 0x2000),
     'markers stay narrow — an ambiguous-width glyph would push the border off screen')
+  // Solid, not styled. Dash-dot "line styles" were three quarters filler and
+  // read on screen as dotted leader lines rather than as data.
+  assert.ok(MARKERS.every(m => m.length === 1), 'a line is its marker, repeated')
 })
 
 test('a higher value draws higher up the grid', () => {
@@ -28,7 +30,7 @@ test('a quiet stretch is a line along the floor, not a gap', () => {
   // columns of dots rather than lines you can follow across a day, which is
   // the entire look this imitates. A flat run along the bottom is what a quiet
   // stretch means in any real chart, and it reads correctly.
-  const rows = plot([{ marker: '#', pattern: '####', values: [1, 0, 1] }], { width: 3, rows: 4, max: 1 })
+  const rows = plot([{ marker: '#', values: [1, 0, 1] }], { width: 3, rows: 4, max: 1 })
   assert.equal(plain(rows.at(-1))[1], '#', 'the quiet middle sits on the floor rather than vanishing')
   assert.equal(plain(rows.at(-1))[0], ' ', 'while the peak beside it stays at the top')
   // The drop and the climb are drawn as runs, so the eye follows one line down
@@ -65,12 +67,13 @@ test('the scale is a duration a human recognises', () => {
   assert.ok(DURATIONS.every((d, i) => i === 0 || d > DURATIONS[i - 1]), 'the ladder ascends')
 })
 
-test('the first column of a run always carries the marker', () => {
-  // Editing is bursty: a four-minute burst is one column wide. A series whose
-  // single column landed on the dash of its own pattern drew something
-  // indistinguishable from three other series.
-  const rows = plot([{ marker: '*', pattern: '*--*', values: [0, 0, 1, 0] }], { width: 4, rows: 3, max: 1 })
-  assert.ok(plain(rows.join('')).includes('*'), 'a one-column burst still shows its marker')
+test('a line is drawn solid, in its own marker', () => {
+  // Each series used to get a dash-dot "line style" — `+···`, `o···`, `x-·-`.
+  // Three quarters of that is filler, and on screen it read as dotted leader
+  // lines rather than as data. gnuplot draws `##########`, which is why its
+  // lines look like lines.
+  const rows = plot([{ marker: '*', values: [1, 1, 1, 1] }], { width: 4, rows: 2, max: 1 })
+  assert.equal(plain(rows[0]), '****', 'every column of the line carries the marker')
 })
 
 test('series share one scale, so the lines are comparable', () => {
@@ -130,7 +133,7 @@ test('a legend counts what it could not fit', () => {
 
 test('the block is graph rows plus a fixed three', () => {
   const now = Date.now()
-  const out = chart([{ marker: '#', pattern: '####', label: 'r', value: '2h', values: [1, 0.5, 1] }], {
+  const out = chart([{ marker: '#', label: 'r', value: '2h', values: [1, 0.5, 1] }], {
     width: 60, rows: 6, max: 1, since: now - 3600_000, now, caption: 'attention · 24h',
   })
   assert.equal(out.length, 6 + BELOW, 'rule, times and legend — the caller budgets for exactly these')
@@ -145,7 +148,7 @@ test('a rendered chart carries no control characters', () => {
   // overwrites the row — which reads as a gap, not as a bug.
   const now = Date.now()
   const out = chart(
-    MARKERS.map((m, i) => ({ marker: m, pattern: STYLES[i], label: `p${i}`, value: '1h', values: [1, 0.2, 0.7, 0] })),
+    MARKERS.map((m, i) => ({ marker: m, label: `p${i}`, value: '1h', values: [1, 0.2, 0.7, 0] })),
     { width: 30, rows: 8, max: 1, since: now - 3600_000, now, top: 2 },
   )
   for (const line of out) {
