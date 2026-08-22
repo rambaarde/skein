@@ -32,7 +32,7 @@
 // deliberately ASCII: `●▲■◆` are East-Asian-ambiguous width, so a terminal
 // that renders one double-wide pushes the box border off the right edge and
 // corrupts the frame. A prettier marker is not worth that.
-import { DIM, R } from './theme.js'
+import { DIM, R, fade } from './theme.js'
 import { fit } from './box.js'
 
 // Shapes that stay distinct at one character: a solid block, a star, a cross,
@@ -257,18 +257,26 @@ export function legend(series, { width, tier = 'braille' }) {
 // Graph, scale, axis, legend — the whole block, so the two callers that want
 // it cannot drift on how a number is labelled.
 //
-// `top` is the index of the one series that must stay readable where lines
-// overlap — the row the cursor is on. Only the DRAW order changes; marker,
-// colour and legend position stay tied to rank, so moving the cursor does not
-// repaint the chart in a different set of colours.
+// `focus` is the index of the row the cursor is on. Every other line fades
+// into the background and the focused one is drawn last, so it wins any cell
+// it shares.
+//
+// This replaces reordering the draw stack alone, which was a bad idea: with
+// six running totals sharing a long baseline, changing which one was drawn
+// last recoloured that whole baseline, and moving the cursor read as the chart
+// jumping to another project. Fading is the same information without the
+// geometry appearing to move — one line is bright, the rest are still exactly
+// where they were.
 export function chart(series, {
-  width, rows, max, since, now, lead = 6, pad = 6, top = -1, caption = '', tier = 'braille',
+  width, rows, max, since, now, lead = 6, pad = 6, focus = -1, caption = '', tier = 'braille',
   // The axis is whatever the caller's values are. Both of skein's charts plot
   // milliseconds, so both pass humanMs.
   fmt = String,
 }) {
-  const order = series.map((_, i) => i).sort((a, b) => (a === top ? 1 : 0) - (b === top ? 1 : 0))
-  const drawn = order.map(i => series[i]).filter(s => s && s.values?.length)
+  const lit = focus >= 0 && focus < series.length
+  const shade = (s, i) => (!lit || i === focus ? s : { ...s, color: fade(s.color) })
+  const order = series.map((_, i) => i).sort((a, b) => (a === focus ? 1 : 0) - (b === focus ? 1 : 0))
+  const drawn = order.map(i => shade(series[i], i)).filter(s => s && s.values?.length)
   const body = plot(drawn, { width, rows, max, pad, tier })
   const out = []
   // A gradation that repeats the one above it is not a gradation: with a low
@@ -289,7 +297,7 @@ export function chart(series, {
   // markers a cipher. Naming the lines outranks naming the axis.
   const label = width - caption.length - 4 >= 12 ? caption : ''
   const cap = label ? `${DIM}${label}${R}${CAP_SEP}` : ''
-  out.push(` ${' '.repeat(lead + 1)}${cap}${legend(series, { width: Math.max(0, width - label.length - (label ? 4 : 0)), tier })}`)
+  out.push(` ${' '.repeat(lead + 1)}${cap}${legend(series.map(shade), { width: Math.max(0, width - label.length - (label ? 4 : 0)), tier })}`)
   return out
 }
 

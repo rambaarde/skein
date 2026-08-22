@@ -173,6 +173,21 @@ export const hue = a => THEME.agent[a] ?? ''
 // caller that asks for more lines than the palette has still gets a frame.
 export const lineHue = i => THEME.series[i % THEME.series.length] ?? ''
 
+// The same colour, quieter. Used to push every line except the selected one
+// into the background, which is the only way to read one line out of six that
+// does not involve moving them.
+//
+// The RGB is scaled rather than the SGR dim attribute being added, because dim
+// is a terminal-wide flag that many terminals ignore outright and others apply
+// unevenly beside 24-bit colour. Scaling the channels is the same instruction
+// every terminal already obeys.
+export const fade = (colour, amount = 0.42) => {
+  const m = /^\x1b\[38;2;(\d+);(\d+);(\d+)m$/.exec(colour ?? '')
+  if (!m) return colour ?? ''
+  const [r, g, b] = m.slice(1, 4).map(v => Math.round(Number(v) * amount))
+  return `\x1b[38;2;${r};${g};${b}m`
+}
+
 // Paint the theme's background through a line.
 //
 // btop looks solid because its themes set main_bg — "#1a1b26" for tokyo-night,
