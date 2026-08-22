@@ -49,6 +49,15 @@ export const SORTS = [
   { key: 'name', label: 'name', cmp: (a, b) => a.name.localeCompare(b.name) },
 ]
 
+// btop draws proportions as a filled bar, not a bare number: ■■■■■■□□□□. It is
+// the fastest way to see which project is eating the week without reading any
+// digits at all.
+const meter = (frac, width, lut) => {
+  const filled = Math.round(Math.max(0, Math.min(1, frac)) * width)
+  const colour = lut ? lut[Math.round(Math.max(0, Math.min(1, frac)) * 100)] : ''
+  return `${colour}${'■'.repeat(filled)}${DIM}${'·'.repeat(Math.max(0, width - filled))}${R}`
+}
+
 const KEYS = [
   ['↑ ↓  j k', 'move between projects'],
   ['⏎  space', 'expand a project into its sessions'],
@@ -106,17 +115,24 @@ export function render(state, size) {
   // how narrow a terminal will be. Drop the least valuable column first, and
   // give whatever is left to the name.
   const plan = (() => {
+    // The name column is sized to the longest NAME, not to whatever is left
+    // over. Giving it the slack put nine characters of nothing in every row and
+    // starved the graph — btop never leaves a gap it could put data in.
+    const longest = projects.reduce((m, p) => Math.max(m, p.name.length + 2), 8)
+    const name = Math.max(10, Math.min(28, longest))
     const optional = [
-      ['agents', 16], ['edits', 6], ['activity', 10], ['files', 6], ['sessions', 5],
+      ['agents', 16], ['edits', 6], ['share', 8], ['collisions', 5], ['files', 6], ['sessions', 5],
     ]
-    let budget = w - 2 - 1 - 6 - 12            // borders, lead, LAST, minimum name
+    let budget = w - 2 - 1 - 6 - name          // borders, lead, LAST, name
     const on = new Set()
     for (const [key, need] of optional) {
-      if (budget >= need + 1) { on.add(key); budget -= need + 1 }
+      if (budget >= need + 1 + 10) { on.add(key); budget -= need + 1 }   // keep 10 for the graph
     }
-    const gw = on.has('activity') ? Math.max(8, Math.min(28, 10 + budget)) : 0
-    if (on.has('activity')) budget -= gw - 10
-    return { on, gw, name: 12 + Math.max(0, budget) }
+    // Every character the columns did not need goes to the timeline, because
+    // that is the one thing that gets better with width: more cells is a finer
+    // bucket, and a finer bucket is one that visibly moves.
+    const gw = Math.max(0, budget - 2)   // the leading space and LAST's own gap
+    return { on, gw, name }
   })()
   const gw = plan.gw
 
@@ -138,17 +154,20 @@ export function render(state, size) {
     ].filter(Boolean).join(' · '),
   })
   out.push(b.top)
-  const cells = (name, agents, sessions, files, edits, activity, last) => {
+  const cells = (name, agents, sessions, files, edits, share, colls_, activity, last) => {
     const s = [' ', fit(name, plan.name)]
     if (plan.on.has('agents')) s.push(' ', fit(agents, 16))
     if (plan.on.has('sessions')) s.push(' ', fit(sessions, 5))
     if (plan.on.has('files')) s.push(' ', fit(files, 6))
     if (plan.on.has('edits')) s.push(' ', fit(edits, 6))
-    if (plan.on.has('activity')) s.push(' ', activity)
-    s.push(' ', fit(last, 5))
+    if (plan.on.has('share')) s.push(' ', fit(share, 8))
+    if (plan.on.has('collisions')) s.push(' ', fit(colls_, 5))
+    if (gw > 0) s.push(' ', activity)
+    s.push(' ', fit(last, 6))
     return s.join('')
   }
-  out.push(b.row(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', ' EDITS', fit(`ACTIVITY (${lookback})`, gw), ' LAST')}${R}`))
+  out.push(b.row(`${DIM}${cells('PROJECT', 'AGENTS', ' SESS', ' FILES', ' EDITS', '   SHARE', ' COLL', fit(`ACTIVITY (${lookback})`, gw), '  LAST')}${R}`))
+  const totalEdits = Math.max(1, projects.reduce((a, x) => a + x.events.length, 0))
 
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
   const offset = projects.indexOf(view[0] ?? projects[0])
@@ -160,8 +179,17 @@ export function render(state, size) {
     const agents = p.agents.map(a => `${hue(a)}${a}${R}`).join(`${DIM}+${R}`)
     const open = expanded.has(p.root ?? 'loose')
     const marker = open ? '▾' : '▸'
-    const line = cells(`${marker} ${p.name}`, agents, String(p.sessions).padStart(5), String(p.files).padStart(6),
-      String(p.events.length).padStart(6), `${spark}${R}`, ago(p.last, now).padStart(5))
+    const mine = colls.filter(c => c.project === p.root).length
+    const line = cells(
+      `${marker} ${p.name}`,
+      agents,
+      String(p.sessions).padStart(5),
+      String(p.files).padStart(6),
+      String(p.events.length).padStart(6),
+      meter(p.events.length / totalEdits, 8, LUT.activity),
+      mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
+      `${spark}${R}`,
+      ago(p.last, now).padStart(6))
     // Selection reverses fg/bg on a plain line. Interleaving REV with 24-bit
     // colour leaves gaps wherever a reset lands, so the row drops its hues for
     // the one frame it is selected -- readable on any theme by definition.
