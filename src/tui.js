@@ -17,7 +17,7 @@ import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
-import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
+import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, bucket } from './delivery.js'
 import { toolsOf, totalOf } from './tools.js'
@@ -91,6 +91,7 @@ const KEYS = [
   ['space', 'peek at a project inline without leaving the list'],
   ['esc', 'back one level: page, then detail, then preset 1, then quit'],
   ['tab', 'switch the detail pane: info · sessions · files · tools · collisions'],
+  ['', 'info carries a LIVE graph for the selected project — it slides even at zero'],
   ['g  G', 'first project · last project'],
   ['r', 'refresh now'],
   ['?  h', 'this'],
@@ -1013,6 +1014,51 @@ export function render(state, size) {
     else infoTab()
 
     function infoTab() {
+    // btop's net box, for one project.
+    //
+    // The headline chart is a running total over the lookback: it answers
+    // "where did the day go" and it is deliberately smooth and slow. Nothing
+    // answered "is THIS repo moving right now", and the rolling series that
+    // used to be in the headline was deleted when it became cumulative.
+    //
+    // btop keeps both for the same reason — a big historical cpu box and a
+    // small live net box — and the live one reads as alive even at zero,
+    // because a ROLLING window slides left every tick whether or not anything
+    // happened. That is the whole trick, and it costs one recomputation from
+    // `now` per frame.
+    const mine = (p.events ?? []).filter(Boolean)
+    const span = pickWindow(mine, { now })
+    const gwLive = Math.max(16, detailW - 9)
+    const live = rateSeries(mine, gwLive * 2, { now, windowMs: span.windowMs })
+    const peak = Math.max(0.5, ...live)
+    // Room for the graph, the strip, a rule, and whatever the hook line needs
+    // underneath. Below the floor it is dropped rather than drawn one row tall.
+    const perAgent = byAgent(mine, { now, windowMs: span.windowMs }).slice(0, 3)
+    const gRows = Math.min(7, detailH - 8 - perAgent.length)
+
+    if (gRows >= 3) {
+      // Colour encodes VALUE here, not identity — one series, so R3 applies
+      // rather than §7.2's per-line hue. Same rule btop uses on this box.
+      const rows = graph(live.map(v => v / peak), { width: gwLive, rows: gRows, tier, lut: LUT.activity })
+      rows.forEach((line, i) => {
+        const v = (peak * (rows.length - i)) / rows.length
+        const label = i === rows.length - 1 ? '0' : v >= 10 ? String(Math.round(v)) : v.toFixed(1)
+        detailRows_.push(` ${DIM}${fit(label, 5)}${R}${DIM}┤${R}${line}${R}`)
+      })
+      const rate = ratePerMin(mine, { now })
+      const nLive = liveSessions(state.sessions, { now }).filter(s => !p.root || s.cwd === p.root).length
+      detailRows_.push(
+        ` ${DIM}EDITS/MIN · ${R}${BOLD}${span.label}${R}` +
+        `${DIM}   now ${R}${BOLD}${rate.toFixed(1)}${R}` +
+        (nLive ? `${LUT.activity[80]}   ${nLive} live${R}` : `${DIM}   idle${R}`))
+      // btop's per-core rows, and the cores are agents.
+      for (const a of perAgent) {
+        detailRows_.push(`  ${hue(a.agent)}${fit(a.agent, 10)}${R}${meter(a.rate / peak, 8, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`)
+      }
+      // detailW is the BOX width; a row sits inside its two borders.
+      detailRows_.push(`${DIM}${'─'.repeat(Math.max(0, detailW - 2))}${R}`)
+    }
+
     // Thesis §5: the defensible claim is not the chart, it is that an agent can
     // read this. So the pane shows the exact line an agent starting in this
     // repository would be handed — the product, rather than a description of it.
