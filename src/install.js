@@ -12,12 +12,12 @@
 // own hooks in these files; appending is the only acceptable behaviour.
 import { readFileSync, writeFileSync, mkdirSync, copyFileSync, existsSync } from 'node:fs'
 import { join, dirname } from 'node:path'
-import { HOME, XDG_CONFIG, XDG_DATA } from './paths.js'
+import { HOME, XDG_CONFIG, XDG_DATA, CLAUDE_DIR } from './paths.js'
 
 const MARKER = 'skein hook'
 
 const TARGETS = {
-  claude: join(HOME, '.claude', 'settings.json'),
+  claude: join(CLAUDE_DIR, 'settings.json'),
   codex: join(HOME, '.codex', 'hooks.json'),
 }
 const OPENCODE_PLUGIN = join(XDG_CONFIG, 'opencode', 'plugins', 'skein.js')
