@@ -43,12 +43,32 @@ export const totalOf = tools => tools.reduce((n, t) => n + t.n, 0)
 // Reads outnumber writes several to one, and that ratio is the interesting
 // number: it is the difference between a session that was building and one
 // that was working out what to build.
-const READING = /^(read|grep|glob|search|list|ls|web_?search|web_?fetch|fetch)/i
-const WRITING = /^(edit|write|multiedit|patch|apply_patch|notebook)/i
-const RUNNING = /^(bash|exec|shell|run|command)/i
+// The lookahead is a word boundary that `\b` cannot express here: without
+// it `^edit` matches `editorconfig` and a config file becomes a write.
+const READING = /^(read|grep|glob|search|list|ls|outline|web_?search|web_?fetch|fetch)(?![a-z])/i
+const WRITING = /^(edit|write|multiedit|patch|apply_patch|notebookedit|notebook)(?![a-z])/i
+const RUNNING = /^(bash|exec|shell|run|command)(?![a-z])/i
 
-export const classify = tool =>
-  WRITING.test(tool) ? 'write' : READING.test(tool) ? 'read' : RUNNING.test(tool) ? 'run' : 'other'
+// An MCP tool arrives namespaced -- `mcp__plugin_trueline-mcp_mcp__trueline_read`
+// -- so a pattern anchored at the start of the whole name never matches one,
+// and every MCP call was landing in 'other'. On a machine that uses an MCP
+// server for reads and edits that is most of the session, and it made the
+// read:write ratio describe the wrong thing entirely.
+//
+// The last `__` segment is the tool's own name; everything before it is the
+// server it came from.
+export const shortTool = tool => String(tool ?? '').split('__').pop() || String(tool ?? '')
+
+// And the name itself is often prefixed too -- `trueline_read`, `web_search`,
+// `apply_patch` -- so the verb is matched against the whole short name AND
+// against its last underscore segment. Anchoring at the start of either is
+// what keeps `read_the_docs` a read and stops `editorconfig` becoming a write.
+export function classify(tool) {
+  const short = shortTool(tool)
+  const names = [short, short.split('_').pop()]
+  const any = re => names.some(n => re.test(n))
+  return any(WRITING) ? 'write' : any(READING) ? 'read' : any(RUNNING) ? 'run' : 'other'
+}
 
 // The same tally, grouped into the three things an agent spends its turn on.
 // Named 'other' rather than folded into one of the three, because a tool this

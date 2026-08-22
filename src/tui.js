@@ -20,7 +20,7 @@ import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, bucket } from './delivery.js'
-import { toolsOf, totalOf, shape } from './tools.js'
+import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -219,12 +219,16 @@ export function render(state, size) {
     // rowsP graph rows, the chart's own rule/times/legend, and two borders.
     const headHp = rowsP + CHART_BELOW + 2
     const lowerH = h - headHp - collH
-    const third = Math.floor(w / 3)
+    // Four across, not three. "1354 tool calls" on the border said a number
+    // and answered nothing: WHICH tools, and in what proportion, is the whole
+    // question, and it is the same question the files box answers about files.
+    const q = Math.floor(w / 4)
     const rects = {
       head: { x: 0, y: 0, w, h: headHp },
-      agents: { x: 0, y: headHp, w: third, h: lowerH },
-      sessions: { x: third, y: headHp, w: third, h: lowerH },
-      files: { x: third * 2, y: headHp, w: w - third * 2, h: lowerH },
+      agents: { x: 0, y: headHp, w: q, h: lowerH },
+      sessions: { x: q, y: headHp, w: q, h: lowerH },
+      files: { x: q * 2, y: headHp, w: q, h: lowerH },
+      tools: { x: q * 3, y: headHp, w: w - q * 3, h: lowerH },
       colls: { x: 0, y: headHp + lowerH, w, h: collH },
     }
 
@@ -276,16 +280,6 @@ export function render(state, size) {
       vp ? `${vp.landed} landed` : null,
       vp && vp.lead !== null ? `${humanMs(vp.lead)} lead` : null,
       vp && vp.rework !== null ? `${Math.round(vp.rework * 100)}% rework` : null,
-      // What the agents did, not only what they left behind. A project with
-      // nine files touched can be nine minutes of editing or four hours of
-      // reading the codebase to find the nine.
-      (() => {
-        const t = toolsOf(p, state.sessions)
-        if (!t.length) return null
-        const sh = shape(t)
-        const n = totalOf(t)
-        return `${n} tool call${n === 1 ? '' : 's'} · ${Math.round((sh.read / n) * 100)}% read`
-      })(),
       collsHere.length ? `${collsHere.length} collision${collsHere.length === 1 ? '' : 's'}` : 'no collisions',
     ].filter(Boolean).join(`${DIM} · ${R}`)
 
@@ -315,12 +309,13 @@ export function render(state, size) {
       }
     }
 
-    // --- sessions and files reuse the tab bodies, so a number cannot mean one
-    // thing on the page and another in the pane.
+    // sessions, files and tools reuse the tab bodies, so a number cannot mean
+    // one thing on the page and another in the pane.
     const F = { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling }
     const tctx = k => ({ state, now, detailW: rects[k].w - 2, detailH: rects[k].h, collsHere, lookback, F })
     const sessRows = sessionsTab(p, tctx('sessions'))
     const fileRows = filesTab(p, tctx('files'))
+    const toolRows = toolsTab(p, tctx('tools'))
 
     const panes = [
       { rect: rects.head, lines: pane(rects.head, {
@@ -342,9 +337,16 @@ export function render(state, size) {
           // off the border. So the stats YIELD to the controls rather than the
           // other way round — a number you cannot read is a nuisance, a way
           // out you cannot see is a trap.
+          //
+          // 'tab panes' is gone. It was inherited from the detail pane, where
+          // tab switches between tabs that share one box — this page shows
+          // agents, sessions, files and tools all at once, so there was
+          // nothing to switch and the key did nothing. A control that does
+          // nothing is worse than an absent one: it makes the reader doubt the
+          // keyboard rather than the label.
           const parts = [
             { key: '\x1b', label: 'back', glyph: 'esc' },
-            { key: '\t', label: 'panes', glyph: 'tab' },
+            { key: 'a', label: lookback, glyph: 'a' },
             { key: 'q', label: 'quit', glyph: 'q' },
           ]
           const need = parts.reduce((n, c) => n + width(tag(c.glyph, c.label)) + width(TAG_SEP), 0)
@@ -368,6 +370,12 @@ export function render(state, size) {
       { rect: rects.sessions, lines: pane(rects.sessions, { title: 'sessions', line: THEME.boxDetail, rows: sessRows }) },
       { rect: rects.files, lines: pane(rects.files, { title: 'files', line: THEME.boxFeed, rows: fileRows,
         state: `${DIM}${p.files} touched${R}` }) },
+      { rect: rects.tools, lines: pane(rects.tools, { title: 'tools', line: THEME.boxFeed, rows: toolRows,
+        state: (() => {
+          const t = toolsOf(p, state.sessions)
+          const n = totalOf(t)
+          return `${DIM}${n ? `${t.length} tool${t.length === 1 ? '' : 's'} · ${n} call${n === 1 ? '' : 's'}` : 'none recorded'}${R}`
+        })() }) },
     ]
     if (collH > 0) {
       panes.push({ rect: rects.colls, lines: pane(rects.colls, {
