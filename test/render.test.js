@@ -811,36 +811,60 @@ test('a keypress is on screen in the next frame, not the next poll', async () =>
   // then rendered from the STALE state, so the new screen only appeared when
   // reload() next rebuilt state — up to a poll interval later. That is the
   // whole of "nothing happens when I click" and "it takes about two seconds".
-  const { start } = await import('../src/tui.js')
-  const { PassThrough } = await import('node:stream')
-  const out = []
-  const stdout = new PassThrough(); stdout.columns = 140; stdout.rows = 42
-  stdout.on('data', d => out.push(String(d)))
-  const stdin = new PassThrough(); stdin.isTTY = true; stdin.setRawMode = () => {}
-  start({ stdout, stdin })
-  await new Promise(r => setTimeout(r, 250))
+  //
+  // Runs in a subprocess against a FIXTURE home. The first version of this test
+  // drove the real TUI against whatever was in ~/.claude, which passed on the
+  // machine that wrote it and failed on every CI runner, because a runner has
+  // no sessions and so no project for Enter to open. skein's own rule is to
+  // test against fixtures and never against real history; this is why.
+  const { execFileSync } = await import('node:child_process')
+  const { mkdtempSync, mkdirSync, writeFileSync, rmSync } = await import('node:fs')
+  const { join } = await import('node:path')
 
-  const frame = () => String(out[out.length - 1] ?? '').replace(/\x1b\[\??[0-9;]*[A-Za-z]/g, '')
-  const before = out.length
+  // NOT under os.tmpdir(). skein's noise filter drops anything beginning /tmp,
+  // /private/tmp or /var — and macOS mkdtemp hands back /var/folders/..., so a
+  // fixture there produces zero projects and the test fails for a reason that
+  // has nothing to do with what it is testing. Under the repo it looks like
+  // ordinary work on every platform.
+  const home = mkdtempSync(join(process.cwd(), '.skein-test-home-'))
+  const repo = join(home, 'work', 'demo')
+  const dir = join(home, '.claude', 'projects', 'demo')
+  mkdirSync(dir, { recursive: true })
+  mkdirSync(join(repo, '.git'), { recursive: true })
+  const at = n => new Date(Date.now() - n * 60_000).toISOString()
+  const lines = [
+    { type: 'user', cwd: repo, gitBranch: 'main', timestamp: at(60), message: { content: 'build the thing' } },
+    ...Array.from({ length: 12 }, (_, i) => ({
+      cwd: repo, timestamp: at(50 - i * 3),
+      message: { role: 'assistant', usage: { input_tokens: 1000 + i },
+                 content: [{ type: 'tool_use', name: 'Edit', input: { file_path: join(repo, `src/f${i % 4}.ts`) } }] },
+    })),
+  ]
+  // Trailing newline: the reader treats a final line with no terminator as a
+  // partial append and holds it back, which is right for a live transcript.
+  writeFileSync(join(dir, 's1.jsonl'), lines.map(l => JSON.stringify(l)).join('\n') + '\n')
 
-  // Every one of these must change the very next frame written. Tab first:
-  // the 'watch' preset drops the detail pane, so switching preset before tab
-  // would test the tab bar on a screen that no longer has one.
-  stdin.write('\t')
-  assert.ok(out.length > before, 'a keypress paints immediately')
-  assert.match(frame(), /files {2}collisions/, 'and the new tab is what got drawn')
+  const mod = new URL('../src/tui.js', import.meta.url).href
+  // In tools/, not test/: anything under test/ is collected BY the runner, so
+  // a helper living there is executed as a test with no arguments and fails.
+  const driver = new URL('../tools/drive-tui.mjs', import.meta.url)
+  const raw = execFileSync(process.execPath, [driver.pathname.replace(/^\/([A-Za-z]:)/, '$1'), mod],
+    { env: { ...process.env, HOME: home, USERPROFILE: home, SKEIN_HOME: join(home, '.skein') },
+      encoding: 'utf8', timeout: 30_000 })
+  rmSync(home, { recursive: true, force: true })
+  const marker = raw.match(/@@(.*)@@/)
+  assert.ok(marker, `the driver printed no result:\n${raw.slice(0, 400)}`)
+  const seen = JSON.parse(marker[1])
 
-  stdin.write('\r')
-  assert.match(frame(), /esc back/, 'enter opens the page in the same frame')
-
-  stdin.write('\x1b')
-  assert.match(frame(), /activity/, 'and esc comes straight back')
-
-  stdin.write('p')
-  assert.match(frame(), /preset 2 watch/, 'preset switches in the same frame')
-  // Deliberately NOT pressing q: quit() calls process.exit(0), which ends the
-  // whole run and silently drops every test after this one. The count goes
-  // down and nothing reports a failure.
+  assert.ok(seen.projects, 'the fixture home produced a project to act on')
+  assert.ok(seen.painted, 'a keypress paints immediately')
+  assert.match(seen.tab, /files {2}collisions/, 'the new tab is what got drawn')
+  assert.match(seen.enter, /esc back/, 'enter opens the page in the same frame')
+  assert.match(seen.esc, /activity/, 'and esc comes straight back')
+  assert.match(seen.preset, /preset 2 watch/, 'preset switches in the same frame')
+  // Deliberately never pressing q: quit() calls process.exit(0), which would end
+  // the run and silently drop every test after it — the count goes down and
+  // nothing reports a failure.
 })
 
 test('one click opens a project, and there is a way back without the keyboard', async () => {
