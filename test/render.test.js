@@ -432,7 +432,10 @@ test('the headline metric is time, not a count of edits', async () => {
   }, { cols: 120, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
   const header = plain.find(l => l.includes('PROJECT')) ?? ''
   assert.match(header, /TIME/, 'the column should be TIME')
-  assert.match(header, /ATTENTION/, 'and the graph should be ATTENTION')
+  // The wide ATTENTION column became a short ATTN sparkline paired with a PEAK
+  // percentage — btop's per-core form. The shape moved to the tall strip.
+  assert.match(header, /ATTN/, 'the per-project sparkline should still be there')
+  assert.match(header, /PEAK/, 'and it must carry a number beside it')
   const bars = l => (l.match(/■/g) ?? []).length
   const burstRow = plain.find(l => l.includes('burst')), spreadRow = plain.find(l => l.includes('spread'))
   assert.ok(bars(spreadRow) > bars(burstRow), 'the same edit count must not give the same share')
@@ -510,4 +513,43 @@ test('a column must differ between rows to be drawn', async () => {
   const h2 = head(twoAgents)
   assert.match(h2, /AGENTS/, 'agents differ now, so show them')
   assert.match(h2, /COLL/, 'and there is a collision to report')
+})
+
+test('the aggregate graph is tall and carries a scale', async () => {
+  // A one-row sparkline is four braille levels — texture, not shape. btop's cpu
+  // graph is about ten rows for exactly this reason, and it labels its axis so
+  // a spike can be read as a value.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = Array.from({ length: 60 }, (_, i) => ({ at: now - i * 8_000, session: 's', agent: 'claude', path: `/r/f${i}.ts`, project: '/r' }))
+  const state = {
+    events,
+    projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 9, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  const lines = render(state, { cols: 140, rows: 32 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+  const braille = l => [...l].filter(c => c >= '⠁' && c <= '⣿').length
+  const tall = lines.filter(l => braille(l) > 20 && !l.includes('▸'))
+  assert.ok(tall.length >= 3, `the aggregate graph should be several rows, got ${tall.length}`)
+  assert.ok(lines.some(l => /\d+\.\d\/min/.test(l)), 'the top of the axis should be labelled')
+  assert.ok(lines.some(l => /^\│ 0 /.test(l)), 'and the baseline should be labelled 0')
+})
+
+test('a per-project sparkline is short and stands next to a number', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = Array.from({ length: 20 }, (_, i) => ({ at: now - i * 60_000, session: 's', agent: 'claude', path: `/r/f${i}.ts`, project: '/r' }))
+  const lines = render({
+    events, projects: [{ name: 'r', root: '/r', agents: ['claude'], sessions: 1, files: 9, events, last: now }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }, { cols: 140, rows: 28 }).replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+  const header = lines.find(l => l.includes('PROJECT')) ?? ''
+  assert.match(header, /ATTN/)
+  assert.match(header, /PEAK/)
+  const row = lines.find(l => l.includes('▸')) ?? ''
+  assert.match(row, /\d+%/, 'the row needs a readable number, not only a shape')
+  const spark = [...row].filter(c => c >= '⠁' && c <= '⣿').length
+  assert.ok(spark <= 14, `the inline sparkline should stay short, was ${spark}`)
 })

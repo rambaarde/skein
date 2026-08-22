@@ -66,32 +66,38 @@ uninstalled the first time it is wrong.
 ## The dashboard, which is the other half
 
 ```
-╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
-│ EDITS/MIN                                                                            peak 1.0                        │
-│ 0.4                                                             ⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶    ⣶ 15m window                      │
-│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│ PROJECT      DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTENTION (3…   LAST│
-│ ▸ atlas-api  Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣟⣛⣟⣉⣛⣙⣿⣛⣛⣛⣛⣻⣛     8s│
-│ ▸ atlas-web  —                              claude+codex         5     61    2h09 ■■······     1 ⣉⣙⣙⣍⣹⣙⣍⣝⣍⣫⣍⣋⣍     4m│
-│ ▸ checkout   —                              claude               3     29     52m ■·······     · ⣦⣼⣄⣦⣤⣠⣶⣄⣦⣠⣤⣦⣶    22m│
-│ ▸ notify-svc —                              codex+opencode       2     18     28m ■·······     · ⣈⡋⣅⣁⡉⡘⢛⣘⣣⣁⠀⠈⣹     2h│
-│ ▸ docs-site  —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⡄⡇⡆⣦⣦⣤⢰⣤⢸     9h│
-│ ▸ loose      —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣉⣈⢀⢉⠃⡋⣛⣽⣬⣫⡇     1d│
-│                                                                                                                      │
-╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────╯
-╭─ atlas-api — what an agent is told here² ──────╮╭─ activity³ ───────────────────────────────────────── newest first ─╮
-│ 3 other agents active in this repo             ││ 22:19:52 claude    atlas-api       src/mod0.ts                   8s│
-│   claude   editing src/mod0.ts        8s       ││ 22:16:00 claude    atlas-web       src/mod0.ts                   4m│
-│   codex    editing src/mod59.ts      19m       ││ 22:01:23 codex     atlas-api       src/mod59.ts                 19m│
-│   codex    editing src/auth/sessio…  20m       ││ 22:00:00 codex     atlas-api       src/auth/session.ts          20m│
-│                                                ││ 21:58:00 claude    checkout        src/mod0.ts                  22m│
-│ COLLISIONS                                     ││ 21:45:57 claude    checkout        src/mod8.ts                  34m│
-│ · src/auth/session.ts 20m apart    40m         ││ 21:40:00 claude    atlas-api       src/auth/session.ts          40m│
-│ · src/mod47.ts        10m apart     9d         ││ 20:47:00 claude    checkout        src/mod25.ts                  2h│
-│                                                ││ 20:34:53 codex     atlas-web       src/mod16.ts                  2h│
-│                                                ││ 20:20:00 opencode  notify-svc      src/mod1.ts                   2h│
-│                                                ││ 20:20:00 opencode  notify-svc      src/mod3.ts                   2h│
-╰─ 8 sessions · 2 collisions ────────────────────╯╰─ 836 edits in 30d ─────────────────────────────────────────────────╯
+╭─ skein¹ ──────────────────────────────────────────────────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
+│ 1.0/min                                                                                                                                  │
+│                                                                                                                                          │
+│                                                                                                                                          │
+│                                                                                              ⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶      ⢰⣶             │
+│ 0                                                                                            ⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿      ⢸⣿             │
+│ EDITS/MIN · 15m   now 0.4   2 sessions active   claude ■■···· 0.4                                                                        │
+│──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
+│ PROJECT      DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTN            PEAK   LAST             │
+│ ▸ atlas-api  Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣝⣉⣏⣉⣙⣉⣹⣝⣋⣛⣏⣛⣫⣛    1%     8s             │
+│ ▸ atlas-web  —                              claude+codex         5     61    2h09 ■■······     1 ⣍⣙⣉⣹⣍⣏⣫⣩⣫⣉⣭⣝⣉⣍    1%     4m             │
+│ ▸ checkout   —                              claude               3     29     52m ■·······     · ⣦⣼⡆⣦⣤⣄⣦⣦⣠⣠⣠⣴⣤⣾    0%    22m             │
+│ ▸ notify-svc —                              codex+opencode       2     18     28m ■·······     · ⣈⡃⡇⡈⣉⡀⠛⣃⣛⣨⢀⠀⠈⣟    0%     2h             │
+│ ▸ docs-site  —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⢠⢸⢰⢰⣴⢰⢠⢰⣤⢸    0%     9h             │
+│ ▸ loose      —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣈⣀⡁⡉⡛⢘⢙⣍⣝⣌⣯⡇    0%     1d             │
+╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────────────────────────╯
+╭─ atlas-api — what an agent is told here² ───────────────╮╭─ activity³ ──────────────────────────────────────────────────── newest first ─╮
+│ 3 other agents active in this repo                      ││ 22:19:52 claude    atlas-api         src/mod0.ts                            8s│
+│   claude   editing src/mod0.ts                 8s       ││ 22:16:00 claude    atlas-web         src/mod0.ts                            4m│
+│   codex    editing src/mod59.ts               19m       ││ 22:01:23 codex     atlas-api         src/mod59.ts                          19m│
+│   codex    editing src/auth/session.ts        20m       ││ 22:00:00 codex     atlas-api         src/auth/session.ts                   20m│
+│                                                         ││ 21:58:00 claude    checkout          src/mod0.ts                           22m│
+│ COLLISIONS                                              ││ 21:45:57 claude    checkout          src/mod8.ts                           34m│
+│ · src/auth/session.ts          20m apart    40m         ││ 21:40:00 claude    atlas-api         src/auth/session.ts                   40m│
+│ · src/mod47.ts                 10m apart     9d         ││ 20:47:00 claude    checkout          src/mod25.ts                           2h│
+│                                                         ││ 20:34:53 codex     atlas-web         src/mod16.ts                           2h│
+│                                                         ││ 20:20:00 opencode  notify-svc        src/mod1.ts                            2h│
+│                                                         ││ 20:20:00 opencode  notify-svc        src/mod3.ts                            2h│
+│                                                         ││ 20:20:00 opencode  notify-svc        src/mod7.ts                            2h│
+│                                                         ││ 20:20:00 codex     notify-svc        src/mod0.ts                            2h│
+│                                                         ││ 19:16:57 opencode  notify-svc        src/mod17.ts                           3h│
+╰─ 8 sessions · 2 collisions ─────────────────────────────╯╰─ 836 edits in 30d ────────────────────────────────────────────────────────────╯
 ```
 
 <p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>

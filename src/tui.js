@@ -169,7 +169,12 @@ export function render(state, size) {
     // Every character the columns did not need goes to the timeline, because
     // that is the one thing that gets better with width: more cells is a finer
     // bucket, and a finer bucket is one that visibly moves.
-    const gw = Math.max(0, budget - 2)   // the leading space and LAST's own gap
+    // btop's per-core rows are ~12 characters of sparkline beside a
+    // percentage: the number is what you read, the sparkline is texture. Forty
+    // characters of scattered dots is the worst of both — too wide to scan, and
+    // at four braille levels too short to show shape. Cap it, and give it a
+    // number to stand next to.
+    const gw = Math.max(0, Math.min(14, budget - 7))
     return { on, gw, name }
   })()
   const gw = plan.gw
@@ -212,7 +217,7 @@ export function render(state, size) {
     if (plan.on.has('time')) s.push(' ', fit(c.time, 7))
     if (plan.on.has('share')) s.push(' ', fit(c.share, 8))
     if (plan.on.has('collisions')) s.push(' ', fit(c.colls, 5))
-    if (gw > 0) s.push(' ', c.activity)
+    if (gw > 0) s.push(' ', c.activity, ' ', fit(c.busiest, 5))
     s.push(' ', fit(c.last, 6))
     return s.join('')
   }
@@ -226,32 +231,46 @@ export function render(state, size) {
   // The strip is the first thing to go when the pane is short. A live graph is
   // worth four rows on a full screen and worth nothing at all if it costs the
   // table its header.
-  const stripH = listH >= 14 ? 4 : listH >= 11 ? 3 : 0
-  const gwLive = Math.max(20, listW - 46)
+  // btop's cpu graph is about ten rows tall, and that height is the whole
+  // reason you can read a spike off it: ten rows of braille is forty vertical
+  // levels. A one-row sparkline has four, which is texture, not shape.
+  //
+  // So the strip takes every row the table does not need, up to eight, and
+  // draws the aggregate — exactly the division btop makes between its big cpu
+  // graph and its one-line per-core sparklines.
+  const expandedRows = projects.reduce(
+    (a, x) => a + (expanded.has(x.root ?? 'loose') ? Math.min(4, x.sessions) : 0), 0)
+  const tableRows = Math.max(1, projects.length + expandedRows) + 2
+  const stripH = Math.max(0, Math.min(8, listH - tableRows - 2))
+  const gwLive = Math.max(20, listW - 24)
   const live = rateSeries(stream0, gwLive * 2, { now })
   const peak = Math.max(1, ...live)
-  // Linear, and no floor. The sqrt-and-floor scaling exists for the ATTENTION
-  // strip, where buckets are sparse and a quiet one would otherwise vanish
-  // beside a busy one. This series is a moving average, so it is already
-  // continuous — flooring it just pins the whole line to the top.
-  const rows2 = graph(live.map(v => v / peak), { width: gwLive, rows: 2, tier, lut: LUT.activity })
+  const graphRows = Math.max(1, stripH - 1)
+  // Linear, and no floor. The sqrt-and-floor scaling exists for the per-project
+  // sparklines, where buckets are sparse and a quiet one would otherwise vanish
+  // beside a busy one. This series is a moving average, already continuous —
+  // flooring it just pins the whole line to the top.
+  const rowsN = graph(live.map(v => v / peak), { width: gwLive, rows: graphRows, tier, lut: LUT.activity })
   const rate = ratePerMin(stream0, { now })
   const agents = byAgent(stream0, { now })
   const nSess = activeSessions(stream0, { now })
 
-  if (stripH >= 3) {
-    headRows.push(` ${DIM}${fit('EDITS/MIN', 10)}${R}${rows2[0]}${R} ${DIM}${fit(`peak ${peak.toFixed(1)}`, 12)}${R}`)
-    headRows.push(` ${BOLD}${fit(rate.toFixed(1), 10)}${R}${rows2[1]}${R} ${DIM}${fit(`${Math.round(WINDOW_MS / 60000)}m window`, 12)}${R}`)
-  }
-  if (stripH >= 4) {
-    headRows.push(` ${DIM}${fit(`${nSess} session${nSess === 1 ? '' : 's'} active`, 20)}${R}` +
+  if (stripH > 0) {
+    // The scale sits on the graph, so a spike can be read as a value rather
+    // than admired as a shape. btop labels its axis the same way.
+    rowsN.forEach((line, i) => {
+      const label = i === 0 ? `${peak.toFixed(1)}/min` : i === rowsN.length - 1 ? `0` : ''
+      headRows.push(` ${DIM}${fit(label, 8)}${R}${line}${R}`)
+    })
+    headRows.push(` ${DIM}${fit(`EDITS/MIN · ${Math.round(WINDOW_MS / 60000)}m`, 18)}${R}${BOLD}${fit(`now ${rate.toFixed(1)}`, 10)}${R}` +
+      `${DIM}${fit(`${nSess} session${nSess === 1 ? '' : 's'} active`, 20)}${R}` +
       (agents.length
-        ? agents.slice(0, 4).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, rate || 1), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  ')
+        ? agents.slice(0, 3).map(a => `${hue(a.agent)}${a.agent}${R} ${meter(a.rate / Math.max(1, peak), 6, LUT.activity)} ${DIM}${a.rate.toFixed(1)}${R}`).join('  ')
         : `${DIM}nothing is running${R}`))
+    headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
   }
-  if (stripH > 0) headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
 
-  headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', activity: fit(`ATTENTION (${lookback})`, gw), last: '  LAST' })}${R}`)
+  headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
   const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
 
   const view = projects.slice(Math.max(0, sel - (listH - 3)), Math.max(listH - 2, sel + 1))
@@ -288,6 +307,9 @@ export function render(state, size) {
       share: meter(att(p) / totalTime, 8, LUT.activity),
       colls: mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
       activity: `${spark}${R}`,
+      // The busiest bucket as a share of its own span — a real percentage, the
+      // way btop's cores read, so a spike carries a value and not just a shape.
+      busiest: `${Math.round(Math.max(0, ...attentionSeries(p.events, Math.max(2, gw * 2), since, now)) / ((now - since) / Math.max(2, gw * 2)) * 100)}%`.padStart(5),
       last: ago(p.last, now).padStart(6),
     })
     // Selection reverses fg/bg on a plain line. Interleaving REV with 24-bit
