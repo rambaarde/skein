@@ -702,3 +702,60 @@ test('the frame is not one grey box — each pane owns its outline', async () =>
   const distinct = new Set([...raw.matchAll(/\x1b\[38;2;[\d;]+m/g)].map(m => m[0]))
   assert.ok(distinct.size >= 6, `a painted screen, got ${distinct.size} distinct colours`)
 })
+
+test('no control character ever reaches the frame', async () => {
+  // A literal \r got into the border because the clickable-tag change set the
+  // expand tag's DISPLAYED GLYPH to the key it dispatches. The terminal obeyed
+  // it, returned to column 0 and overwrote the row — the visible symptom was a
+  // gap. width() also counts it as one column while it renders as none, so
+  // every hit region after it was off by one, which is why the controls were
+  // hard to click. This guards the whole class, not just \r.
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const state = {
+    projects: [{ name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], attention: 1, last: now,
+                 events: [{ at: now, agent: 'claude', path: '/w/a/x.ts', session: 's' }] }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], events: [],
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0,
+  }
+  for (const [cols, rows] of [[143, 44], [120, 30], [100, 26], [80, 20]]) {
+    const raw = render(state, { cols, rows, now })
+    // Everything except ESC (which starts a legitimate SGR) and \n (row break).
+    const bad = raw.match(/[\x00-\x09\x0b-\x1a\x1c-\x1f]/g)
+    assert.equal(bad, null, `control chars at ${cols}x${rows}: ${JSON.stringify(bad)}`)
+    // And every row must still fill the width exactly, or the terminal's own
+    // background shows through as a band.
+    for (const line of raw.split('\n')) {
+      assert.equal([...line.replace(/\x1b\[[0-9;]*m/g, '')].length, cols)
+    }
+  }
+})
+
+test('a label that looks like a control is one', async () => {
+  const { render } = await import('../src/tui.js')
+  const { hitTag } = await import('../src/mouse.js')
+  const now = 1_700_000_000_000
+  const state = {
+    projects: [{ name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], attention: 1, last: now,
+                 events: [{ at: now, agent: 'claude', path: '/w/a/x.ts', session: 's' }] }],
+    sessions: new Map(), sel: 0, expanded: new Set(), colls: [], events: [],
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0,
+  }
+  const raw = render(state, { cols: 143, rows: 44, now })
+  const top = raw.split('\n')[0].replace(/\x1b\[[0-9;]*m/g, '')
+
+  // 'preset 1 all' sat in the border doing nothing when clicked.
+  const region = state.hit.tags.find(t => t.y === 0)
+  assert.ok(region, 'the preset label registers a hit region')
+  assert.equal(hitTag(state.hit, region.x0, 0), 'p')
+  assert.equal(hitTag(state.hit, region.x0 - 1, 0), null, 'and only where the label actually is')
+  assert.equal(top.slice(region.x0, region.x1), 'preset 1 all', 'the region lines up with the text')
+
+  // The glyph is what you read; the key is what it sends. Conflating them is
+  // what put a carriage return on screen.
+  const expand = state.hit.tags.find(t => t.key === '\r')
+  assert.ok(expand, 'expand dispatches Enter')
+  assert.match(raw, /⏎/, 'and displays a glyph, not the byte')
+})

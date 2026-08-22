@@ -222,11 +222,21 @@ export function render(state, size) {
   // is how to get help and how to get out, so those are the last to go.
   const bare = s => s.replace(/\x1b\[[0-9;]*m/g, '')
   const controls = w => {
+    // The GLYPH shown and the KEY sent are not the same thing. Making the tags
+    // clickable, I set expand's glyph to the key it dispatches — '\r' — so a
+    // literal carriage return was printed into the border. The terminal obeyed
+    // it, jumped to column 0 and overwrote the row, which is the gap; and since
+    // width() counts it as one column while it renders as none, every hit
+    // region after it was off by one too.
     const TAG_KEY = new Map()
-    const mk = (k, label) => { const s = tag(k, label); TAG_KEY.set(s, k); return s }
+    const mk = (glyph, label, key = glyph) => {
+      const s = tag(glyph, label)
+      TAG_KEY.set(s, key)
+      return s
+    }
     const pinned = [mk('?', 'keys'), mk('q', 'quit')]
     const optional = [
-      mk('\r', 'expand'),
+      mk('⏎', 'expand', '\r'),
       mk('s', state.sort ?? 'recent'),
       mk('p', NAMES[state.preset ?? 0] ?? 'preset'),
       mk('a', lookback),
@@ -500,7 +510,17 @@ export function render(state, size) {
     title: 'skein', key: SUP[0], line: THEME.boxHead,
     // btop prints 'preset N' in the cpu box border. Same place, same reason:
     // the layout you are looking at is state, and state belongs in the border.
-    right: `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`,
+    right: (() => {
+      const label = `preset ${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}`
+      const painted = `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`
+      // box() lays the top edge out as … pad ─ ' ' right ' ' ─ ╮, so the right
+      // text starts at w - width(right) - 3 from the box's left edge. It said
+      // 'preset 1 all' and did nothing when clicked, which is a label
+      // pretending to be a control.
+      const x0 = L.head.x + listW - bare(painted).length - 3
+      hit.tags.push({ y: L.head.y, x0, x1: x0 + label.length, key: 'p' })
+      return painted
+    })(),
     // controls() gets what is LEFT after the state text, not the full width.
     // Handing it the whole width let the combined row overflow, and the pane
     // trims from the end — which is exactly where the pinned '? keys' and
