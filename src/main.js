@@ -29,10 +29,10 @@ export async function main({
     if (r.text) stdout.write(`${r.text}\n`)
     return exit(r.code)
   } catch (e) {
-    // Fail open. skein is advisory; a broken skein must never break the caller,
-    // and `skein hook` exits 0 on every path (PRD acceptance criterion 2).
+    // Fail open. skeins is advisory; a broken skeins must never break the caller,
+    // and `skeins hook` exits 0 on every path (PRD acceptance criterion 2).
     const isHook = argv.includes('hook')
-    if (!isHook) stderr.write(`skein: ${e.message}\n`)
+    if (!isHook) stderr.write(`skeins: ${e.message}\n`)
     return exit(isHook ? 0 : 1)
   }
 }

@@ -30,7 +30,7 @@ export function load() {
 }
 
 export function save(cache) {
-  // Best-effort. A cache we cannot write is a slow skein, never a broken one.
+  // Best-effort. A cache we cannot write is a slow skeins, never a broken one.
   try {
     mkdirSync(SKEIN_DIR, { recursive: true })
     const tmp = `${CACHE_FILE}.${process.pid}.tmp`

@@ -7,10 +7,10 @@ import { execFileSync } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 
 // URL.pathname yields '/D:/a/...' on Windows, which resolves to 'D:\D:\a\...'.
-const bin = fileURLToPath(new URL('../bin/skein.js', import.meta.url))
+const bin = fileURLToPath(new URL('../bin/skeins.js', import.meta.url))
 
 const fakeHome = () => {
-  const home = mkdtempSync(join(tmpdir(), 'skein-test-'))
+  const home = mkdtempSync(join(tmpdir(), 'skeins-test-'))
   mkdirSync(join(home, '.claude'), { recursive: true })
   mkdirSync(join(home, '.codex'), { recursive: true })
   mkdirSync(join(home, '.config', 'opencode'), { recursive: true })
@@ -19,7 +19,7 @@ const fakeHome = () => {
 // os.homedir() reads USERPROFILE on Windows and HOME elsewhere. Set both, or
 // these tests write into the real profile on one of the three platforms.
 //
-// And HOME alone is not enough, which CI proved: skein honours XDG_CONFIG_HOME
+// And HOME alone is not enough, which CI proved: skeins honours XDG_CONFIG_HOME
 // and CLAUDE_CONFIG_DIR now, the GitHub Ubuntu runner SETS XDG_CONFIG_HOME, and
 // the child inherited it -- so install correctly wrote the opencode plugin
 // outside the temporary home and the assertion looked in the wrong place. The
@@ -34,7 +34,7 @@ const install = home => execFileSync(process.execPath, [bin, 'install'], {
     XDG_DATA_HOME: join(home, '.local', 'share'),
     XDG_STATE_HOME: join(home, '.local', 'state'),
     CLAUDE_CONFIG_DIR: join(home, '.claude'),
-    SKEIN_HOME: join(home, '.skein'),
+    SKEIN_HOME: join(home, '.skeins'),
   },
   encoding: 'utf8',
 })
@@ -48,26 +48,26 @@ test('install never destroys a hook that was already there', () => {
   install(home)
   const cmds = commands(settings(home))
   assert.ok(cmds.includes('mine.sh'), 'existing hook survived')
-  assert.ok(cmds.includes('skein hook'), 'skein was added')
+  assert.ok(cmds.includes('skeins hook'), 'skeins was added')
 })
 
 test('install is idempotent', () => {
   const home = fakeHome()
   install(home)
   install(home)
-  assert.equal(commands(settings(home)).filter(c => c === 'skein hook').length, 1)
+  assert.equal(commands(settings(home)).filter(c => c === 'skeins hook').length, 1)
 })
 
 test('install backs up anything it edits', () => {
   const home = fakeHome()
   writeFileSync(join(home, '.claude', 'settings.json'), '{"model":"opus"}')
   install(home)
-  assert.ok(existsSync(join(home, '.claude', 'settings.json.skein-bak')))
+  assert.ok(existsSync(join(home, '.claude', 'settings.json.skeins-bak')))
   assert.equal(settings(home).model, 'opus', 'unrelated settings survive')
 })
 
 test('install skips agents that are not installed', () => {
-  const home = mkdtempSync(join(tmpdir(), 'skein-empty-'))
+  const home = mkdtempSync(join(tmpdir(), 'skeins-empty-'))
   const out = install(home)
   assert.match(out, /not installed — skipped/)
 })
@@ -76,5 +76,5 @@ test('all three agents get a session-start surface', () => {
   const home = fakeHome()
   install(home)
   assert.ok(existsSync(join(home, '.codex', 'hooks.json')))
-  assert.ok(existsSync(join(home, '.config', 'opencode', 'plugins', 'skein.js')))
+  assert.ok(existsSync(join(home, '.config', 'opencode', 'plugins', 'skeins.js')))
 })

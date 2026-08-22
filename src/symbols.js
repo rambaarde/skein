@@ -37,7 +37,8 @@ export const TIERS = {
 
 // Pick the tier the terminal can actually draw. A data lookup, not a branch.
 export function tierFor(env = process.env) {
-  if (env.SKEIN_TIER && TIERS[env.SKEIN_TIER]) return env.SKEIN_TIER
+  const tier = env.SKEINS_TIER ?? env.SKEIN_TIER
+  if (tier && TIERS[tier]) return tier
   const term = env.TERM ?? ''
   if (term === 'linux' || term === 'dumb' || !term) return 'tty'
   const utf8 = /UTF-?8/i.test(env.LC_ALL || env.LC_CTYPE || env.LANG || '')

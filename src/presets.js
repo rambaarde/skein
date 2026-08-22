@@ -13,7 +13,7 @@
 // point. A preset is not a zoom level; it is a decision about what you are not
 // looking at.
 //
-// skein's boxes are head (the strip and the project table), detail, feed, and
+// skeins's boxes are head (the strip and the project table), detail, feed, and
 // velocity (what landed, and how long it took to land).
 export const BOXES = ['head', 'detail', 'feed', 'velocity']
 export const SYMBOLS = ['default', 'braille', 'block', 'tty']
@@ -31,7 +31,7 @@ export const NAMES = ['all', 'watch', 'table', 'velocity']
 
 // Returns { ok: true, presets } or { ok: false, error } — never throws and
 // never silently drops an entry, because a preset that quietly vanishes reads
-// as skein being broken rather than as the config being wrong.
+// as skeins being broken rather than as the config being wrong.
 export function parse(str) {
   const presets = []
   const chunks = String(str ?? '').trim().split(/\s+/).filter(Boolean)

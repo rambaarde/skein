@@ -215,7 +215,7 @@ Q2  same repo, different branch, within an hour
 Q3  claude sessions with no pr-link
       ${claudeSessions.filter(s => !s.prLink).length} of ${claudeSessions.length}
 
-Blind spot (claude only) — edits skein would MISS
+Blind spot (claude only) — edits skeins would MISS
       tool edits (tracked)      ${toolEdits}
       bash-shaped edits         ${bashEdits}
 `)

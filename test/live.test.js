@@ -84,7 +84,7 @@ test('a moving average makes a line, not a scatter of spikes', () => {
 })
 
 test('running is not the same as writing', () => {
-  // skein said "0 sessions active - nothing is running" with an agent plainly
+  // skeins said "0 sessions active - nothing is running" with an agent plainly
   // running: it counted sessions that had WRITTEN A FILE recently, and an agent
   // reading or thinking appends to its transcript without touching the repo.
   const now = 1_000_000_000

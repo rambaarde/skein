@@ -2,7 +2,7 @@
 //
 // btop ships 36 themes as plain `theme[key]="#rrggbb"` files and the community
 // has written many more. Inventing a second format would mean asking people to
-// port palettes that already exist and already look good, so skein reads
+// port palettes that already exist and already look good, so skeins reads
 // btop's files unchanged: point it at any .theme and it works.
 //
 // btop is Apache-2.0; see NOTICE. Only the key vocabulary is adopted here —
@@ -71,10 +71,10 @@ export function parseTheme(text) {
 
 // The terminal's own colours, which is the default and the fallback for any key
 // a theme leaves out. main_bg empty means transparent — btop's convention, and
-// the reason skein never paints a surface it was not asked to paint.
+// the reason skeins never paints a surface it was not asked to paint.
 // btop paints a background out of the box — every theme it ships sets main_bg,
 // and that solid field is most of why it reads as one program rather than text
-// over a wallpaper. skein inherited the terminal by default and looked like the
+// over a wallpaper. skeins inherited the terminal by default and looked like the
 // latter through a translucent one, so the default is now opaque and
 // --transparent is the way back.
 const DEFAULT_BG = '\x1b[48;2;0;0;0m'
@@ -98,7 +98,7 @@ const INHERIT = {
   hi: fgOf('#e5b567'),          // keybind letters, so a control reads as pressable
   inactive: fgOf('#4d5666'),
   selBg: REV, selFg: '', surface: DEFAULT_BG,
-  // Per-pane outlines, btop's four box colours mapped onto skein's three.
+  // Per-pane outlines, btop's four box colours mapped onto skeins's three.
   box: fgOf('#3f4b5e'),
   boxHead: fgOf('#4fb3c8'),     // cpu: the headline
   boxDetail: fgOf('#7cb87c'),   // mem: the pane you inspect with
@@ -155,7 +155,7 @@ export function buildTheme(nameOrPath) {
     activity: grad('cpu_start', 'cpu_mid', 'cpu_end', INHERIT.activity),
     // temp_* runs cool→hot, which is what a collision heat line wants.
     heat: grad('temp_start', 'temp_mid', 'temp_end', INHERIT.heat),
-    // btop names one theme key per box; skein reads the same four and maps
+    // btop names one theme key per box; skeins reads the same four and maps
     // proc onto its long list, which is what proc is.
     boxHead: fg(t.cpu_box) ?? INHERIT.boxHead,
     boxDetail: fg(t.mem_box) ?? INHERIT.boxDetail,
@@ -201,7 +201,7 @@ export const fade = (colour, amount = 0.42) => {
 // Paint the theme's background through a line.
 //
 // btop looks solid because its themes set main_bg — "#1a1b26" for tokyo-night,
-// "#282a36" for dracula — and it fills with it. skein parsed that key from the
+// "#282a36" for dracula — and it fills with it. skeins parsed that key from the
 // first day and never used it, so a translucent terminal showed straight
 // through the panes.
 //

@@ -1,21 +1,21 @@
 #!/usr/bin/env node
-// Build a throwaway world for skein to look at.
+// Build a throwaway world for skeins to look at.
 //
-//   node tools/sandbox.mjs [dir]      default: ../skein-sandbox
-//   cd <dir> && ./skein               runs skein against the fixtures only
+//   node tools/sandbox.mjs [dir]      default: ../skeins-sandbox
+//   cd <dir> && ./skeins               runs skeins against the fixtures only
 //
-// skein resolves every agent store from the home directory, so the sandbox is
+// skeins resolves every agent store from the home directory, so the sandbox is
 // simply a fake HOME plus real git repositories. Nothing you own is read, and
 // there is no flag to get wrong — the isolation is the process environment.
 import { mkdirSync, writeFileSync, rmSync, chmodSync } from 'node:fs'
 import { join, dirname, resolve } from 'node:path'
 import { execFileSync } from 'node:child_process'
-// The same resolver skein reads with, so the world this builds and the world
-// skein looks for cannot drift apart. They already had once: this file
-// hardcoded ~/.local/share while skein had learned to honour XDG_DATA_HOME.
+// The same resolver skeins reads with, so the world this builds and the world
+// skeins looks for cannot drift apart. They already had once: this file
+// hardcoded ~/.local/share while skeins had learned to honour XDG_DATA_HOME.
 import { storesIn } from '../src/paths.js'
 
-const OUT = resolve(process.argv[2] ?? join(dirname(new URL(import.meta.url).pathname), '..', '..', 'skein-sandbox'))
+const OUT = resolve(process.argv[2] ?? join(dirname(new URL(import.meta.url).pathname), '..', '..', 'skeins-sandbox'))
 const HOME = join(OUT, 'home')
 const REPOS = join(OUT, 'repos')
 
@@ -48,8 +48,8 @@ const TITLES = [
 rmSync(OUT, { recursive: true, force: true })
 mkdirSync(HOME, { recursive: true })
 
-// Real git roots, because skein finds a project by walking up to a .git — and
-// real trunk HISTORY, because `skein velocity` reads what landed on the trunk.
+// Real git roots, because skeins finds a project by walking up to a .git — and
+// real trunk HISTORY, because `skeins velocity` reads what landed on the trunk.
 // One empty init commit made every fixture project look like it had shipped
 // once and never again, which is a poor thing to show and a worse thing to
 // test against.
@@ -158,7 +158,7 @@ for (const p of PROJECTS) {
 }
 
 // Two agents in atlas-api RIGHT NOW, minutes apart. Without this the sandbox
-// cannot demonstrate the flagship: `skein who` and `skein hook` are both scoped
+// cannot demonstrate the flagship: `skeins who` and `skeins hook` are both scoped
 // to the last thirty minutes, so a fixture whose newest edit is an hour old
 // shows an empty screen for the one feature that matters.
 {
@@ -228,12 +228,12 @@ for (const p of PROJECTS.slice(0, 3)) {
 }
 
 // ---- a runner, so nobody has to remember the env var ----------------------
-const runner = join(OUT, 'skein')
-const BIN = resolve(dirname(new URL(import.meta.url).pathname), '..', 'bin', 'skein.js')
+const runner = join(OUT, 'skeins')
+const BIN = resolve(dirname(new URL(import.meta.url).pathname), '..', 'bin', 'skeins.js')
 writeFileSync(runner, `#!/bin/sh
-# Runs skein against THIS sandbox only.
+# Runs skeins against THIS sandbox only.
 #
-# HOME alone is NOT enough, and that was a real hole. skein honours the
+# HOME alone is NOT enough, and that was a real hole. skeins honours the
 # variables the agents themselves honour -- XDG_DATA_HOME for opencode,
 # CLAUDE_CONFIG_DIR for Claude Code -- so on a machine that sets either, a
 # sandbox overriding only HOME would have read the user's own history while
@@ -241,30 +241,30 @@ writeFileSync(runner, `#!/bin/sh
 #
 # It runs the CHECKOUT this sandbox was seeded from, not whatever is installed
 # globally -- otherwise you test the last release while looking at your working
-# tree, which is a confusing hour. Set SKEIN_BIN to override.
+# tree, which is a confusing hour. Set SKEINS_BIN to override.
 export HOME="${HOME}"
 export XDG_DATA_HOME="${HOME}/.local/share"
 export XDG_CONFIG_HOME="${HOME}/.config"
 export XDG_STATE_HOME="${HOME}/.local/state"
 export CLAUDE_CONFIG_DIR="${HOME}/.claude"
-export SKEIN_HOME="${HOME}/.skein"
-BIN="\${SKEIN_BIN:-${BIN}}"
+export SKEIN_HOME="${HOME}/.skeins"
+BIN="\${SKEINS_BIN:-\${SKEIN_BIN:-${BIN}}}"
 if [ -f "$BIN" ]; then exec node "$BIN" "$@"; fi
-exec "$(command -v skein || echo skein)" "$@"
+exec "$(command -v skeins || echo skeins)" "$@"
 `)
 chmodSync(runner, 0o755)
-writeFileSync(join(OUT, 'README.md'), `# skein-sandbox
+writeFileSync(join(OUT, 'README.md'), `# skeins-sandbox
 
-A throwaway world for trying skein. **Nothing of yours is read.**
+A throwaway world for trying skeins. **Nothing of yours is read.**
 
-    ./skein              the TUI
-    ./skein ls           projects
-    ./skein collisions   the seeded collision
-    ./skein who          who else is in a repo
+    ./skeins              the TUI
+    ./skeins ls           projects
+    ./skeins collisions   the seeded collision
+    ./skeins who          who else is in a repo
 
 Regenerate at any time:
 
-    node ../skein/tools/sandbox.mjs
+    node ../skeins/tools/sandbox.mjs
 
 \`home/\` is a fake HOME holding fixture sessions for Claude Code, Codex and
 opencode. \`repos/\` holds real (empty) git repositories so project resolution
@@ -277,4 +277,4 @@ console.log(`sandbox: ${OUT}
   codex    3 sessions
   opencode 1 session
 
-run it:  cd ${OUT} && ./skein`)
+run it:  cd ${OUT} && ./skeins`)

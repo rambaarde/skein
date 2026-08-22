@@ -1,15 +1,15 @@
 #!/bin/sh
-# Prove skein works on Linux, on a Linux kernel, rather than assuming it.
+# Prove skeins works on Linux, on a Linux kernel, rather than assuming it.
 #
 #   sh tools/linux-check.sh
 #
-# Everything skein reads is a path, and every path assumption that is wrong is
+# Everything skeins reads is a path, and every path assumption that is wrong is
 # wrong silently: the screen is simply empty. A user on Linux reported exactly
 # that, and it could not be reproduced on the machine that wrote the code --
 # which is the whole argument for running this somewhere else.
 #
 # The container gets a DELIBERATELY HOSTILE environment: XDG_DATA_HOME and
-# CLAUDE_CONFIG_DIR pointed somewhere no default would ever put them. If skein
+# CLAUDE_CONFIG_DIR pointed somewhere no default would ever put them. If skeins
 # still finds the fixture world, its path handling is honouring the variables
 # rather than getting lucky on the defaults.
 set -e
@@ -37,7 +37,7 @@ docker run --rm --network=none \
     git config --global user.name fixture
 
     # The sandbox builds against the env it is run with, so the stores land in
-    # the same non-default places skein will look in.
+    # the same non-default places skeins will look in.
     node /repo/tools/sandbox.mjs /demo >/dev/null
 
     echo
@@ -47,11 +47,11 @@ docker run --rm --network=none \
     ls -d /demo/home/.codex/sessions      2>/dev/null && echo "  codex:    ~/.codex as documented"
 
     echo
-    echo "--- what skein reads back, run DIRECTLY against the hostile env ---"
-    echo "    (not through ./skein, which pins everything inside the sandbox)"
-    SKEIN_HOME=/demo/skein-state node /repo/bin/skein.js ls --since 30d
+    echo "--- what skeins reads back, run DIRECTLY against the hostile env ---"
+    echo "    (not through ./skeins, which pins everything inside the sandbox)"
+    SKEIN_HOME=/demo/skeins-state node /repo/bin/skeins.js ls --since 30d
 
     echo
     echo "--- and the metrics that need git ---"
-    SKEIN_HOME=/demo/skein-state node /repo/bin/skein.js velocity --all --since 30d | head -8
+    SKEIN_HOME=/demo/skeins-state node /repo/bin/skeins.js velocity --all --since 30d | head -8
   '

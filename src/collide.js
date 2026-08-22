@@ -1,12 +1,12 @@
 // Two agents in one file. The whole product (PRD §0.1).
 //
 // Advisory only: this module reports that an overlap happened. Nothing here
-// blocks, locks, claims or queues -- PRD D8, and the line that defines skein.
+// blocks, locks, claims or queues -- PRD D8, and the line that defines skeins.
 import { gitRoot } from './project.js'
 
 // Two agents can name one file differently and still mean the same file:
 // C:\repo\src\x.ts and C:/repo/src/x.ts, or Repo and repo on a
-// case-insensitive volume. Compared raw, that is a collision skein MISSES --
+// case-insensitive volume. Compared raw, that is a collision skeins MISSES --
 // the expensive direction. Canonicalise for comparison only; the path a user
 // sees is always the one their agent actually wrote.
 const WIN = process.platform === 'win32'
@@ -20,7 +20,7 @@ export const WINDOW_MIN = 30
 // A collision only counts if it is work. Logs, dependencies, build output and
 // scratch directories are not work.
 const NOISE = /(^|\/)(node_modules|\.git|dist|build|coverage|\.next|target|vendor)\//
-// An agent's own store is not project work. Without this, skein reports itself
+// An agent's own store is not project work. Without this, skeins reports itself
 // and its neighbours editing ~/.claude/projects and calls it a collision.
 const AGENT_INTERNALS = /\/(\.claude|\.codex)\/|\/\.local\/share\/opencode\//
 // A path that still contains a shell variable was never expanded — it came out

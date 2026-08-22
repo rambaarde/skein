@@ -2,7 +2,7 @@
 // Title inset into the TOP edge, secondary state inset into the BOTTOM edge,
 // superscript keybind markers in the corner. Costs no interior row.
 //
-// aps already does this, arrived at independently -- so skein inherits a house
+// aps already does this, arrived at independently -- so skeins inherits a house
 // style that agrees with btop.
 import { DIM, R, BOLD, THEME, paint } from './theme.js'
 
@@ -15,7 +15,7 @@ export const width = s => [...s.replace(/\x1b\[[0-9;]*m/g, '')].length
 //
 // This used to be `fit(inner.replace(/escapes/g, ''), room)` — strip every
 // escape, then cut. Table rows are built to fill the pane, so they overshoot by
-// a character or two and every one of them came out grey. That is why skein
+// a character or two and every one of them came out grey. That is why skeins
 // read as a colourless program next to btop while its borders were painted
 // perfectly: the colour was being generated and then thrown away one layer
 // before the screen.
