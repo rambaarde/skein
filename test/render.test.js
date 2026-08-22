@@ -205,7 +205,13 @@ test('controls hang off the border showing their current value', async () => {
   // glyphs: highlighted key, dim label, middle-dot separated.
   assert.match(plain, /s edits/, 'the sort tag should show the ACTIVE sort')
   assert.match(plain, /a 7d/, 'the window tag should show the ACTIVE window')
-  assert.match(plain, /\? keys/)
+  // btop pins ONE word on the border -- `menu` -- and everything else is
+  // behind it. skein pins that plus the way out, and lets '? keys' yield to
+  // the tags that state a current value when the border runs short.
+  assert.match(plain, /m menu/, 'the menu is pinned')
+  assert.match(plain, /q quit/, 'so is the way out')
+  const wide = render(state, { cols: 150, rows: 16 }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(wide, /\? keys/, 'and the shortcut comes back when there is room')
   assert.doesNotMatch(plain, /[┘└]/, 'no box-drawing brackets in the control row')
 })
 
@@ -1165,3 +1171,35 @@ test('a flat zero is a reading, not an empty chart', async () => {
   assert.match(drawn, /0% *┤/)
 })
 
+
+test('the menu stands in front of the dashboard, not instead of it', async () => {
+  // btop's pattern: one word on the border dims the whole screen and puts
+  // three large words in the middle of it. The dashboard has to still be
+  // there behind them -- a menu that replaces the screen reads as leaving.
+  const { render, MENU } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = name => ({
+    name, root: `/w/${name}`, sessions: 1, files: 1, agents: ['claude'], last: now,
+    events: [{ at: now - 3600_000, agent: 'claude', session: 's', path: `/w/${name}/f.ts`, project: `/w/${name}` }],
+  })
+  const frame = (menu, cols = 120, rows = 38) => render({
+    projects: [mk('alpha'), mk('beta')], events: [], sessions: new Map(), sel: 0,
+    expanded: new Set(), colls: [], tier: 'braille', since: now - 86_400_000, now,
+    lookback: '24h', windowMin: 30, tick: 0, sort: 'recent', filter: '',
+    onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: null, menu,
+  }, { cols, rows }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  const open = frame(0)
+  assert.match(open, /alpha/, 'the dashboard is still behind it')
+  // Five rows tall, so the words are shapes rather than text -- look for the
+  // block glyph the banner is made of.
+  assert.match(open, /█/, 'the words are drawn, not printed')
+  assert.match(open, /what every number on these screens counts/, 'the selection explains itself')
+  assert.match(frame(1), /every key, and what the mouse can reach/, 'and follows the cursor')
+
+  // A terminal too small for a banner still gets a menu, in plain letters.
+  const small = frame(2, 70, 20)
+  for (const [word] of MENU) assert.ok(small.includes(word), `${word} survives a small terminal`)
+  // The hint is not clipped mid-word by a ground sized to the words alone.
+  assert.match(small, /leave\. skein never started anything/)
+})
