@@ -70,13 +70,13 @@ uninstalled the first time it is wrong.
 │ EDITS/MIN                                                                            peak 1.0                        │
 │ 0.4                                                             ⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶⣶    ⣶ 15m window                      │
 │──────────────────────────────────────────────────────────────────────────────────────────────────────────────────────│
-│ PROJECT      AGENTS            SESS  FILES    TIME    SHARE  COLL ATTENTION (30d)                                LAST│
-│ ▸ atlas-api  claude+codex         8     75    2h46 ■■■·····     2 ⢈⡃⢙⢈⡃⣉⢘⡇⣈⢈⣁⣉⠈⣁⣋⢈⡁⣁⣈⡁⣃⣍⢈⡇⣙⠈⡁⢉⢘⣁⢙⢁⡏⡉⣘⣁⣙⢉⣉⣋⣈⢉⣋⣉     8s│
-│ ▸ atlas-web  claude+codex         5     61    2h09 ■■······     1 ⢀⡇⣉⢈⡁⣛⣀⡁⡝⠘⣀⣹⢨⣁⡙⢩⣏⣁⢛⡃⡃⣹⢀⡃⣽⢈⡃⣭⢘⡅⠙⣈⣅⣌⣭⣅⣉⢉⡉⣉⢈⢨⡉⣉     4m│
-│ ▸ checkout   claude               3     29     52m ■·······     · ⢠⡆⢠⢠ ⣸⣠⡄ ⢀⡆⡀⡀⡄⡄⣀⡀⡀⢀⢀⡆⢠⢠⡆⣠ ⡀⣤⢀ ⡄ ⡀⣀⣀⢀⢠⢰⢠⡀⢠⣠⡄⣰    22m│
-│ ▸ notify-svc codex+opencode       2     18     28m ■·······     · ⠀⡀⢈⢀⠃⠀⠘⡄⠀⠀⡀⠁⢀⡀⢁⠁⠀⡀⠘⠀⠀⠉⠈⡁⢀⠘⡀⢙⢀⡀⣈⠀⠀⢀⠀⠀⠀⠀⠀⠈⢀⡁⡁⢘     2h│
-│ ▸ docs-site  claude               2     12     16m ········     ·  ⡄  ⡆⢠ ⡄⢰ ⢠   ⢠  ⣧  ⣤⢠  ⢰ ⡄⣤  ⣤  ⡄  ⢰ ⡄⢠  ⣤⡆     9h│
-│ ▸ loose      claude+codex         7     40     42m ■·······     · ⠈⡅⡈⢀⠁⣨⢀⠀⡍⠀⡀⡀⡀⡁⠀⢀⠀⠁⠀⢈⠁⠘⠀⠀⡘⠈⠁⢙⣀⡁⢁⡈⣄⡉⣀⣠⡈⠈⣉⣨⠀⠀⡇⠀     1d│
+│ PROJECT      DOING                          AGENTS            SESS  FILES    TIME    SHARE  COLL ATTENTION (3…   LAST│
+│ ▸ atlas-api  Rotate the session expiry hea… claude+codex         8     75    2h46 ■■■·····     2 ⣟⣛⣟⣉⣛⣙⣿⣛⣛⣛⣛⣻⣛     8s│
+│ ▸ atlas-web  —                              claude+codex         5     61    2h09 ■■······     1 ⣉⣙⣙⣍⣹⣙⣍⣝⣍⣫⣍⣋⣍     4m│
+│ ▸ checkout   —                              claude               3     29     52m ■·······     · ⣦⣼⣄⣦⣤⣠⣶⣄⣦⣠⣤⣦⣶    22m│
+│ ▸ notify-svc —                              codex+opencode       2     18     28m ■·······     · ⣈⡋⣅⣁⡉⡘⢛⣘⣣⣁⠀⠈⣹     2h│
+│ ▸ docs-site  —                              claude               2     12     16m ········     · ⡄⣦⣴⡄⡄⡇⡆⣦⣦⣤⢰⣤⢸     9h│
+│ ▸ loose      —                              claude+codex         7     40     42m ■·······     · ⣏⣩⣉⣈⢀⢉⠃⡋⣛⣽⣬⣫⡇     1d│
 │                                                                                                                      │
 ╰─ 6 projects · 3 collisions · 30d · by recent  ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ──────────╯
 ╭─ atlas-api — what an agent is told here² ──────╮╭─ activity³ ───────────────────────────────────────── newest first ─╮
