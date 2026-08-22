@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.20.0](https://github.com/rambaarde/skein/compare/v0.19.1...v0.20.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** velocity — what landed, and how long it took ([ffd15fd](https://github.com/rambaarde/skein/commit/ffd15fd6cd4e65a9e209c0e0ad1b0e44e575c2c4))
+* **tui:** velocity — what landed, and how long it took ([#62](https://github.com/rambaarde/skein/issues/62)) ([5bc8c0d](https://github.com/rambaarde/skein/commit/5bc8c0d48bd6c62c6ca9a1e30bb18ea7790dd285))
+
 ## [0.19.1](https://github.com/rambaarde/skein/compare/v0.19.0...v0.19.1) (2026-08-22)
 
 
