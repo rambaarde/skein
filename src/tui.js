@@ -144,6 +144,23 @@ export function render(state, size) {
   // reached, rounded to something recognisable. Observed, so it self-corrects
   // when the window changes — a hardcoded limit would quietly go wrong.
   const ceiling = highWater(state.sessions ?? new Map())   // fallback, per-session limits win
+
+  // The hit map is established at the top, before anything can draw.
+  //
+  // It, `clock` and the width helper were each declared next to their first
+  // heavy use, and each one in turn threw "cannot access before initialization"
+  // once a second screen started drawing earlier in the function. Four of these
+  // in this file now. Things every drawing path needs are set up here, once,
+  // above all of them.
+  //
+  // Filled while drawing rather than recomputed in the input handler, because
+  // the layout decides row positions at render time and two computations of the
+  // same geometry drift.
+  const hit = state.hit ?? (state.hit = mouse.hits())
+  hit.rows.length = 0
+  hit.tags.length = 0
+  hit.feed.length = 0
+  hit.tabs.length = 0
   // The fullest session, by FRACTION rather than by token count. Ceilings
   // differ per agent — Codex states 258k, Claude runs to 1M — so the largest
   // absolute number is not the one nearest to compacting.
@@ -177,7 +194,11 @@ export function render(state, size) {
   // a screen. Enter or a click opens it, esc closes it, and it reuses the same
   // helpers as the list so the two cannot disagree about what a number means.
   function projectPage(p) {
-    const m = metaOf(p)
+    // The no-repo bucket is unrelated work sharing a row, so a branch picked
+    // from whichever session happened to be first states something untrue about
+    // every other session in it. The list already knew this; the page did not,
+    // and titled the bucket "not in a repo — develop".
+    const m = p.root ? metaOf(p) : { branch: null, doing: null }
     const A = layout.page ? null : null
     // Geometry: a tall headline with the graph, then three boxes across, then
     // collisions along the bottom if there are any.
@@ -266,8 +287,34 @@ export function render(state, size) {
     const panes = [
       { rect: rects.head, lines: pane(rects.head, {
         title: `${p.name}${m.branch ? ` — ${m.branch}` : ''}`, key: SUP[0], line: THEME.boxHead,
-        right: `${DIM}esc to go back${R}  ${clock}`,
-        state: `${stats}  ${tag('esc', 'back')}${TAG_SEP}${tag('tab', 'panes')}${TAG_SEP}${tag('q', 'quit')}`,
+        right: (() => {
+          const label = '← back'
+          const painted = `${THEME.hi}${label}${R}  ${DIM}${clock}${R}`
+          const x0 = rects.head.x + rects.head.w - width(painted) - 3
+          hit.tags.push({ y: rects.head.y, x0, x1: x0 + label.length, key: '\x1b' })
+          return painted
+        })(),
+        state: (() => {
+          // The page said 'esc back' and did nothing when clicked — the same
+          // inert-label problem as the preset. There is no keyboard-free way
+          // out of a full screen otherwise.
+          const parts = [
+            { key: '\x1b', label: 'back', glyph: 'esc' },
+            { key: '\t', label: 'panes', glyph: 'tab' },
+            { key: 'q', label: 'quit', glyph: 'q' },
+          ]
+          const y = rects.head.y + rects.head.h - 1
+          let at = 3 + width(stats) + 2
+          const out = []
+          for (const c of parts) {
+            const s = tag(c.glyph, c.label)
+            const len = width(s)
+            hit.tags.push({ y, x0: rects.head.x + at, x1: rects.head.x + at + len, key: c.key })
+            at += len + width(TAG_SEP)
+            out.push(s)
+          }
+          return `${stats}  ${out.join(TAG_SEP)}`
+        })(),
         rows,
       }) },
       { rect: rects.agents, lines: pane(rects.agents, { title: 'agents', line: THEME.boxDetail, rows: agentRows,
@@ -359,7 +406,6 @@ export function render(state, size) {
   // escape hatches are PINNED. Adding one control used to push '? keys' off the
   // end, which is precisely backwards: the least discoverable thing on screen
   // is how to get help and how to get out, so those are the last to go.
-  const bare = s => s.replace(/\x1b\[[0-9;]*m/g, '')
   const controls = w => {
     // The GLYPH shown and the KEY sent are not the same thing. Making the tags
     // clickable, I set expand's glyph to the key it dispatches — '\r' — so a
@@ -382,7 +428,7 @@ export function render(state, size) {
       mk('/', state.filter || 'filter'),
       mk('c', state.onlyColliding ? 'colliding' : 'all'),
     ]
-    const plain = bare
+    const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '')
     const sepW = plain(TAG_SEP).length
     let used = pinned.reduce((n, s) => n + plain(s).length, 0) + sepW
     const keep = []
@@ -559,11 +605,6 @@ export function render(state, size) {
 
   // Hit map: filled while drawing, because the layout decides row positions at
   // render time and recomputing them in the input handler is how the two drift.
-  const hit = state.hit ?? (state.hit = mouse.hits())
-  hit.rows.length = 0
-  hit.tags.length = 0
-  hit.feed.length = 0
-  hit.tabs.length = 0
   // Scroll a window of exactly tableBudget rows, keeping the selection inside
   // it. The old slice was sized off listH and so ignored the strip entirely,
   // which is how the graph came to be squeezed out by a long project list.
@@ -656,7 +697,7 @@ export function render(state, size) {
       // text starts at w - width(right) - 3 from the box's left edge. It said
       // 'preset 1 all' and did nothing when clicked, which is a label
       // pretending to be a control.
-      const x0 = L.head.x + listW - bare(painted).length - 3
+      const x0 = L.head.x + listW - width(painted) - 3
       hit.tags.push({ y: L.head.y, x0, x1: x0 + label.length, key: 'p' })
       return painted
     })(),
@@ -668,11 +709,11 @@ export function render(state, size) {
     // that quietly ends at row nine reads as "you have nine projects".
     state: (() => {
       const s = hidden > 0 ? `${headState}${DIM} · ${hidden} more below${R}` : headState
-      const c = controls(Math.max(18, listW - bare(s).length - 8))
+      const c = controls(Math.max(18, listW - width(s) - 8))
       // box() lays the bottom border out as ╰ ─ ' ' state ' ' … so the state
       // text begins three columns in. Every tag's absolute position follows
       // from that plus its offset within the row.
-      const originX = L.head.x + 3 + bare(s).length + 2
+      const originX = L.head.x + 3 + width(s) + 2
       const y = L.head.y + L.head.h - 1
       for (const sp of c.spans) {
         if (sp.key) hit.tags.push({ y, x0: originX + sp.x0, x1: originX + sp.x1, key: sp.key })
@@ -896,13 +937,35 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     return changed
   }
 
-  const draw = () => {
+  // Every interactive variable, in one place.
+  //
+  // draw() used to copy six of them and silently omit page, tab, preset and
+  // feedTop. Those are set by a keypress or a click and then rendered from the
+  // STALE state — so the new screen only appeared when reload() next rebuilt
+  // state from scratch, up to a poll interval later. That is the whole of
+  // "nothing happens when I click" and "it takes about two seconds": the work
+  // was instant, the result just was not on screen yet.
+  //
+  // Listing them here rather than at each call site is the point. The bug was
+  // an omission, and an omission repeats every time a new piece of state is
+  // added unless there is exactly one place to add it.
+  const sync = () => {
     state.sel = sel
     state.now = now()
     state.tick = tick
     state.help = help
     state.filter = filter
     state.focus = focus
+    state.preset = preset
+    state.tab = tab
+    state.feedTop = feedTop
+    state.page = page
+    state.onlyColliding = onlyColliding
+    state.sort = SORTS[sortIdx].label
+  }
+
+  const draw = () => {
+    sync()
     stdout.write(CLEAR + render(state, { cols: stdout.columns || 100, rows: stdout.rows || 30 }))
   }
 
@@ -995,10 +1058,12 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
         const row = mouse.hitRow(state.hit ?? { rows: [], tags: [] }, ev.y)
         if (row !== null) {
           focus = null
-          // Clicking the row you are on opens it. It used to expand inline,
-          // which is what the page replaces.
-          if (row === sel) { page = current()?.root ?? current()?.name ?? null; draw(); return }
+          // ONE click opens it. Requiring a click to select and a second to
+          // open meant the first click did nothing you could see, which is
+          // indistinguishable from the mouse not working at all.
           sel = row
+          const target = state.projects[row]
+          if (target) { page = target.root ?? target.name; focus = null }
         }
       }
       draw()

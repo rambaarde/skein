@@ -804,3 +804,89 @@ test('a project opens its own page, not two inline rows', async () => {
   const missing = render({ ...base, page: '/w/nope' }, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
   assert.match(missing, /activity/)
 })
+
+test('a keypress is on screen in the next frame, not the next poll', async () => {
+  // draw() copied six interactive variables into state and silently omitted
+  // page, tab, preset and feedTop. Those are set by a keypress or a click and
+  // then rendered from the STALE state, so the new screen only appeared when
+  // reload() next rebuilt state — up to a poll interval later. That is the
+  // whole of "nothing happens when I click" and "it takes about two seconds".
+  const { start } = await import('../src/tui.js')
+  const { PassThrough } = await import('node:stream')
+  const out = []
+  const stdout = new PassThrough(); stdout.columns = 140; stdout.rows = 42
+  stdout.on('data', d => out.push(String(d)))
+  const stdin = new PassThrough(); stdin.isTTY = true; stdin.setRawMode = () => {}
+  start({ stdout, stdin })
+  await new Promise(r => setTimeout(r, 250))
+
+  const frame = () => String(out[out.length - 1] ?? '').replace(/\x1b\[\??[0-9;]*[A-Za-z]/g, '')
+  const before = out.length
+
+  // Every one of these must change the very next frame written. Tab first:
+  // the 'watch' preset drops the detail pane, so switching preset before tab
+  // would test the tab bar on a screen that no longer has one.
+  stdin.write('\t')
+  assert.ok(out.length > before, 'a keypress paints immediately')
+  assert.match(frame(), /files {2}collisions/, 'and the new tab is what got drawn')
+
+  stdin.write('\r')
+  assert.match(frame(), /esc back/, 'enter opens the page in the same frame')
+
+  stdin.write('\x1b')
+  assert.match(frame(), /activity/, 'and esc comes straight back')
+
+  stdin.write('p')
+  assert.match(frame(), /preset 2 watch/, 'preset switches in the same frame')
+  // Deliberately NOT pressing q: quit() calls process.exit(0), which ends the
+  // whole run and silently drops every test after this one. The count goes
+  // down and nothing reports a failure.
+})
+
+test('one click opens a project, and there is a way back without the keyboard', async () => {
+  const { render } = await import('../src/tui.js')
+  const { hitTag } = await import('../src/mouse.js')
+  const now = 1_700_000_000_000
+  const mk = (name, root) => ({ name, root, sessions: 1, files: 1, agents: ['claude'],
+    attention: 60_000, last: now, events: [{ at: now, agent: 'claude', path: `${root}/x.ts`, session: 's' }] })
+  const state = {
+    projects: [mk('a', '/w/a'), mk('b', '/w/b')], sessions: new Map(), sel: 0,
+    expanded: new Set(), colls: [], events: [],
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: '/w/a',
+  }
+  const raw = render(state, { cols: 140, rows: 42, now })
+  const lines = raw.replace(/\x1b\[[0-9;]*m/g, '').split('\n')
+
+  // A full screen with no visible exit is a trap for anyone using the mouse.
+  const backs = state.hit.tags.filter(t => t.key === '\x1b')
+  assert.ok(backs.length >= 2, 'both the top-right and the border offer a way out')
+  for (const t of backs) {
+    assert.equal(hitTag(state.hit, t.x0, t.y), '\x1b')
+    // Every region must sit on the label it claims — checked against ITS OWN
+    // row, which is the part I got wrong while verifying this by hand.
+    assert.match(lines[t.y].slice(t.x0, t.x1), /back/)
+  }
+})
+
+test('the no-repo bucket claims no branch, on the page as well as the list', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = 1_700_000_000_000
+  const loose = {
+    name: 'not in a repo', root: null, sessions: 2, files: 2, agents: ['claude'],
+    attention: 60_000, last: now,
+    events: [{ at: now, agent: 'claude', path: '/tmp/x.ts', session: 's1' },
+             { at: now - 1000, agent: 'claude', path: '/tmp/y.ts', session: 's2' }],
+  }
+  const state = {
+    projects: [loose], sessions: new Map([['s1', { agent: 'claude', branch: 'develop', title: 'unrelated' }]]),
+    sel: 0, expanded: new Set(), colls: [], events: loose.events,
+    tier: 'braille', since: now - 86400e3, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: 'not in a repo',
+  }
+  const page = render(state, { cols: 140, rows: 42, now }).replace(/\x1b\[[0-9;]*m/g, '')
+  // Unrelated work sharing a row: a branch from whichever session came first
+  // says something untrue about every other session in the bucket.
+  assert.doesNotMatch(page.split('\n')[0], /develop/, 'the title must not borrow a branch')
+  assert.match(page.split('\n')[0], /not in a repo/)
+})
