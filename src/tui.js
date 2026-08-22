@@ -12,6 +12,7 @@ import { LUT, hue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width } from './box.js'
 import { layout, compose } from './layout.js'
 import * as mouse from './mouse.js'
+import { highWater, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, WINDOW_MS } from './live.js'
@@ -128,6 +129,18 @@ export function render(state, size) {
   // Declared here, above the column plan, because the plan asks whether these
   // vary between rows before deciding whether to draw them.
   const att = x => x.attention ?? attentionOf(x.events ?? [])
+  // The scale is whatever the busiest session on this machine has actually
+  // reached, rounded to something recognisable. Observed, so it self-corrects
+  // when the window changes — a hardcoded limit would quietly go wrong.
+  const ceiling = highWater(state.sessions ?? new Map())
+  const ctxOf = x => {
+    let most = 0
+    for (const id of new Set((x.events ?? []).map(e => e.session))) {
+      most = Math.max(most, state.sessions?.get(id)?.context ?? 0)
+    }
+    return most
+  }
+
   const metaOf = x => {
     const seen = [...new Map((x.events ?? []).map(e => [e.session, e])).values()]
       .sort((a, b) => b.at - a.at)
@@ -159,6 +172,9 @@ export function render(state, size) {
       ['time', 7, true],
       ['share', 8, true],
       ['collisions', 5, colls.length > 0],
+      // The fuel gauge: how full the fullest session in this project is. Shown
+      // only when the agents actually report it.
+      ['ctx', 13, projects.some(x => ctxOf(x) > 0)],
       ['files', 6, true],
       ['sessions', 5, varies(x => x.sessions)],
     ].filter(([, , keep]) => keep).map(([k, w]) => [k, w])
@@ -218,6 +234,7 @@ export function render(state, size) {
     if (plan.on.has('time')) s.push(' ', fit(c.time, 7))
     if (plan.on.has('share')) s.push(' ', fit(c.share, 8))
     if (plan.on.has('collisions')) s.push(' ', fit(c.colls, 5))
+    if (plan.on.has('ctx')) s.push(' ', fit(c.ctx, 13))
     if (gw > 0) s.push(' ', c.activity, ' ', fit(c.busiest, 5))
     s.push(' ', fit(c.last, 6))
     return s.join('')
@@ -271,7 +288,7 @@ export function render(state, size) {
     headRows.push(`${DIM}${'─'.repeat(Math.max(0, listW - 2))}${R}`)
   }
 
-  headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
+  headRows.push(`${DIM}${cells({ name: 'PROJECT', branch: 'BRANCH', doing: 'DOING', agents: 'AGENTS', sessions: ' SESS', files: ' FILES', time: '   TIME', share: '   SHARE', colls: ' COLL', ctx: '  CONTEXT', activity: fit('ATTN', gw), busiest: ' PEAK', last: '  LAST' })}${R}`)
   const totalTime = Math.max(1, projects.reduce((a, x) => a + att(x), 0))
 
   // Hit map: filled while drawing, because the layout decides row positions at
@@ -315,6 +332,13 @@ export function render(state, size) {
       time: humanMs(att(p)).padStart(7),
       share: meter(att(p) / totalTime, 8, LUT.activity),
       colls: mine ? `${LUT.heat[90]}${String(mine).padStart(5)}${R}` : `${DIM}${'·'.padStart(5)}${R}`,
+      ctx: (() => {
+        const c = ctxOf(p)
+        if (!c) return `${DIM}${'·'.padStart(13)}${R}`
+        const frac = Math.min(1, c / ceiling)
+        // Hot as it fills: a full window is about to compact and lose the thread.
+        return `${meter(frac, 6, LUT.heat)} ${LUT.heat[Math.round(frac * 100)]}${humanTokens(c).padStart(6)}${R}`
+      })(),
       activity: `${spark}${R}`,
       // The busiest bucket as a share of its own span — a real percentage, the
       // way btop's cores read, so a spike carries a value and not just a shape.
@@ -374,7 +398,11 @@ export function render(state, size) {
       detailRows_.push(` ${BOLD}${others.length} other agent${others.length === 1 ? '' : 's'} active in this repo${R}`)
       for (const o of others.slice(0, Math.max(1, detailH - 5 - Math.min(3, collsHere.length)))) {
         const verb = o.kind === 'add' ? 'added' : o.kind === 'delete' ? 'deleted' : 'editing'
-        detailRows_.push(`   ${hue(o.agent)}${fit(o.agent, 9)}${R}${DIM}${fit(verb, 8)}${R}${fit(short(o.path, p.root), iw)}${DIM}${ago(o.at, now).padStart(5)}${R}`)
+        const sc = state.sessions?.get(o.session)?.context ?? 0
+        const gauge = sc
+          ? ` ${LUT.heat[Math.round(Math.min(1, sc / ceiling) * 100)]}${humanTokens(sc)}${R}`
+          : ''
+        detailRows_.push(`   ${hue(o.agent)}${fit(o.agent, 9)}${R}${DIM}${fit(verb, 8)}${R}${fit(short(o.path, p.root), Math.max(6, iw - 7))}${gauge}${DIM}${ago(o.at, now).padStart(5)}${R}`)
       }
     } else {
       // Silence is the correct answer when nobody else is here (PRD Q7), and
