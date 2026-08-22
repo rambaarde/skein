@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.4.0](https://github.com/rambaarde/skein/compare/v0.3.1...v0.4.0) (2026-08-22)
+
+
+### Features
+
+* **theme:** read btop's theme files, unmodified ([#6](https://github.com/rambaarde/skein/issues/6)) ([f01b42e](https://github.com/rambaarde/skein/commit/f01b42eea5ed07545fbe7ff24279756074d44c57))
+
 ## [0.3.1](https://github.com/rambaarde/skein/compare/v0.3.0...v0.3.1) (2026-08-22)
 
 
