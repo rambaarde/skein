@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.25.0](https://github.com/rambaarde/skein/compare/v0.24.1...v0.25.0) (2026-08-22)
+
+
+### Features
+
+* **tui:** the velocity chart plots change failure rate, not landings ([66c6098](https://github.com/rambaarde/skein/commit/66c6098c948359fee34ac2811ae460170e9cf06a))
+* **tui:** the velocity chart plots change failure rate, not landings ([#91](https://github.com/rambaarde/skein/issues/91)) ([9f3f88a](https://github.com/rambaarde/skein/commit/9f3f88a1bf76d654b2fba3135b7ad84d608e3e30))
+
 ## [0.24.1](https://github.com/rambaarde/skein/compare/v0.24.0...v0.24.1) (2026-08-22)
 
 
