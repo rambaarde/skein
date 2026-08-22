@@ -66,14 +66,14 @@ uninstalled the first time it is wrong.
 ## The dashboard, which is the other half
 
 ```
-╭─ skein¹ ─────────────────────────────────────────────────────────────────────────────────────╮
+╭─ skein¹ ──────────────────────────────────────────────────────────────────────── 22:20:00 ⠸ ─╮
 │ PROJECT               AGENTS            SESS  FILES  EDITS ACTIVITY (30d)                LAST│
-│ atlas-api             claude+codex         8     75    314 ⣼⣴⣴⣴⣶⣤⣆⡆⣦⣦⣦⣤⣦⣶⣼⣼⣴⣴⣦⣴⣷⣄⣦⣧⣶⣶⣴⣦    8s│
-│ atlas-web             claude+codex         5     61    249 ⣸⣴⣤⣦⣤⣦⣆⣇⣦⣤⣧⣤⣧⣼⣰⣼⣴⣤⣴⣤⣦⣦⣧⣦⣦⣤⣰⣰    4m│
-│ checkout              claude               3     29     97 ⢸⢰⡆⣴⣦ ⣦⣤⣦⣤⡄⡄⣴⢰⣴⢰⢠⣤⡄⡆⡄⣤⣤⣶⣤⣤⣴⣼   22m│
-│ notify-svc            codex+opencode       2     18     55 ⢰⢰⣴ ⣶ ⡆⡄⣦⣤⢠ ⡆⢰⣴⢠⣴⣴⣤⣦ ⡄   ⡄⣶⣼    2h│
-│ docs-site             claude               2     12     32 ⢠ ⢰⢠⢠⡆⢠  ⡄ ⡇ ⣦ ⢰⢠⣤ ⣤ ⡄ ⡆⡄⡄ ⣶    9h│
-│ loose                 claude+codex         7     40     89 ⣰⣀⣀⣠⡀⡆⡀⣀⡄ ⣀⡀⢰⢠ ⣠⣀⣰⣤⣄⣆⣆⣤⣄⣤⡆⢸     1d│
+│ ▸ atlas-api           claude+codex         8     75    314 ⣼⣴⣴⣴⣶⣤⣆⡆⣦⣦⣦⣤⣦⣶⣼⣼⣴⣴⣦⣴⣷⣄⣦⣧⣶⣶⣴⣦    8s│
+│ ▸ atlas-web           claude+codex         5     61    249 ⣸⣴⣤⣦⣤⣦⣆⣇⣦⣤⣧⣤⣧⣼⣰⣼⣴⣤⣴⣤⣦⣦⣧⣦⣦⣤⣰⣰    4m│
+│ ▸ checkout            claude               3     29     97 ⢸⢰⡆⣴⣦ ⣦⣤⣦⣤⡄⡄⣴⢰⣴⢰⢠⣤⡄⡆⡄⣤⣤⣶⣤⣤⣴⣼   22m│
+│ ▸ notify-svc          codex+opencode       2     18     55 ⢰⢰⣴ ⣶ ⡆⡄⣦⣤⢠ ⡆⢰⣴⢠⣴⣴⣤⣦ ⡄   ⡄⣶⣼    2h│
+│ ▸ docs-site           claude               2     12     32 ⢠ ⢰⢠⢠⡆⢠  ⡄ ⡇ ⣦ ⢰⢠⣤ ⣤ ⡄ ⡆⡄⡄ ⣶    9h│
+│ ▸ loose               claude+codex         7     40     89 ⣰⣀⣀⣠⡀⡆⡀⣀⡄ ⣀⡀⢰⢠ ⣠⣀⣰⣤⣄⣆⣆⣤⣄⣤⡆⢸     1d│
 │                                                                                              │
 │                                                                                              │
 │                                                                                              │
@@ -81,7 +81,7 @@ uninstalled the first time it is wrong.
 │                                                                                              │
 │                                                                                              │
 │                                                                                              │
-╰─ 6 projects · 3 collisions · 30d ⠸ ──────────────────────────────────────────────────────────╯
+╰─ 6 projects · 3 collisions · 30d · by recent ────────────────────────────────────────────────╯
 ╭─ atlas-api² ─────────────────────────────────────────────────────────────────────────────────╮
 │ claude    main             Rotate the session expiry hea…  ⢰ ⢠⢠⣶⢠⡄ ⣤⣦⡄ ⡄⡄⣴⢰⣴⣤⣦⣤⣤⡄⣷⡇⣤⡄⣤⣧    8s│
 │ codex     feat/rate-limit  Add rate limiting to /auth      ⢻⠘⠛⠃⠛⠛⠘ ⠟⠸⠟⠃⠇⠟⠸⠛ ⠸⠃⠘⠇ ⠛⠃⠘⡇⠘⠛   19m│
@@ -89,7 +89,7 @@ uninstalled the first time it is wrong.
 │ · src/auth/session.ts                       claude/codex           20m apart, 40m ago        │
 │ · src/mod47.ts                              codex/codex            10m apart, 9d ago         │
 │                                                                                              │
-╰─ ↑↓ move · a all · w window 30m · q quit ────────────────────────────────────────────────────╯
+╰─ ┘⏎ expand└┘s recent└┘/ filter└┘a 30d└┘c all└┘? keys└┘q quit└ ───────────────────────────────╯
 ```
 
 <p align="center"><em>A demo dataset — <code>node docs/demo-frame.mjs</code> regenerates it.<br>
@@ -100,7 +100,24 @@ roster carries per-agent hue. Both conventions come from
 [btop](https://github.com/aristocratos/btop), and the braille table is asserted
 identical to btop's, character for character.
 
-`↑↓` move · `a` cycle the window · `w` collision window · `r` refresh · `q` quit
+`↑↓` move · `⏎` expand a project into its sessions · `s` sort · `/` filter ·
+`a` window · `c` collisions only · `?` all keys · `q` quit
+
+It redraws every two seconds while work is landing, and backs off to sixteen
+when nothing changes — **0.11% of one core idle**, measured over thirty seconds.
+The pulse in the border slows with it, so a lazy pulse means a quiet machine
+rather than a stalled program.
+
+### Try it without showing it your history
+
+```sh
+node tools/sandbox.mjs
+cd ../skein-sandbox && ./skein
+```
+
+That builds a throwaway world — five git repositories, fixture sessions for all
+three agents, and one deliberate collision — and runs skein against a fake
+`HOME`, so none of your own work is read. Delete the folder when you are done.
 
 ---
 

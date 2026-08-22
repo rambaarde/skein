@@ -50,7 +50,9 @@ test('render fits the terminal it is given and never wraps', () => {
     sessions: new Map(), sel: 0, expanded: new Set(), colls: [], tier: tierFor(),
     since: Date.now() - 86_400_000, now: Date.now(), lookback: '24h', windowMin: 30,
   }
-  for (const cols of [60, 80, 120, 200]) {
+  // Expanded, filtered and collision states all add rows the plain case does
+  // not: the geometry has to hold in every one of them, not just at rest.
+  for (const cols of [60, 70, 80, 96, 120, 200]) {
     const lines = render(state, { cols, rows: 20 }).split('\n')
     assert.equal(lines.length, 20, `rows at ${cols}`)
     for (const l of lines) {
@@ -78,4 +80,32 @@ test('D13 — both doors count the same things', async () => {
 test('an empty result says what it was scoped to', () => {
   const r = run(['collisions', '--since', '1m'], { cwd: process.cwd(), tty: false })
   assert.match(r.text, /0 collisions/)
+})
+
+test('geometry holds when a project is expanded', async () => {
+  // It did not: the nested session row budgeted two columns too many, so the
+  // right border stepped out one place every time you pressed enter.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [{ session: 's1', at: now, agent: 'claude', path: '/r/a.ts', kind: 'edit', project: '/r' }]
+  const state = {
+    projects: [{ name: 'atlas-web', root: '/r', agents: ['claude'], sessions: 1, files: 4, events, last: now }],
+    sessions: new Map([['s1', { agent: 'claude', branch: 'main', title: 'Fix the flaky cart test', first: 0, last: now }]]),
+    sel: 0, expanded: new Set(['/r']), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+  }
+  for (const cols of [60, 70, 80, 96, 120, 200]) {
+    for (const l of render(state, { cols, rows: 20 }).split('\n')) {
+      const plain = l.replace(/\x1b\[[0-9;]*m/g, '')
+      assert.equal([...plain].length, Math.max(50, cols), `expanded row at ${cols} cols`)
+    }
+  }
+})
+
+test('a row can never push the border off the frame', async () => {
+  const { box, width } = await import('../src/box.js')
+  const b = box({ w: 40, title: 't', state: 's' })
+  const huge = 'x'.repeat(200)
+  assert.equal(width(b.row(huge)), 40, 'an over-long row must be truncated, not overflow')
+  assert.equal(width(b.row('')), 40, 'an empty row must still be padded')
 })
