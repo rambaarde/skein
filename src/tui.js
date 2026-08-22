@@ -18,7 +18,7 @@ import { highWater, limitOf, humanTokens } from './context.js'
 import { ago, short, trunc } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
-import { chart, niceMax, STYLES, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
+import { chart, niceMax, smooth, smoothing, STYLES, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -236,7 +236,7 @@ export function render(state, size) {
         const ev = (p.events ?? []).filter(e => e.agent === a)
         return {
           label: a,
-          values: attentionSeries(ev, Math.max(1, gwP - VALWP), since, now).map(ms => ms / bucketP),
+          values: smooth(attentionSeries(ev, Math.max(1, gwP - VALWP), since, now).map(ms => ms / bucketP), smoothing(gwP - VALWP)),
           total: attentionOf(ev),
           agent: a,
         }
@@ -252,7 +252,7 @@ export function render(state, size) {
         color: hue(s.agent) || lineHue(i),
         value: humanMs(s.total),
       }))
-    const scaleP = niceMax(Math.max(0.05, ...perAgentLines.flatMap(s => s.values)))
+    const scaleP = niceMax(Math.max(0.002, ...perAgentLines.flatMap(s => s.values)))
     const rows = perAgentLines.length
       ? chart(perAgentLines, { width: gwP, rows: rowsP, max: scaleP, since, now, lead: 6, pad: VALWP, caption: `attention · ${lookback}` })
       : [` ${DIM}no activity in ${lookback}${R}`]
@@ -546,7 +546,12 @@ export function render(state, size) {
   // Below the minimum the chart is dropped outright rather than drawn two rows
   // tall. Six lines crossing in two rows is not a smaller chart, it is a
   // smudge, and the table is the thing worth keeping in a short terminal.
-  const graphRows = room <= CHART_MIN + 1
+  //
+  // The threshold is the floor itself, not the floor plus one: at exactly
+  // CHART_MIN + 1 rows of room there IS a chart to draw and a row for the
+  // table, and dropping it there left the headline padding out blank rows
+  // instead — which is what the layout is meant never to do.
+  const graphRows = room <= CHART_MIN
     ? 0
     : Math.max(CHART_MIN, Math.min(CHART_MAX, room - wantTable))
   // What the table can actually show. Rows beyond this are counted in the
@@ -583,9 +588,12 @@ export function render(state, size) {
       value: humanMs(att(x)),
       // Attention landing in each slice, as a fraction of the slice. A project
       // worked straight through a bucket reads 100%.
-      values: attentionSeries(x.events ?? [], Math.max(1, gwChart - VALW), since, now).map(ms => ms / bucketMs),
+      values: smooth(attentionSeries(x.events ?? [], Math.max(1, gwChart - VALW), since, now).map(ms => ms / bucketMs), smoothing(gwChart - VALW)),
     } : { label: x.name, marker: '', color: '', values: [] }))
-    const scale = niceMax(Math.max(0.05, ...chartSeries.flatMap(s => s.values)))
+    // The floor is small on purpose. At 0.05 a thirty-day window — where a
+    // six-hour slice is rarely more than one percent worked — was pinned to a
+    // 5%% ceiling, so every line lay along the bottom under nine empty rows.
+    const scale = niceMax(Math.max(0.002, ...chartSeries.flatMap(s => s.values)))
     headRows.push(...chart(chartSeries, {
       width: gwChart, rows: graphRows, max: scale, since, now, lead: 6, pad: VALW,
       caption: `attention · ${lookback}`,
