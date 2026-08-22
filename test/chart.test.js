@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { plot, chart, legend, xaxis, axisLine, niceMax, smooth, smoothing, STYLES, MARKERS, MAX_SERIES, BELOW } from '../src/chart.js'
+import { plot, chart, legend, xaxis, axisLine, niceMax, cumulative, DURATIONS, STYLES, MARKERS, MAX_SERIES, BELOW } from '../src/chart.js'
 
 const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '')
 const at = (lines, ch) => lines.findIndex(l => plain(l).includes(ch))
@@ -44,16 +44,25 @@ test('a series with nothing in the window is not drawn at all', () => {
   assert.deepEqual(rows.map(plain), ['   ', '   ', '   '])
 })
 
-test('a burst becomes a hump rather than a picket fence', () => {
-  // Attention bucketed at eleven minutes across a day is mostly zeros with a
-  // few full buckets, so it draws as isolated columns. Averaging each point
-  // with its neighbours is what turns the same data into a slope.
-  const spike = [0, 0, 0, 1, 0, 0, 0]
-  const curve = smooth(spike, smoothing(7 * 18))
-  assert.equal(curve.length, spike.length)
-  assert.ok(curve[2] > 0 && curve[4] > 0, 'the neighbours of a spike are lifted')
-  assert.ok(curve[3] > curve[2], 'and the peak is still the peak')
-  assert.deepEqual(smooth(spike, 1), spike, 'a window of one changes nothing')
+test('a running total climbs where the work was and runs flat where it was not', () => {
+  // Attention landing IN each slice is zero for most of any day, so plotting
+  // it directly can only draw a floor with occasional bumps — two rounds of
+  // trying to make that read as lines proved the shape was in the data, not in
+  // the rendering. A running total is nonzero everywhere once work has
+  // started, every series sits at its own height, and the lines fan out.
+  assert.deepEqual(cumulative([0, 2, 0, 3, 0]), [0, 2, 2, 5, 5])
+  assert.deepEqual(cumulative([]), [])
+  const c = cumulative([1, 1, 1])
+  assert.ok(c.every((v, i) => i === 0 || v >= c[i - 1]), 'it never goes down')
+  assert.equal(c.at(-1), 3, 'and it ends at the total')
+})
+
+test('the scale is a duration a human recognises', () => {
+  const M = 60_000, H = 3_600_000
+  assert.equal(niceMax(12 * M), 15 * M, 'twelve minutes of work gets a quarter-hour axis')
+  assert.equal(niceMax(20 * M), 20 * M, 'and a round one is left alone')
+  assert.equal(niceMax(70 * M), 1.5 * H)
+  assert.ok(DURATIONS.every((d, i) => i === 0 || d > DURATIONS[i - 1]), 'the ladder ascends')
 })
 
 test('the first column of a run always carries the marker', () => {
@@ -87,13 +96,13 @@ test('each line prints its own value at the height it ends on', () => {
   assert.ok(rows.every(r => plain(r).length === 6), 'and inside the width it was given')
 })
 
-test('a scale is rounded to something a human reads', () => {
+test('a ladder can be given, for values that are not durations', () => {
   // Scaling straight to the peak produced an axis reading 187% 169% 150% — ten
   // true numbers, none of them round.
-  assert.equal(niceMax(0.09), 0.1)
-  assert.equal(niceMax(1.87), 2)
-  assert.ok(niceMax(1.87) > 1, 'above 100% is real — two sessions in one slice — and must not be clamped')
-  assert.ok(niceMax(0.01) >= 0.01, 'a very quiet day still gets a ceiling')
+  const tenths = [0.25, 0.5, 1, 2]
+  assert.equal(niceMax(0.3, tenths), 0.5)
+  assert.equal(niceMax(1.87, tenths), 2)
+  assert.equal(niceMax(99, tenths), 99, 'a value off the end of the ladder still gets a ceiling')
 })
 
 test('the x axis is ruled and labelled, ending at now', () => {
