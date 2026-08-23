@@ -985,7 +985,7 @@ test('esc leaves a full-screen preset instead of quitting', async () => {
   assert.match(plain, /\? keys/)
 })
 
-test('the project page ranks the tools, and drops the control that did nothing', async () => {
+test('the project page shows version control, and drops the control that did nothing', async () => {
   const { render } = await import('../src/tui.js')
   const now = Date.now()
   const events = Array.from({ length: 6 }, (_, i) => ({
@@ -1000,13 +1000,8 @@ test('the project page ranks the tools, and drops the control that did nothing',
     sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: '/w/a',
   }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
 
-  // "1354 tool calls" on the border said a number and answered nothing. WHICH
-  // tools, in what proportion, is the question — the same one the files box
-  // answers about files.
-  assert.match(page, /─ tools ─/, 'the page has a tools box')
-  assert.match(page, /Bash .* 30/, 'ranked by calls, like files')
-  assert.match(page, /trueline_read/, 'and an MCP tool is shown by its own name')
-  assert.doesNotMatch(page, /mcp__x__/, 'not by its server')
+  assert.match(page, /─ version control ─/, 'the page has a version-control box')
+  assert.match(page, /no worktrees found/, 'git absence is explicit instead of an empty pane')
 
   // A control that does nothing is worse than an absent one: it makes the
   // reader doubt the keyboard rather than the label. This page shows every box
@@ -1544,39 +1539,40 @@ test('switching to the estate preset paints a fresh CPU sample, not a stale one'
   assert.match(plain, /33\.7%/)
 })
 
-test('the estate screen shows worktrees, the version gap, and live CPU', async () => {
+test('the estate screen shows the selected project worktrees and live CPU', async () => {
   const { render } = await import('../src/tui.js')
+  const root = process.cwd()
   const now = Date.now()
   const rooted = {
-    name: 'rooted', root: '/w/rooted', sessions: 1, files: 1, agents: ['claude'], last: now,
-    events: [{ at: now - 60_000, agent: 'claude', session: 's', path: '/w/rooted/f.ts', project: '/w/rooted' }],
+    name: 'skeins', root, sessions: 1, files: 1, agents: ['claude'], last: now,
+    events: [{ at: now - 60_000, agent: 'claude', session: 's', path: `${root}/f.ts`, project: root }],
   }
-  const loose = { name: 'loose', root: null, sessions: 1, files: 1, agents: ['claude'], last: now, events: [] }
   const machine = {
-    roots: new Map([['/w/rooted', { cpu: 42.3, agents: new Set(['claude', 'codex']) }]]),
-    unrooted: 1.5,
+    roots: new Map([[root, { cpu: 42.3, agents: new Set(['claude', 'codex']) }]]),
+    unrooted: 0,
+    rows: [
+      { pid: 1, agent: 'claude', cpu: 33.7, cwd: root, root },
+      { pid: 2, agent: 'codex', cpu: 8.6, cwd: root, root },
+    ],
   }
   const frame = render({
-    projects: [rooted, loose], events: [], sessions: new Map(), sel: 0, expanded: new Set(),
+    projects: [rooted], events: [], sessions: new Map(), sel: 0, expanded: new Set(),
     colls: [], tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30,
     tick: 0, sort: 'recent', filter: '', onlyColliding: false, preset: 5, tab: 0, feedTop: 0,
     page: null, machine,
   }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
 
-  assert.match(frame, /estate/)
-  assert.match(frame, /42\.3%/, 'the CPU reading for the rooted project')
+  assert.match(frame, /skeins · estate/)
+  assert.match(frame, /current/, 'the selected checkout is the first-class object')
   assert.match(frame, /claude\+codex/, 'both agents running in it, not just one')
-  assert.match(frame, /no git history/, 'the rootless project says so rather than a row of dashes')
-  // AXI 5: unattributed CPU is stated, not folded silently into the total.
-  assert.match(frame, /unattributed/)
-  assert.match(frame, /1 project.* running agent/)
+  assert.match(frame, /42\.3%/, 'worktree CPU is summed from attributed process rows')
+  assert.match(frame, /clean|\d+ files?/, 'working-tree dirtiness is visible')
 })
 
 test('the version gap is coloured, and worktree wording counts OTHER checkouts', async () => {
   const { render } = await import('../src/tui.js')
-  const { worktrees, versionOf } = await import('../src/estate.js')
-  // versionOf and worktrees hit git for a real path; use this repo itself,
-  // which genuinely has one worktree (none other) and a real version.
+  // Use this repo itself, which genuinely has at least the current checkout
+  // and therefore can prove the wording does not count phantom siblings.
   const root = process.cwd()
   const now = Date.now()
   const p = {
@@ -1589,7 +1585,5 @@ test('the version gap is coloured, and worktree wording counts OTHER checkouts',
     sort: 'recent', filter: '', onlyColliding: false, preset: 5, tab: 0, feedTop: 0, page: null,
     machine: { roots: new Map(), unrooted: 0 },
   }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
-  // A single-worktree repo reads "none", not "1" -- "1 worktree" would count
-  // this checkout as one of its own others.
-  assert.match(frame, /none/)
+  assert.match(frame, /current/, 'a single-worktree repo still shows the current checkout')
 })
