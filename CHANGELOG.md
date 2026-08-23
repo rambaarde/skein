@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.31.2](https://github.com/rambaarde/skein/compare/v0.31.1...v0.31.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the clock reads like a clock, and two strings kept the old name ([9d8c252](https://github.com/rambaarde/skein/commit/9d8c252b651810bb461201482852e404f6e0d889))
+* **tui:** the clock reads like a clock, and two strings kept the old name ([#133](https://github.com/rambaarde/skein/issues/133)) ([3f15c7e](https://github.com/rambaarde/skein/commit/3f15c7eb7c4f3cdacf381561132fbb9fcda966fa))
+
 ## [0.31.1](https://github.com/rambaarde/skein/compare/v0.31.0...v0.31.1) (2026-08-22)
 
 
