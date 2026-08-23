@@ -1,5 +1,18 @@
 # Changelog
 
+## [0.39.0](https://github.com/rambaarde/skein/compare/v0.38.0...v0.39.0) (2026-08-23)
+
+
+### Features
+
+* **cli:** expose worktrees command ([ece804d](https://github.com/rambaarde/skein/commit/ece804d6790b189e118dd538aacdd0f9302c3046))
+* **tui:** add worktrees preset ([3b6fc4b](https://github.com/rambaarde/skein/commit/3b6fc4bffa3da5603941a5ae4f62552a1bd85275))
+* **tui:** add worktrees preset ([92e7762](https://github.com/rambaarde/skein/commit/92e7762df329bd577a955e874e3aa2006c0b87da))
+* **tui:** add worktrees preset ([b6f4686](https://github.com/rambaarde/skein/commit/b6f4686ffb826f95f0e42ddd4d4636988469d577))
+* **tui:** scope estate to project worktrees ([7ff7f2c](https://github.com/rambaarde/skein/commit/7ff7f2c7d0e90e67ebd4317eec2499c5a7802295))
+* **tui:** scope estate to project worktrees ([16ca645](https://github.com/rambaarde/skein/commit/16ca64542aa5cb7c31825027744a79c1d58522c5))
+* **worktrees:** collect checkout state ([9a9c23f](https://github.com/rambaarde/skein/commit/9a9c23fc4e60a55aeb8b5a1fd6994ef6164a9ef0))
+
 ## [0.38.0](https://github.com/rambaarde/skein/compare/v0.37.3...v0.38.0) (2026-08-23)
 
 
