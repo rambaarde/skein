@@ -25,10 +25,9 @@ export const MAX_BOXES = 4
 // 4: velocity, which is a different question entirely and so gets the screen
 // to itself rather than a corner of somebody else's. 5: the contention graph,
 // same reasoning -- a picture of who is in the same file as whom is not a
-// panel of anything. 6: the estate -- worktrees, working-copy version against
-// the latest tag, and live CPU -- a different SOURCE (the OS, not the
-// transcripts) and so a different screen rather than a column bolted onto one
-// that already has ten. 7: one project's linked checkouts and their state.
+// panel of anything. 6: estate -- the selected project's worktrees, version
+// state, uncommitted files, upstream sync, and live agents. 7 keeps the explicit
+// worktrees name as an alias for the same project-scoped view.
 export const DEFAULT_PRESETS =
   'head:0:default,detail:0:default,feed:0:default head:0:default,feed:0:default head:0:default velocity:0:default graph:0:default estate:0:default worktrees:0:default'
 

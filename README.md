@@ -110,9 +110,9 @@ The headline is **attention accumulated per project** — the line climbs while 
 were in a repo and runs flat while you were not, and ends the day at its own
 total. The project you have selected is lit; the rest fade back.
 
-### Six screens, one key
+### Seven screens, one key
 
-`p` cycles them, `1`–`6` jump straight there.
+`p` cycles them, `1`–`7` jump straight there.
 
 | | Shows |
 |---|---|
@@ -121,10 +121,11 @@ total. The project you have selected is lit; the rest fade back.
 | **3 table** | the project table alone, the most projects on screen |
 | **4 velocity** | what landed on each trunk, how long it took, what had to be repaired, and whether the trend is improving |
 | **5 graph** | change coupling: which files move together, and which one two agents were both in at once |
-| **6 estate** | worktrees, whether a working copy has drifted from its latest tag, and live CPU per project |
+| **6 estate** | the selected project's worktrees, recent commits, dirty files, upstream sync and live CPU |
+| **7 worktrees** | the same selected-project worktree view under the explicit name |
 
 `⏎` opens a project's own screen: its agents, its sessions and their context
-pressure, its files, its tool calls, its collisions.
+pressure, its files, its version control, its collisions.
 
 ### Every screen
 
@@ -395,33 +396,29 @@ middle rather than being stretched across the terminal.
 
 ### The estate
 
-Preset `6` is a different SOURCE from every other screen. Everything else
-reads agent transcripts or git history — records of what already happened.
-This reads the OS, right now:
+Preset `6` is scoped to the selected project. Everything else on screen reads
+agent transcripts or git history — records of what already happened. Estate adds
+the working-copy state and OS sample for the repo under the cursor:
 
 ```
-PROJECT       BRANCH   WORKTREES  VERSION   TAG      CPU    RUNNING
-skeins        develop       none  0.36.0    0.36.0   6.2%   claude
-tn-admin-fe   develop       none  1.0.0     —        —      —
+skeins · estate
+version 0.36.0 tag 0.36.0
+└─ develop            current
+   claude+codex  █■·· 42.3%  3 files  ↑1 ↓0  abc123 ship worktrees view
 ```
 
-- **WORKTREES** counts other checkouts of the same repo — "none" for the
-  common case, `+2` for two more, never a raw total that would count this
-  checkout as one of its own others.
+- **WORKTREES** are the linked checkouts for the selected repo, not a sparse
+  machine-wide table. The current checkout stays visible even when it has no
+  siblings.
 - **VERSION / TAG** is the gap that matters: `package.json`'s version is a
   number someone typed and can go stale; the latest tag is what a release
-  process actually pointed at. The two disagreeing is the finding, and it is
-  the only place skeins ever draws attention to a number a human wrote by hand.
-- **CPU** is sampled from the OS, not derived from anything a transcript
-  states, and it is true for the instant it was taken — a snapshot, not a
-  live gauge. It is sampled only while this screen is the one on screen, on
-  the same slow poll timer that governs everything else skeins reads from
-  disk, and batched into one call rather than one per process: the difference
-  measured on a real machine with eight running agents was 178ms against 52ms.
-- **CPU with no resolvable project** is folded into `unattributed` rather than
-  dropped — the work is real even when skeins cannot say whose it is.
+  process actually pointed at.
+- **CHANGES / SYNC** show uncommitted file count and upstream ahead/behind state.
+  Skeins does not invent live `PUSHING` or `MERGING` labels from a snapshot.
+- **CPU** is sampled from the OS, not derived from a transcript, and is attributed
+  to the most-specific worktree path.
 
-`skeins estate` is the same table in the other door.
+`skeins worktrees [path]` is the same checkout-state idea in the CLI door.
 
 ### Collisions
 

@@ -28,7 +28,6 @@ import { canvas } from './canvas.js'
 import { coupled, layout as forceLayout } from './graph.js'
 import { worktrees, versionOf, worktreeState } from './estate.js'
 import { sample as sampleMachineDefault, byRoot, attributeToPaths } from './machine.js'
-import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
@@ -93,9 +92,9 @@ const KEYS = [
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
-  ['1-6', 'jump straight to a preset: all · watch · table · velocity · graph · estate'],
+  ['1-7', 'jump straight to a preset: all · watch · table · velocity · graph · estate · worktrees'],
   ['', 'the selected project is lit on the chart; the rest fade back'],
-  ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
+  ['⏎', "open the project's own page — graph, agents, sessions, files, version control"],
   ['space', 'peek at a project inline without leaving the list'],
   ['esc', 'back one level: page, then detail, then preset 1, then quit'],
   ['tab', 'switch the detail pane: info · sessions · files · tools · collisions'],
@@ -374,6 +373,54 @@ export function render(state, size) {
     }
   }
 
+
+  const syncText = snap => snap?.ahead === null ? 'no upstream' : `↑${snap.ahead} ↓${snap.behind}`
+  const versionState = p => {
+    if (!p?.root) return `${DIM}no git history${R}`
+    const wt = worktrees(p.root)
+    const ver = versionOf(p.root)
+    const other = wt ? Math.max(0, wt.length - 1) : null
+    const bits = [
+      ver?.declared ? `v${ver.declared}` : null,
+      ver?.tag ? `tag ${ver.tag}` : null,
+      other === null ? null : other ? `${other} other checkout${other === 1 ? '' : 's'}` : 'no other checkouts',
+    ].filter(Boolean)
+    return `${DIM}${bits.length ? bits.join(' · ') : 'no version metadata'}${R}`
+  }
+
+  const versionRows = (p, W, { expanded = false } = {}) => {
+    if (!p?.root) return [` ${DIM}no git history${R}`]
+    const rows = []
+    const ver = versionOf(p.root)
+    const gapped = ver && ver.declared && ver.tag && ver.declared !== ver.tag
+    if (ver?.declared || ver?.tag) {
+      rows.push(` ${DIM}version${R} ${gapped ? LUT.failure[70] : THEME.fg}${fit(ver?.declared ?? '—', 10)}${R}${DIM} tag ${R}${fit(ver?.tag ?? '—', 10)}`)
+    }
+    const list = worktrees(p.root) ?? []
+    if (!list.length) return rows.length ? rows : [` ${DIM}no worktrees found${R}`]
+
+    const cpu = attributeToPaths(state.machine?.rows ?? [], list.map(wt => wt.path))
+    for (const [i, wt] of list.entries()) {
+      const snap = worktreeState(wt.path)
+      const live = cpu.get(wt.path)
+      const branch = wt.branch ?? 'detached'
+      const current = wt.path === p.root
+      const agents = live?.agents.size ? [...live.agents].map(a => `${hue(a)}${a}${R}`).join('+') : `${DIM}—${R}`
+      const cpuText = live?.cpu ? `${meter(Math.min(1, live.cpu / 100), 4, LUT.heat)} ${live.cpu.toFixed(1)}%` : `${DIM}idle${R}`
+      const changes = snap ? (snap.changes.length ? `${snap.changes.length} file${snap.changes.length === 1 ? '' : 's'}` : 'clean') : '—'
+      const sync = syncText(snap)
+      const prefix = expanded ? (i === list.length - 1 ? '└─' : '├─') : (current ? '●' : '○')
+      const path = current ? 'current' : short(wt.path, p.root)
+      rows.push(` ${THEME.hi}${prefix}${R} ${fit(branch, expanded ? 18 : 12)} ${DIM}${fit(path, Math.max(8, W - 54))}${R}`)
+      if (expanded) {
+        const commit = snap?.commits?.[0] ? `${snap.commits[0].hash} ${snap.commits[0].subject}` : 'no commits'
+        rows.push(`    ${fit(agents, 12)} ${fit(cpuText, 12)} ${fit(changes, 9)} ${fit(sync, 13)} ${DIM}${fit(commit, Math.max(10, W - 55))}${R}`)
+      } else {
+        rows.push(`    ${fit(agents, 12)} ${fit(cpuText, 12)} ${fit(changes, 9)} ${DIM}${sync}${R}`)
+      }
+    }
+    return rows
+  }
   // ---- the project page --------------------------------------------------
   //
   // A drill-down, not an expansion. Two inline rows under a project could show
@@ -410,16 +457,16 @@ export function render(state, size) {
     // rowsP graph rows, the chart's own rule/times/legend, and two borders.
     const headHp = rowsP + CHART_BELOW + 2
     const lowerH = h - headHp - collH - failH
-    // Four across, not three. "1354 tool calls" on the border said a number
-    // and answered nothing: WHICH tools, and in what proportion, is the whole
-    // question, and it is the same question the files box answers about files.
+    // Four across. The fourth pane is version-control state because that is the
+    // first thing a client asks for once they click into one project: what is
+    // checked out, what changed, and how far it is from upstream/release.
     const q = Math.floor(w / 4)
     const rects = {
       head: { x: 0, y: 0, w, h: headHp },
       agents: { x: 0, y: headHp, w: q, h: lowerH },
       sessions: { x: q, y: headHp, w: q, h: lowerH },
       files: { x: q * 2, y: headHp, w: q, h: lowerH },
-      tools: { x: q * 3, y: headHp, w: w - q * 3, h: lowerH },
+      vcs: { x: q * 3, y: headHp, w: w - q * 3, h: lowerH },
       // Two halves of one question: which files keep breaking, and which
       // releases they broke. Split rather than stacked, because reading one
       // without the other is how a popularity contest gets mistaken for a
@@ -428,7 +475,6 @@ export function render(state, size) {
       broke: { x: Math.floor(w / 2), y: headHp + lowerH, w: w - Math.floor(w / 2), h: failH },
       colls: { x: 0, y: headHp + lowerH + failH, w, h: collH },
     }
-
     // --- the headline: this project's attention, one line per AGENT
     //
     // Thesis §6.5 one level down — the timeline is "per project, stacked by
@@ -537,13 +583,14 @@ export function render(state, size) {
       }
     }
 
-    // sessions, files and tools reuse the tab bodies, so a number cannot mean
-    // one thing on the page and another in the pane.
+    // sessions and files reuse the tab bodies, so a number cannot mean one
+    // thing on the page and another in the pane. Version-control is separate:
+    // it is git/worktree state, not transcript activity.
     const F = { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling }
     const tctx = k => ({ state, now, detailW: rects[k].w - 2, detailH: rects[k].h, collsHere, lookback, F })
     const sessRows = sessionsTab(p, tctx('sessions'))
     const fileRows = filesTab(p, tctx('files'))
-    const toolRows = toolsTab(p, tctx('tools'))
+    const vcsRows = versionRows(p, rects.vcs.w - 2).slice(0, Math.max(1, rects.vcs.h - 2))
 
     const panes = [
       { rect: rects.head, lines: pane(rects.head, {
@@ -568,8 +615,8 @@ export function render(state, size) {
           //
           // 'tab panes' is gone. It was inherited from the detail pane, where
           // tab switches between tabs that share one box — this page shows
-          // agents, sessions, files and tools all at once, so there was
-          // nothing to switch and the key did nothing. A control that does
+          // agents, sessions, files and version control all at once, so there
+          // was nothing to switch and the key did nothing. A control that does
           // nothing is worse than an absent one: it makes the reader doubt the
           // keyboard rather than the label.
           const parts = [
@@ -598,12 +645,8 @@ export function render(state, size) {
       { rect: rects.sessions, lines: pane(rects.sessions, { title: 'sessions', line: THEME.boxDetail, rows: sessRows }) },
       { rect: rects.files, lines: pane(rects.files, { title: 'files', line: THEME.boxFeed, rows: fileRows,
         state: `${DIM}${p.files} touched${R}` }) },
-      { rect: rects.tools, lines: pane(rects.tools, { title: 'tools', line: THEME.boxFeed, rows: toolRows,
-        state: (() => {
-          const t = toolsOf(p, state.sessions)
-          const n = totalOf(t)
-          return `${DIM}${n ? `${t.length} tool${t.length === 1 ? '' : 's'} · ${n} call${n === 1 ? '' : 's'}` : 'none recorded'}${R}`
-        })() }) },
+      { rect: rects.vcs, lines: pane(rects.vcs, { title: 'version control', line: THEME.boxFeed, rows: vcsRows,
+        state: versionState(p) }) },
     ]
     if (failH > 0) {
       const bw = rects.breaks.w - 2
@@ -792,124 +835,33 @@ export function render(state, size) {
   // working copy matches what it claims to be, and which agent process is
   // spending CPU where. None of that exists in a transcript.
   function estateScreen(V) {
+    return worktreesScreen(V, { title: 'estate', key: SUP[5] })
+  }
+
   // One-project worktree view: linked checkouts are useful only with their owner.
-  function worktreesScreen(V) {
+  function worktreesScreen(V, { title = 'worktrees', key = SUP[6] } = {}) {
     const p = projects[sel]
     const W = V.w - 2
-    const rows = []
-    if (!p?.root) rows.push(`${DIM}selected project has no git worktrees${R}`)
-    else {
-      const list = worktrees(p.root) ?? []
-      const cpu = attributeToPaths(state.machine?.rows ?? [], list.map(w => w.path))
-      rows.push(`${THEME.header} WORKTREE              AGENTS       RECENT COMMITS  CHANGES  SYNC${R}`)
-      for (const [i, wt] of list.entries()) {
-        const snap = worktreeState(wt.path)
-        const live = cpu.get(wt.path)
-        const name = wt.path === p.root ? `${wt.path} (current)` : wt.path
-        const agents = live?.agents.size ? [...live.agents].join('+') : '—'
-        const commits = snap?.commits?.[0]?.subject ?? '—'
-        const changes = snap ? (snap.changes.length ? `${snap.changes.length} files` : 'clean') : '—'
-        const sync = snap?.ahead === null ? 'no upstream' : `↑${snap.ahead} ↓${snap.behind}`
-        const row = ` ${fit(name, Math.max(22, Math.floor(W * 0.36)))}  ${fit(agents, 11)}  ${fit(commits, 24)}  ${fit(changes, 8)}  ${sync}`
-        hit.rows.push({ y: V.y + 1 + rows.length, index: sel })
-        rows.push(row)
-      }
-    }
-    const title = `${p?.name ?? 'worktrees'} · worktrees`
+    const rows = p?.root
+      ? versionRows(p, W, { expanded: true })
+      : [` ${DIM}selected project has no git worktrees${R}`]
+    const live = (state.machine?.rows ?? []).filter(r => p?.root && (r.cwd === p.root || r.cwd?.startsWith(`${p.root}/`))).length
     return compose(h, [{ rect: V, lines: pane(V, {
-      title, key: SUP[6], line: THEME.boxHead,
-      right: `${DIM}selected project ${sel + 1}/${projects.length}${R}  ${clock} ${DIM}${pulse}${R}`,
-      rows,
-      state: `${DIM}recent commits · uncommitted files · ahead/behind upstream · live agents${R}  ${tag('1', 'back')} ${tag('r', 'refresh')} ${tag('q', 'quit')}`,
-    }) }])
-  }
-    const W = V.w - 2
-    const rows = []
-    const nameW = Math.max(12, Math.min(24, projects.reduce((m, p) => Math.max(m, p.name.length + 2), 10)))
-
-    // One column plan, used by the header and every row, so the two cannot
-    // drift the way a hand-matched pair of fit() widths already has once in
-    // this file (the velocity table's header/row split, fixed earlier today).
-    const COLS = [
-      { head: 'BRANCH', w: 11 },
-      { head: 'WORKTREES', w: 11 },
-      { head: 'VERSION', w: 10 },
-      { head: 'TAG', w: 10 },
-      { head: 'CPU', w: 7 },
-      // Wide enough for TWO agents named at once -- "claude+codex" is a real
-      // row, not a rare one, and truncating it to "claude+c..." answered a
-      // different question than the one the column is for.
-      { head: 'RUNNING', w: 16 },
-    ]
-    rows.push(`${THEME.header} ${fit('PROJECT', nameW)}${COLS.map(c => fit(`  ${c.head}`, c.w + 2)).join('')}${R}`)
-
-    const M = state.machine ?? { roots: new Map(), unrooted: 0 }
-    const bodyH = Math.max(1, V.h - 4 - rows.length)
-    for (const p of projects.slice(0, bodyH)) {
-      const on = p === projects[sel]
-      const cell = s => `  ${s}`
-      // A project with no git history says so, RAW -- not fit() into the
-      // BRANCH column where it truncates to "no git his…". Every other empty
-      // row on this codebase's tables does the same: skip the per-column fit
-      // and let the one sentence stand for the whole row.
-      if (!p.root) {
-        const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}  ${DIM}no git history${R}`
-        hit.rows.push({ y: V.y + 1 + rows.length, index: projects.indexOf(p) })
-        rows.push(on ? selected(row, W) : row)
-        continue
-      }
-      const wt = worktrees(p.root)
-        const ver = versionOf(p.root)
-        const cpu = M.roots.get(p.root)
-        const meta = metaOf(p)
-
-        // The gap is the finding, not either number alone: what the working
-        // copy CLAIMS to be against what a release process actually pointed
-        // at last.
-        const gapped = ver && ver.declared && ver.tag && ver.declared !== ver.tag
-        const wCount = wt?.length ?? null
-
-        const cells = [
-          cell(fit(meta?.branch ?? `${DIM}—${R}`, COLS[0].w)),
-          // "+n", not the raw count -- "2 worktrees" reads as this checkout
-          // PLUS one more, which is not what git worktree list means by two.
-          cell(wCount === null ? `${DIM}${'—'.padStart(COLS[1].w)}${R}`
-            : wCount === 1 ? `${DIM}${'none'.padStart(COLS[1].w)}${R}`
-            : `${LUT.activity[60]}${`+${wCount - 1}`.padStart(COLS[1].w)}${R}`),
-          cell(ver?.declared
-            ? `${gapped ? LUT.failure[70] : ''}${fit(ver.declared, COLS[2].w)}${gapped ? R : ''}`
-            : `${DIM}${'—'.padStart(COLS[2].w)}${R}`),
-          cell(ver?.tag ? fit(ver.tag, COLS[3].w) : `${DIM}${'—'.padStart(COLS[3].w)}${R}`),
-          cell(cpu ? `${meter(cpu.cpu / 100, 1, LUT.heat)} ${cpu.cpu.toFixed(1)}%` : `${DIM}${'—'.padStart(COLS[4].w)}${R}`),
-          cell(fit(cpu ? [...cpu.agents].map(a => `${hue(a)}${a}${R}`).join('+') : `${DIM}—${R}`, COLS[5].w)),
-        ]
-      const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells.map((c, i) => fit(c, COLS[i].w + 2)).join('')}`
-      hit.rows.push({ y: V.y + 1 + rows.length, index: projects.indexOf(p) })
-      rows.push(on ? selected(row, W) : row)
-    }
-
-    const liveN = M.roots.size
-    const cpuTotal = [...M.roots.values()].reduce((n, r) => n + r.cpu, 0) + M.unrooted
-
-    return compose(h, [{ rect: V, lines: pane(V, {
-      title: 'estate', key: SUP[5], line: THEME.boxHead,
+      title: `${p?.name ?? 'no project'} · ${title}`, key, line: THEME.boxHead,
       head: (() => {
-        const at = V.x + 6 + 'estate'.length + width(SUP[5])
+        const label = `${p?.name ?? 'no project'} · ${title}`
+        const at = V.x + 6 + label.length + width(key)
         hit.tags.push({ y: V.y, x0: at, x1: at + 'm menu'.length, key: 'm' })
         return tag('m', 'menu')
       })(),
       right: (() => {
-        const painted = `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`
+        const painted = `${DIM}selected project ${sel + 1}/${projects.length}${R}  ${clock} ${DIM}${pulse}${R}`
         const x0 = V.x + V.w - width(painted) - 3
         hit.tags.push({ y: V.y, x0, x1: x0 + 12, key: 'p' })
         return painted
       })(),
       rows,
-      state: (() => {
-        const note = `${DIM}${liveN} project${liveN === 1 ? '' : 's'} with a running agent · ${cpuTotal.toFixed(1)}% CPU total${M.unrooted > 0.05 ? ` · ${M.unrooted.toFixed(1)}% unattributed` : ''} · sampled from the OS, not the transcripts${R}`
-        const keys = [tag('↑↓', 'project'), tag('1', 'back'), tag('p', 'preset'), tag('r', 'refresh'), tag('q', 'quit')]
-        return `${note}  ${keys.join(TAG_SEP)}`
-      })(),
+      state: `${DIM}${live} live process${live === 1 ? '' : 'es'} here · recent commits · uncommitted files · ahead/behind upstream${R}  ${tag('↑↓', 'project')} ${tag('1', 'back')} ${tag('r', 'refresh')} ${tag('q', 'quit')}`,
     }) }])
   }
 
