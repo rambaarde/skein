@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.1](https://github.com/rambaarde/skein/compare/v0.34.0...v0.34.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the graph says what it is showing ([49eb02a](https://github.com/rambaarde/skein/commit/49eb02a592581a7ebadb56a423ba057d22df8735))
+* **tui:** the graph says what it is showing ([#170](https://github.com/rambaarde/skein/issues/170)) ([8eae238](https://github.com/rambaarde/skein/commit/8eae2382c8584d31d6901b37f3e5361d8eb0dc1d))
+
 ## [0.34.0](https://github.com/rambaarde/skein/compare/v0.33.3...v0.34.0) (2026-08-23)
 
 
