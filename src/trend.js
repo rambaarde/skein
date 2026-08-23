@@ -47,19 +47,29 @@ export function trend(projects, sessions, { now = Date.now(), buckets = 4, span 
   }))
   const slot = at => Math.floor((at - from0) / span)
 
-  // ONE git read per project for the whole span, bucketed in memory.
+  // ONE git read per project, and its `since` is QUANTISED TO THE DAY.
   //
-  // Reading per bucket meant `landings(root, { since })` with a moving `since`,
-  // which is a different memo key every time -- 41 projects x 4 buckets = 164
-  // uncached git calls, and the screen took 2107ms to draw. It redraws every
-  // second.
+  // Two versions of the same bug, both measured:
+  //
+  //   reading per bucket meant a `since` that differed per bucket -- 41
+  //   projects x 4 buckets of uncached git, 2107ms a draw;
+  //
+  //   then reading once per project still passed `now - 4 * span`, and `now`
+  //   moves every second, so the memo key moved with it: 376ms EVERY draw,
+  //   against 3ms when `now` held still.
+  //
+  // The memo in delivery.js is keyed on `${stamp(root)}|${since}`, so a `since`
+  // derived from a live clock can never hit it. Asking git for whole days
+  // fetches a few extra commits, which `slot()` discards anyway, and the key
+  // then changes once a day instead of once a second.
+  const askFrom = Math.floor(from0 / 86_400_000) * 86_400_000
   for (const p of projects ?? []) {
     // The git half is skipped for a project with no repo. Its ATTENTION is
     // not: skipping the whole project made every event outside a repository
     // invisible to the trend, which on a real machine is a bucket of its own.
-    const all = p.root ? landings(p.root, { since: from0 }) : null
+    const all = p.root ? landings(p.root, { since: askFrom }) : null
     if (all) {
-      const deploys = deployments(p.root, { since: from0, all })
+      const deploys = deployments(p.root, { since: askFrom, all })
       for (const s of all) {
         const i = slot(s.at)
         if (i < 0 || i >= buckets || s.release) continue

@@ -1485,3 +1485,32 @@ test('a row that is all dots becomes a sentence', async () => {
   // The jargon is gone: nobody outside Britain measures in fortnights.
   assert.doesNotMatch(f, /fortnight/)
 })
+
+test('nodes with no edges are explained, not scattered', async () => {
+  // Two real projects showed this: one with no git at all, where coupling
+  // cannot be computed and only contested files are drawn, and one whose files
+  // never move together. Both came out as red dots flung across an empty
+  // screen with no line between any of them, which reads as broken rather
+  // than as quiet.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const hot = '/w/loose/a.ts'
+  const p = {
+    name: 'not in a repo', root: null, sessions: 2, files: 1, agents: ['claude'], last: now,
+    events: [
+      { at: now - 20 * 60_000, agent: 'claude', session: 'a', path: hot },
+      { at: now - 8 * 60_000, agent: 'codex', session: 'b', path: hot },
+    ],
+  }
+  const f = render({
+    projects: [p], events: p.events, sessions: new Map(), sel: 0, expanded: new Set(),
+    colls: [{ path: hot, project: null, gapMin: 12, at: now - 20 * 60_000,
+              a: { session: 'a', agent: 'claude' }, b: { session: 'b', agent: 'codex' } }],
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 4, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(f, /no git history here, so nothing can be paired/)
+  // The contested file is still drawn -- it is the reason the tool exists.
+  assert.match(f, /a\.ts/)
+})
