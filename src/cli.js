@@ -20,6 +20,7 @@ const HELP = `skeins — every agent running across every repository, grouped by
   skeins collisions          recent same-file overlaps
   skeins velocity            what landed, how long it took, what failed
   skeins tools               which tools the agents actually called
+  skeins failures           why the change failure rate is what it is
   skeins glossary            what every number on these screens counts
   skeins doctor              why is my screen empty
   skeins hook                print the ambient line and exit
@@ -295,6 +296,52 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
           { head: 'KIND', key: 'kind' },
         ]) + '\n\ncounted from the agents\' own transcripts · a null tool means the project recorded none',
         `no tool calls recorded in the last ${argvSince(opts)} (0 projects)`),
+    }
+  }
+
+  // WHY the change failure rate is what it is.
+  //
+  // The rate says worry; this says where. One row per FILE, because the file
+  // is the thing you can act on -- and it carries the denominator, which is
+  // the part no reader can derive and the part that stops the list being a
+  // popularity contest. The releases and the repairing commit subjects ride
+  // along on the row, so the whole picture is in one flat shape an agent can
+  // consume without a second call.
+  if (cmd === 'failures') {
+    const projects = [...byProject(recent).values()]
+      .filter(p => opts.all || !root || p.root === root)
+      .sort((a, b) => b.last - a.last)
+    const rows = []
+    for (const p of projects) {
+      const v = velocity(p.root, p.events, { since, now, attention: attentionOf(p.events) })
+      if (!v?.cfrOf) continue
+      const broke = v.cfrOf.verdicts.filter(x => x.failed)
+      for (const o of v.cfrOf.offenders) {
+        const hits = broke.filter(x => x.files.includes(o.file))
+        rows.push({
+          project: p.name,
+          file: short(o.file, p.root),
+          hotfixed: o.hotfixed,
+          shipped: o.shipped,
+          rate: `${Math.round((o.hotfixed / Math.max(1, o.shipped)) * 100)}%`,
+          releases: hits.map(x => x.name ?? new Date(x.at).toISOString().slice(0, 10)),
+          repaired_by: [...new Set(hits.flatMap(x => x.by))],
+        })
+      }
+    }
+    const FIELDS = ['project', 'file', 'hotfixed', 'shipped', 'rate', 'releases', 'repaired_by']
+    return {
+      code: 0,
+      text: out(opts, 'failures', rows, FIELDS,
+        () => table(rows.map(r => ({ ...r, of: `${r.hotfixed}/${r.shipped}` })), [
+          { head: 'PROJECT', key: 'project' }, { head: 'FILE', key: 'file' },
+          { head: 'HOTFIXED', key: 'of', right: true }, { head: 'RATE', key: 'rate', right: true },
+        ]) +
+        '\n\n' + [...new Map(rows.flatMap(r => r.releases.map((rel, i) => [`${r.project} ${rel}`,
+          `  ${rel.padEnd(12)}${trunc(r.repaired_by[i] ?? r.repaired_by[0] ?? '', 70)}`]))).values()].join('\n') +
+        '\n\nhotfixed = shipped in a deployment whose next one repaired it, OF the deployments it shipped in' +
+        '\nthe denominator matters: the file that ships most often is not the file that breaks most often',
+        `no deployment in the last ${argvSince(opts)} was followed by a repair to what it shipped (0 projects)`),
     }
   }
 

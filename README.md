@@ -33,7 +33,7 @@ skeins                  # the dashboard
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-195%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-197%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -179,6 +179,31 @@ Colour is red at every value and only the *tone* moves, so it reads as severity
 at a glance. The legend names DORA's band: **0–15%** elite and high, **16–30%**
 medium, above that low.
 
+### Why it failed
+
+A percentage tells you to worry; it does not tell you where. Deciding a
+deployment failed already requires knowing *which* hotfix touched *which* file
+it shipped — so skeins keeps that instead of throwing it away.
+
+`⏎` on a project shows two panes, and `skeins failures` prints the same thing:
+
+```
+what keeps breaking                    and what repaired it
+  7/22  32%  src/tui.js                v0.17.0  fix(tui): the screen was a poll behind…
+  6/22  27%  README.md                 v0.16.1  fix(tui): a carriage return in the border
+  5/21  24%  test/render.test.js       v0.16.0  fix(tui): the feed scrolls, the controls…
+```
+
+**`7/22` is the whole point.** A bare count is a popularity contest — the
+biggest file ships in nearly every release, so of course it appears in every
+failure. The denominator is what separates a fragile file from a busy one, and
+it is the part no reader can derive. Ranking uses a smoothed rate, so a file
+repaired once out of three shipments does not outrank one repaired seven times
+out of twenty-two.
+
+There is deliberately no "what to improve" panel. Anything skeins did not
+observe would be a horoscope.
+
 A project with fewer than two deployments has no change failure rate. That is
 not the same as never failing, and the screen says so instead of drawing a zero.
 
@@ -208,6 +233,7 @@ skeins who [path]          who else is in this repo, or in one file
 skeins collisions          recent same-file overlaps
 skeins velocity            what landed, how long it took, what failed
 skeins tools               what the agents called, not only what they wrote
+skeins failures           which files keep being shipped and then repaired
 skeins glossary            what every number on these screens counts
 skeins doctor              why is my screen empty: what each store held, and
                           what skeins could read out of it

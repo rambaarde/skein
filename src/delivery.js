@@ -196,24 +196,72 @@ export function failureRate(all, deploys) {
   const batches = []
   let prev = -Infinity
   for (const d of deploys) {
-    batches.push({ at: d.at, shipped: new Set(landed.filter(s => s.at > prev && s.at <= d.at).flatMap(s => s.files)) })
+    batches.push({ at: d.at, name: d.name, shipped: new Set(landed.filter(s => s.at > prev && s.at <= d.at).flatMap(s => s.files)) })
     prev = d.at
   }
+  // One pass, and it keeps the WORKING that produced the verdict.
+  //
+  // The rate answers "how often", which is where every dashboard stops. The
+  // question a developer actually has next is "at what", and the answer was
+  // already computed here and thrown away: to decide a deployment failed, this
+  // has to know exactly which hotfix touched exactly which file it shipped.
+  // Keeping that turns a percentage into a list you can act on.
+  const verdicts = []
   let failed = 0
   for (let i = 0; i < batches.length - 1; i++) {
     const after = landed.filter(s => s.hotfix && s.at > batches[i].at && s.at <= batches[i + 1].at)
-    if (after.some(s => s.files.some(f => batches[i].shipped.has(f)))) failed++
+    const repaired = after.filter(s => s.files.some(f => batches[i].shipped.has(f)))
+    if (repaired.length) failed++
+    verdicts.push({
+      at: batches[i].at,
+      name: batches[i].name ?? null,
+      failed: repaired.length > 0,
+      // What repaired it, and what it touched of what went out. Empty arrays
+      // on a deployment that held, never absent -- a caller must not have to
+      // tell "nothing broke" from "we did not look".
+      by: repaired.map(s => s.subject),
+      files: [...new Set(repaired.flatMap(s => s.files.filter(f => batches[i].shipped.has(f))))],
+    })
   }
   const judged = batches.length - 1
-  // Which deployment failed, and when, so a trend can be drawn without
-  // computing the whole thing again from a different angle and disagreeing
-  // with itself.
-  const verdicts = []
-  for (let i = 0; i < batches.length - 1; i++) {
-    const after = landed.filter(s => s.hotfix && s.at > batches[i].at && s.at <= batches[i + 1].at)
-    verdicts.push({ at: batches[i].at, failed: after.some(s => s.files.some(f => batches[i].shipped.has(f))) })
+  return {
+    rate: failed / judged,
+    failed,
+    judged,
+    deployments: deploys.length,
+    verdicts,
+    offenders: offenders(verdicts, batches),
   }
-  return { rate: failed / judged, failed, judged, deployments: deploys.length, verdicts }
+}
+
+// Which files keep being shipped and then repaired -- AGAINST how often they
+// ship at all.
+//
+// The bare count is a popularity contest. Measured on this repository:
+// src/tui.js appears in 7 of 7 failures, and it also appears in 44 of 49
+// deployments, because it is the biggest file and nearly every change touches
+// it. "7 times" reads as a fragile file; "7 of 44" reads as what it is. A list
+// without the denominator would send a reader to rewrite the file that ships
+// most often rather than the one that breaks most often.
+const PRIOR = 3
+
+export function offenders(verdicts, batches) {
+  const shipped = new Map()
+  for (const b of batches) for (const f of b.shipped) shipped.set(f, (shipped.get(f) ?? 0) + 1)
+  const hit = new Map()
+  for (const v of verdicts) for (const f of v.files) hit.set(f, (hit.get(f) ?? 0) + 1)
+  return [...hit]
+    .map(([file, hotfixed]) => ({ file, hotfixed, shipped: shipped.get(file) ?? 0 }))
+    // Sorted by a SMOOTHED rate, because a raw one is dominated by small
+    // denominators. On this repository the raw rate put three 1-of-3 files
+    // above src/tui.js at 7-of-22 -- and a file that shipped three times and
+    // was repaired once is not evidence of anything, while seven repairs in
+    // twenty-two is.
+    //
+    // Additive smoothing with a prior of PRIOR pretend-clean shipments: it
+    // costs a high-denominator file almost nothing and collapses a 1-of-3 to
+    // where its sample size belongs. Count breaks the tie.
+    .sort((a, b) => (b.hotfixed / (b.shipped + PRIOR)) - (a.hotfixed / (a.shipped + PRIOR)) || b.hotfixed - a.hotfixed)
 }
 
 // The change failure rate as it stood at each point across the window.
