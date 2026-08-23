@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.35.0](https://github.com/rambaarde/skein/compare/v0.34.1...v0.35.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** the graph shows which shared file is actually dangerous ([2b8bb21](https://github.com/rambaarde/skein/commit/2b8bb21b7483dd1a8c050504ae70603675fe465c))
+* **tui:** the graph shows which shared file is actually dangerous ([#173](https://github.com/rambaarde/skein/issues/173)) ([64aabf4](https://github.com/rambaarde/skein/commit/64aabf4278e918955c6790870bfe28c14c445a46))
+
 ## [0.34.1](https://github.com/rambaarde/skein/compare/v0.34.0...v0.34.1) (2026-08-23)
 
 
