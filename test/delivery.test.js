@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { parse, median, leadTimes, velocity, bucket, failureRate, cfrSeries, deployments, RELEASE, HOTFIX, VERSION_TAG, TRUNKS } from '../src/delivery.js'
+import { parse, median, leadTimes, velocity, bucket, failureRate, cfrSeries, deployments, landings, RELEASE, HOTFIX, VERSION_TAG, TRUNKS } from '../src/delivery.js'
 
 const M = 60_000, H = 3_600_000
 // `run` is injectable so every test here reads a fixture rather than a real
@@ -292,4 +292,41 @@ test('the deployment cache never answers for an injected reader', () => {
   deployments(root, { since: 0 })
   const warm = process.hrtime.bigint() - t1
   assert.ok(warm < cold, `a second call is cheaper (${cold}ns then ${warm}ns)`)
+})
+
+test('two windows do not evict each other', async () => {
+  // The cache held ONE slot per repo, so two screens asking about different
+  // windows evicted each other on every draw: the velocity table asks for
+  // thirty days and the trend band for eight weeks, so each call missed the
+  // other's entry and git was spawned again. A CPU profile of twelve draws
+  // showed 8.7 SECONDS inside spawnSync -- 726ms a draw.
+  const root = process.cwd()
+  const now = Date.now()
+  const wide = now - 56 * 86_400_000
+  const narrow = now - 30 * 86_400_000
+  landings(root, { since: wide })
+  landings(root, { since: narrow })
+
+  const t0 = process.hrtime.bigint()
+  landings(root, { since: wide })
+  const a = process.hrtime.bigint() - t0
+  const t1 = process.hrtime.bigint()
+  landings(root, { since: narrow })
+  const b = process.hrtime.bigint() - t1
+  // Both warm, neither having thrown the other out. A spawn is milliseconds;
+  // a cache hit is microseconds.
+  assert.ok(a < 3_000_000n, `wide window still cached (${a}ns)`)
+  assert.ok(b < 3_000_000n, `narrow window still cached (${b}ns)`)
+})
+
+test('a coarser cache still answers the exact question asked', () => {
+  // git is asked for whole days so the key is stable across a moving clock,
+  // and the extra commits that come back are trimmed before returning -- or
+  // the count would silently include work from before the window.
+  const root = process.cwd()
+  const now = Date.now()
+  const all = landings(root, { since: now - 30 * 86_400_000 }) ?? []
+  const recent = landings(root, { since: now - 2 * 86_400_000 }) ?? []
+  for (const s of recent) assert.ok(s.at >= now - 2 * 86_400_000, 'nothing older than asked for')
+  assert.ok(recent.length <= all.length)
 })
