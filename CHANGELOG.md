@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.1](https://github.com/rambaarde/skein/compare/v0.33.0...v0.33.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** pressing m opens the menu ([6b58bca](https://github.com/rambaarde/skein/commit/6b58bcade512ec50a5be2ce2dfbd08fdd70f72a9))
+* **tui:** pressing m opens the menu ([#158](https://github.com/rambaarde/skein/issues/158)) ([07e34ef](https://github.com/rambaarde/skein/commit/07e34ef22993aad862b86ab96cef36e0f7cafe11))
+
 ## [0.33.0](https://github.com/rambaarde/skein/compare/v0.32.4...v0.33.0) (2026-08-23)
 
 
