@@ -1361,3 +1361,48 @@ test('the selected row keeps its colours', async () => {
   const rearms = (row.match(/\x1b\[0m\x1b\[48;2;\d+;\d+;\d+m/g) ?? []).length
   assert.ok(rearms >= resets - 1, `every reset re-arms the background (${rearms} of ${resets})`)
 })
+
+test('the graph marks a collision, not just a shared file', async () => {
+  // Two sessions in one file is not news -- they may be an hour apart, or a
+  // handover. Two sessions in one file minutes apart, with overlapping
+  // lifetimes, is the whole reason this tool exists. Without that the graph
+  // said only what the files pane already says in three rows.
+  //
+  // It also threw on the first frame that had one to draw: `const c =
+  // danger.get(...)` shadowed the canvas. Nothing rendered the graph WITH a
+  // collision, so nothing caught it.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const hot = '/w/p/src/auth.ts'
+  const events = [
+    { at: now - 20 * 60_000, agent: 'claude', session: 'a', path: hot, project: '/w/p' },
+    { at: now - 8 * 60_000, agent: 'codex', session: 'b', path: hot, project: '/w/p' },
+    { at: now - 3 * 3600_000, agent: 'claude', session: 'a', path: '/w/p/calm.ts', project: '/w/p' },
+    { at: now - 2 * 3600_000, agent: 'codex', session: 'b', path: '/w/p/calm.ts', project: '/w/p' },
+  ]
+  const p = { name: 'p', root: '/w/p', sessions: 2, files: 2, agents: ['claude', 'codex'], last: now, events }
+  const colls = [{
+    path: hot, project: '/w/p', gapMin: 12, at: now - 20 * 60_000,
+    a: { session: 'a', agent: 'claude', at: now - 20 * 60_000 },
+    b: { session: 'b', agent: 'codex', at: now - 8 * 60_000 },
+  }]
+  const frame = cs => render({
+    projects: [p], events, sessions: new Map([['a', { agent: 'claude' }], ['b', { agent: 'codex' }]]),
+    sel: 0, expanded: new Set(), colls: cs, tier: 'braille', since: now - 86_400_000, now,
+    lookback: '24h', windowMin: 30, tick: 0, sort: 'recent', filter: '',
+    onlyColliding: false, preset: 4, tab: 0, feedTop: 0, page: null,
+  }, { cols: 140, rows: 26 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  const hotFrame = frame(colls)
+  assert.match(hotFrame, /1 collision/, 'the header counts it')
+  // The GAP, not the age: it is what separates a collision from a handover.
+  assert.match(hotFrame, /12m apart/)
+  // The calm file keeps its age instead.
+  assert.match(hotFrame, /calm\.ts ×2 · \d/)
+
+  // With no collisions the screen says so rather than leaving it ambiguous.
+  assert.match(frame([]), /no collisions in 24h/)
+  // The legend itself contains the word, so match the LABEL shape: a gap in
+  // minutes on a node, which is the thing that must not appear.
+  assert.doesNotMatch(frame([]), /×\d+ · \d+m apart/)
+})
