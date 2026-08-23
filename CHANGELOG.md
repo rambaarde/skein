@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.3](https://github.com/rambaarde/skein/compare/v0.37.2...v0.37.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **delivery:** the cache held one slot per repo, so two windows evicted each other ([b24340b](https://github.com/rambaarde/skein/commit/b24340b2a8ab7d2c8e3c56f2a4fe94a2f8dc7791))
+* **delivery:** the cache held one slot per repo, so two windows evicted each other ([#197](https://github.com/rambaarde/skein/issues/197)) ([520e044](https://github.com/rambaarde/skein/commit/520e0446b71ac2ca6178e8d14d1a3f0abf9383dd))
+
 ## [0.37.2](https://github.com/rambaarde/skein/compare/v0.37.1...v0.37.2) (2026-08-23)
 
 
