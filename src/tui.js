@@ -229,9 +229,20 @@ function helpOverlay(w, h, page = 1) {
   if (metrics) {
     const col = 13
     const text = Math.max(24, w - col - 8)
+    // The page ends where the terminal does, and SAYS SO. The glossary grew
+    // past the screen and the last entry simply stopped appearing -- which is
+    // exactly the silent truncation AXI 5 exists to forbid, and which this
+    // codebase already refuses in the legend and the project table.
+    const room = h - 4
+    let dropped = 0
     for (const [term, what] of GLOSSARY) {
-      wrap(what, text).forEach((l, i) => out.push(
-        b.row(`  ${BOLD}${fit(i === 0 ? term : '', col)}${R}  ${DIM}${l}${R}`)))
+      const lines = wrap(what, text).map((l, i) =>
+        `  ${BOLD}${fit(i === 0 ? term : '', col)}${R}  ${DIM}${l}${R}`)
+      if (out.length + lines.length > room) { dropped++; continue }
+      for (const l of lines) out.push(b.row(l))
+    }
+    if (dropped) {
+      out.push(b.row(`  ${DIM}+${dropped} more — a taller terminal, or ${R}${BOLD}skeins glossary${R}${DIM} for all of them${R}`))
     }
   } else {
     for (const [k, what] of KEYS) out.push(b.row(`  ${BOLD}${fit(k, 10)}${R}  ${DIM}${what}${R}`))

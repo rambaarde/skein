@@ -164,9 +164,12 @@ test('a metric is defined in every door, or in none', async () => {
     tier: 'braille', since: Date.now() - 86_400_000, now: Date.now(), lookback: '24h',
     windowMin: 30, tick: 0, sort: 'recent', filter: '', onlyColliding: false,
     preset: 0, tab: 0, feedTop: 0, page: null, help: 2,
-  }, { cols: 120, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
+  }, { cols: 120, rows: 70 }).replace(/\x1b\[[0-9;]*m/g, '')
 
   assert.match(overlay, /metrics/, 'the overlay has a metrics page')
+  // Tall enough to hold them all -- and on a short terminal the page must SAY
+  // what it dropped rather than just ending, which is asserted below.
+  assert.doesNotMatch(overlay, /\+\d+ more/, 'nothing dropped at this height')
   for (const [term] of GLOSSARY.filter(([t]) => t)) {
     assert.ok(text.includes(term), `${term} is in the CLI door`)
     assert.ok(json.some(r => r.term === term), `${term} is in the json door`)
@@ -188,4 +191,20 @@ test('who renders an open session in every door', async () => {
     assert.equal(r.status, 0, `skeins ${args.join(' ')} exited ${r.status}: ${r.stderr}`)
     assert.doesNotMatch(r.stderr, /Cannot read properties/, `skeins ${args.join(' ')} threw`)
   }
+})
+
+test('the metrics page says what it could not fit', async () => {
+  // The glossary grew past the screen and the last entry simply stopped
+  // appearing. A page that silently ends is the truncation AXI 5 forbids, and
+  // this codebase already refuses it in the legend and the project table.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const short = render({
+    projects: [], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0,
+    page: null, help: 2,
+  }, { cols: 120, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(short, /\+\d+ more/, 'it names how many it could not show')
+  assert.match(short, /skeins glossary/, 'and where to get all of them')
 })
