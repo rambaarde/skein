@@ -985,30 +985,30 @@ test('esc leaves a full-screen preset instead of quitting', async () => {
   assert.match(plain, /\? keys/)
 })
 
-test('the project page shows version control, and drops the control that did nothing', async () => {
+test('the project page keeps tools visible and tabs to version control', async () => {
   const { render } = await import('../src/tui.js')
   const now = Date.now()
   const events = Array.from({ length: 6 }, (_, i) => ({
     at: now - i * 60_000, agent: 'claude', session: 's', path: `/w/a/f${i}.ts`, project: '/w/a',
   }))
   const p = { name: 'a', root: '/w/a', sessions: 1, files: 6, agents: ['claude'], last: now, events }
-  const page = render({
+  const base = {
     projects: [p], events,
     sessions: new Map([['s', { agent: 'claude', tools: { Bash: 30, mcp__x__trueline_read: 10, Edit: 2 } }]]),
     sel: 0, expanded: new Set(), colls: [], tier: 'braille',
     since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
-    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: '/w/a',
-  }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, feedTop: 0, page: '/w/a',
+  }
+  const toolsPage = render({ ...base, tab: 0 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
+  const versionPage = render({ ...base, tab: 1 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
 
-  assert.match(page, /─ version control ─/, 'the page has a version-control box')
-  assert.match(page, /no worktrees found/, 'git absence is explicit instead of an empty pane')
-
-  // A control that does nothing is worse than an absent one: it makes the
-  // reader doubt the keyboard rather than the label. This page shows every box
-  // at once, so tab had no panes to switch between.
-  assert.doesNotMatch(page, /tab panes/, 'the inert control is gone')
-  assert.match(page, /esc back/, 'and the ones that work are still there')
-  assert.match(page, /q quit/)
+  assert.match(toolsPage, /tab panes/, 'the project page has a real tab control')
+  assert.match(toolsPage, /tools  version  collisions/, 'the project tabs are visible')
+  assert.match(toolsPage, /Bash/, 'the tools panel was not traded away for git state')
+  assert.match(versionPage, /─ version control ─/, 'version control is a project tab')
+  assert.match(versionPage, /no worktrees found/, 'git absence is explicit instead of an empty pane')
+  assert.match(versionPage, /esc back/, 'the working controls are still there')
+  assert.match(versionPage, /q quit/)
 })
 
 test('the info pane is a live rolling graph, and it slides with now', async () => {
