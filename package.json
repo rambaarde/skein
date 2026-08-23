@@ -1,7 +1,7 @@
 {
   "name": "skeins",
   "version": "0.30.0",
-  "description": "Every agent running across every repository, grouped by project — and a read-only door so the agents can check who else is in a file before they write it.",
+  "description": "Every agent running across every repository, grouped by project \u2014 and a read-only door so the agents can check who else is in a file before they write it.",
   "keywords": [
     "claude-code",
     "codex",
@@ -33,7 +33,8 @@
     "bin",
     "src",
     "README.md",
-    "LICENSE"
+    "LICENSE",
+    "NOTICE"
   ],
   "scripts": {
     "test": "node --test",
