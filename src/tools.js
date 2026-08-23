@@ -21,12 +21,24 @@ export const EMPTY = Object.freeze({})
 
 // Sum the per-session tallies for one project.
 //
-// A project's sessions are found through its events rather than through a
-// back-reference, which is the same route every other rollup takes -- one way
-// to answer "which sessions is this project's", so they cannot disagree.
+// A project's sessions are the ones that edited in it plus the ones open in
+// it -- the same two routes byProject uses, so the panes cannot disagree about
+// whose sessions these are.
 export function toolsOf(project, sessions) {
   const out = new Map()
-  for (const id of new Set((project?.events ?? []).map(e => e.session))) {
+  // Sessions attributed by EDIT, plus sessions merely open in this project.
+  //
+  // Reads outnumber writes several to one, so a session can make five hundred
+  // tool calls and land four edits -- and if those edits belong to a nested
+  // repo, the project it is actually working in had no session by this map at
+  // all. A real one reported "no tool calls recorded" against 524 of them.
+  // The tools pane exists to show the reading, so it must not be reachable
+  // only through writing.
+  const ids = new Set([
+    ...(project?.events ?? []).map(e => e.session),
+    ...(project?.open ?? []).map(o => o.session),
+  ])
+  for (const id of ids) {
     const tools = sessions?.get?.(id)?.tools
     if (!tools) continue
     for (const [name, n] of Object.entries(tools)) out.set(name, (out.get(name) ?? 0) + n)
