@@ -454,8 +454,30 @@ export function render(state, size) {
     // project answers "is it improving"; the number that belongs to the repo
     // you opened belongs on the screen about that repo, or the preset is the
     // only place it exists and you have to hold it in your head to use it.
+    // Time spent COMPACTING, beside the attention it is part of.
+    //
+    // A compaction is the session rebuilding a picture it already had, and the
+    // transcript states how long it took. Measured over thirty days on one
+    // machine: 83 minutes, none of it visible anywhere. It is not a new metric
+    // so much as the attention number becoming honest -- so it sits next to
+    // that number rather than on a screen of its own.
+    const compacted = (() => {
+      const ids = new Set([...(p.events ?? []).map(e => e.session), ...(p.open ?? []).map(o => o.session)])
+      let ms = 0, n = 0, auto = 0
+      for (const id of ids) {
+        const s = state.sessions?.get(id)
+        if (!s?.compactions) continue
+        n += s.compactions
+        ms += s.compactMs ?? 0
+        auto += s.autoCompactions ?? 0
+      }
+      return { ms, n, auto }
+    })()
     const stats = [
       `${humanMs(att(p))} attention`,
+      // Only when it happened. "0m compacting" on every quiet project is a
+      // column of zeroes pretending to be information.
+      compacted.n ? `${humanMs(compacted.ms)} of it compacting${compacted.auto ? ` · ${compacted.auto} auto` : ''}` : null,
       `${Math.round((att(p) / totalAll) * 100)}% of all`,
       `${p.sessions} session${p.sessions === 1 ? '' : 's'}`,
       `${p.files} file${p.files === 1 ? '' : 's'}`,
