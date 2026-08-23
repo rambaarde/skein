@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.0](https://github.com/rambaarde/skein/compare/v0.35.0...v0.36.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** the graph plots change coupling, and velocity stops lagging ([50807e2](https://github.com/rambaarde/skein/commit/50807e20cf44b29673f35438fa61791e63ea1123))
+* **tui:** the graph plots change coupling, and velocity stops lagging ([#176](https://github.com/rambaarde/skein/issues/176)) ([0fe503b](https://github.com/rambaarde/skein/commit/0fe503b572ac34b60d155ed422d0aed60e85153c))
+
 ## [0.35.0](https://github.com/rambaarde/skein/compare/v0.34.1...v0.35.0) (2026-08-23)
 
 
