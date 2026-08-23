@@ -628,10 +628,18 @@ export function render(state, size) {
     // Structure comes from git; danger comes from the transcripts. Two
     // sources, one picture, and each is the only one that knows its half.
     const hits = colls.filter(c => c.project === p?.root)
+    // Keyed REPO-RELATIVE, because that is how git names a file.
+    //
+    // Collisions carry absolute paths and `git log --name-only` carries paths
+    // relative to the repo root, so the two never matched: the contested file
+    // was added as a SECOND node beside its own coupled one, and the same file
+    // drew twice -- once in its cluster and once orphaned in red.
+    const rel = f => (p?.root && f.startsWith(`${p.root}/`) ? f.slice(p.root.length + 1) : f)
     const contested = new Map()
     for (const c of hits) {
-      const cur = contested.get(c.path)
-      if (!cur || c.gapMin < cur.gapMin) contested.set(c.path, c)
+      const k = rel(c.path)
+      const cur = contested.get(k)
+      if (!cur || c.gapMin < cur.gapMin) contested.set(k, c)
     }
     const ships = p?.root ? landings(p.root, { since }) : null
     const g = coupled(ships, { root: p?.root, contested })

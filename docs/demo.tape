@@ -71,9 +71,23 @@ Sleep 2500ms
 Type "p"
 Sleep 2500ms
 
-# 4 velocity — what landed, and how long it took.
+# 4 velocity — what landed, how long it took, and what came back.
 Type "p"
-Sleep 5s
+Sleep 2000ms
+# Move the cursor: the failure panel follows the row.
+Down@700ms 2
+Sleep 3500ms
+
+# 5 graph — which files change together, and which two agents were both in one.
+# Back to the busiest project first: the velocity beat left the cursor two rows
+# down, and the graph of a quiet repo is a fair picture of a quiet repo but a
+# poor first look at the screen.
+Type "p"
+Sleep 1200ms
+Up@700ms 2
+Sleep 4500ms
+Down@800ms 1
+Sleep 3500ms
 
 Escape
 Sleep 1500ms
