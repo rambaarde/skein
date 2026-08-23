@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.3](https://github.com/rambaarde/skein/compare/v0.33.2...v0.33.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the selected row stops being the only monochrome row on screen ([0048d38](https://github.com/rambaarde/skein/commit/0048d3815aad80aa31bf3691cf5ce93074f1be16))
+* **tui:** the selected row stops being the only monochrome row on screen ([#164](https://github.com/rambaarde/skein/issues/164)) ([5c328e6](https://github.com/rambaarde/skein/commit/5c328e6736787664aa4b355d800638813c42c85a))
+
 ## [0.33.2](https://github.com/rambaarde/skein/compare/v0.33.1...v0.33.2) (2026-08-23)
 
 
