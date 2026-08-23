@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.1](https://github.com/rambaarde/skein/compare/v0.39.0...v0.39.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** restore project detail tabs ([#212](https://github.com/rambaarde/skein/issues/212)) ([e5a6765](https://github.com/rambaarde/skein/commit/e5a67659d14338b86c0a6c30e4a12d3749374a92))
+
 ## [0.39.0](https://github.com/rambaarde/skein/compare/v0.38.0...v0.39.0) (2026-08-23)
 
 
