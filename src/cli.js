@@ -175,7 +175,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
           : any.some(s => s.newest >= since)
             ? 'sessions were written in this window, but none touched a project (0 projects)'
             : `no agent activity in the last ${argvSince(opts)} (0 projects)`
-        return `${head}\n\nskein reads:\n${where}\n\nXDG_DATA_HOME is honoured; set it and opencode moves with it.`
+        return `${head}\n\nskeins reads:\n${where}\n\nXDG_DATA_HOME is honoured; set it and opencode moves with it.`
       })())
     return { code: 0, text }
   }
@@ -260,7 +260,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
           return `${head}\n${line}${r.records_seen ? `\n  saw: ${r.records_seen}` : ''}`
         }).join('\n\n') +
         `\n\n${total} edit${total === 1 ? '' : 's'} in the last ${argvSince(opts)}` +
-        (total ? '' : '\n\nskein counts files WRITTEN. Reading, searching and running commands are not edits.') +
+        (total ? '' : '\n\nskeins counts files WRITTEN. Reading, searching and running commands are not edits.') +
         '\nA record type skeins does not recognise means the agent changed its format — please report it.',
         'no agent stores found at all'),
     }

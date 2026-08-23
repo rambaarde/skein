@@ -187,7 +187,7 @@ test('the border carries a clock, and it advances', async () => {
   }
   const at = t => render({ ...base, now: t }, { cols: 100, rows: 16 }).replace(/\x1b\[[0-9;]*m/g, '')
   const t0 = Date.parse('2026-08-22T11:52:30Z')
-  assert.match(at(t0), /\d\d:\d\d:\d\d/, 'no clock in the border')
+  assert.match(at(t0), /\d{1,2}:\d\d:\d\d[ap]m/, 'no clock in the border')
   const [a, b] = [at(t0), at(t0 + 1000)]
   assert.notEqual(a, b, 'the clock must advance with the second')
 })
