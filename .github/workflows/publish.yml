@@ -26,6 +26,11 @@ on:
   push:
     branches: [main]
   workflow_dispatch:
+    inputs:
+      force_publish:
+        description: Publish the current package.json version even when release-please did not create a new release.
+        required: false
+        default: "false"
 
 concurrency:
   group: publish
@@ -49,7 +54,7 @@ jobs:
 
   publish:
     needs: release-please
-    if: ${{ needs.release-please.outputs.release_created == 'true' }}
+    if: ${{ needs.release-please.outputs.release_created == 'true' || (github.event_name == 'workflow_dispatch' && github.event.inputs.force_publish == 'true') }}
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -127,7 +132,7 @@ jobs:
 
       - name: verify it is actually installable
         run: |
-          VERSION='${{ needs.release-please.outputs.version }}'
+          VERSION="$(node -p 'require("./package.json").version')"
           for i in 1 2 3 4 5 6; do
             npm view "skeins@$VERSION" version >/dev/null 2>&1 && break
             echo "waiting for the registry to serve $VERSION ($i)"; sleep 10
