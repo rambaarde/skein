@@ -1,0 +1,17 @@
+skeins
+Copyright 2026 Ram Christopher Baarde
+
+This product includes design work derived from btop
+(https://github.com/aristocratos/btop), Copyright 2021 Aristocratos,
+licensed under the Apache License, Version 2.0.
+
+What is derived, specifically:
+
+  - the theme file format. skeins reads btop's own `.theme` files as they
+    are, so a palette written for btop works here unmodified.
+  - the preset syntax, `box:P:G,box:P:G`, read out of btop_config.cpp,
+    including its limits of nine presets of at most four boxes.
+  - the design language: per-box outline colours, state stated in the border,
+    controls hung off the frame, and the menu placed beside the box name.
+
+No btop source code is included in this work.

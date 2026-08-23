@@ -467,6 +467,6 @@ and CI greps the source to keep it that way.
 
 ## Licence
 
-Apache-2.0. Inspired by [agtop](https://github.com/ldegio/agtop), descended from
-[btop](https://github.com/aristocratos/btop) — Copyright 2021 Aristocratos,
+Apache-2.0. The design language, the theme format and the preset syntax come
+from [btop](https://github.com/aristocratos/btop) — Copyright 2021 Aristocratos,
 Apache-2.0.
