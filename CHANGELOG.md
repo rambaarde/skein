@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.3](https://github.com/rambaarde/skein/compare/v0.32.2...v0.32.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tools:** count the calls a session made where it is working ([d25b65b](https://github.com/rambaarde/skein/commit/d25b65b7fb798bd8cb984ccc2c5df4c9b2a2478c))
+* **tools:** count the calls a session made where it is working ([#147](https://github.com/rambaarde/skein/issues/147)) ([72a057a](https://github.com/rambaarde/skein/commit/72a057a3243d426a5e629dbb0ca3c56dede5bb90))
+
 ## [0.32.2](https://github.com/rambaarde/skein/compare/v0.32.1...v0.32.2) (2026-08-23)
 
 
