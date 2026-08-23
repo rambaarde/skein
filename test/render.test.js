@@ -1223,6 +1223,9 @@ test('the failure panel points at the reasons', async () => {
   // pointer must not appear. The line is earned, not decoration.
   assert.doesNotMatch(frame, /which files, and what repaired them/)
   assert.match(frame, /CHANGE FAILURE · repo/)
+  // And with nothing judged at all, not even a count -- there is no window in
+  // which "none of 0 came back" is a sentence worth printing.
+  assert.doesNotMatch(frame, /came back/)
 })
 
 test('a project with only an open session reports it, not the epoch', async () => {

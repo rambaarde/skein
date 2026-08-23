@@ -712,10 +712,20 @@ export function render(state, size) {
       // The reasons exist on the project page and NOTHING on this screen said
       // so. A reader looking at 13% has exactly one next question -- at what --
       // and the answer was one keystroke away with no sign of it.
+      // The count is STATED whenever there is one, and only the pointer is
+      // conditional. A clean window rendered a blank line, which reads as a
+      // missing feature rather than as the best possible result -- and left a
+      // reader hunting for reasons that legitimately do not exist yet.
+      //
+      // The window is named because it is the whole story here: the same
+      // project reads 0 of 2 over six hours and 7 of 48 over thirty days.
+      const judged = here?.v?.cfrOf?.judged ?? 0
       const failed = here?.v?.cfrOf?.verdicts?.filter(v => v.failed).length ?? 0
-      side.push(failed
-        ? ` ${DIM}${failed} of ${here.v.cfrOf.judged} came back · ${R}${BOLD}⏎${R}${DIM} which files, and what repaired them${R}`
-        : '')
+      side.push(!judged
+        ? ''
+        : failed
+          ? ` ${DIM}${failed} of ${judged} came back in ${lookback} · ${R}${BOLD}⏎${R}${DIM} which files, and what repaired them${R}`
+          : ` ${DIM}none of ${judged} came back in ${lookback}${R}`)
       if (here?.v?.cfrOf?.verdicts?.length) {
         side.push(...chart([{
           // The legend row would otherwise repeat the title. Spend it on the
