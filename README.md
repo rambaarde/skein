@@ -318,7 +318,7 @@ answers.
 | `/` | filter by name |
 | `c` | only projects that collided |
 | `esc` | back one level, then quit |
-| `m` | the menu — METRICS · KEYS · QUIT, over a dimmed dashboard |
+| `m` | the menu — METRICS · KEYS · QUIT, over a dimmed dashboard. Also a `m menu` tag beside the box name, as btop has it |
 | `?` | every key — then `tab` for what every number means |
 
 The mouse works too: rows, tabs, feed entries and the controls on the border are

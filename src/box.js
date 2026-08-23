@@ -51,7 +51,12 @@ export const TAG_SEP = ` ${'·'} `
 
 // `line` is btop's line_color argument to createBox: every box names its own
 // outline colour, which is what stops three panes reading as one grey frame.
-export function box({ w, title = '', state = '', right = '', rounded = true, key = '', line = null }) {
+// `head` is btop's own placement: its cpu box reads `¹cpu ┘menu┘preset 0`,
+// with the controls that change the WHOLE screen sitting beside the box name
+// rather than down on the footer with the per-pane ones. The footer is a long
+// row of tags and `menu` disappeared into it; on the title line there is
+// nothing else competing.
+export function box({ w, title = '', state = '', right = '', rounded = true, key = '', line = null, head: heads = '' }) {
   const c = rounded ? ROUND : SQUARE
   const B = line ?? THEME.box
   // Border text is decoration; the frame is not. Anything that will not fit is
@@ -59,7 +64,9 @@ export function box({ w, title = '', state = '', right = '', rounded = true, key
   const room = Math.max(0, w - 6)
   const clamp = s => (width(s) <= room ? s : `${[...s.replace(/\x1b\[[0-9;]*m/g, '')].slice(0, room).join('')}`)
   title = clamp(title); state = clamp(state)
-  const head = title ? `${B}${c.h}${R} ${BOLD}${title}${R}${key ? `${DIM}${key}${R}` : ''} ` : ''
+  const head = title
+    ? `${B}${c.h}${R} ${BOLD}${title}${R}${key ? `${DIM}${key}${R}` : ''} ${heads ? `${B}${c.h}${R} ${heads} ` : ''}`
+    : ''
   const foot = state ? `${B}${c.h} ${state} ${R}` : ''
   const pad = n => c.h.repeat(Math.max(0, n))
   // A right-hand tag on the top edge: btop puts the clock there, and a clock
