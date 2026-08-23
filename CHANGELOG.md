@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.2](https://github.com/rambaarde/skein/compare/v0.33.1...v0.33.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the menu stops being a wall of blocks ([0131d49](https://github.com/rambaarde/skein/commit/0131d49449c798fb69c7d3b6dfcdf87c7dbf1e6c))
+* **tui:** the menu stops being a wall of blocks ([#161](https://github.com/rambaarde/skein/issues/161)) ([1c5c3c2](https://github.com/rambaarde/skein/commit/1c5c3c2191ee9b7b9d7f2ce7bc3e50f5c37d3d78))
+
 ## [0.33.1](https://github.com/rambaarde/skein/compare/v0.33.0...v0.33.1) (2026-08-23)
 
 
