@@ -21,6 +21,7 @@ import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
 import { velocity, landings, cfrSeries, bucket } from './delivery.js'
+import { trend, direction, MIN_LANDED } from './trend.js'
 import { GLOSSARY } from './glossary.js'
 import { banner, bannerWidth, ROWS as MENU_ROWS } from './menu.js'
 import { canvas } from './canvas.js'
@@ -228,9 +229,20 @@ function helpOverlay(w, h, page = 1) {
   if (metrics) {
     const col = 13
     const text = Math.max(24, w - col - 8)
+    // The page ends where the terminal does, and SAYS SO. The glossary grew
+    // past the screen and the last entry simply stopped appearing -- which is
+    // exactly the silent truncation AXI 5 exists to forbid, and which this
+    // codebase already refuses in the legend and the project table.
+    const room = h - 4
+    let dropped = 0
     for (const [term, what] of GLOSSARY) {
-      wrap(what, text).forEach((l, i) => out.push(
-        b.row(`  ${BOLD}${fit(i === 0 ? term : '', col)}${R}  ${DIM}${l}${R}`)))
+      const lines = wrap(what, text).map((l, i) =>
+        `  ${BOLD}${fit(i === 0 ? term : '', col)}${R}  ${DIM}${l}${R}`)
+      if (out.length + lines.length > room) { dropped++; continue }
+      for (const l of lines) out.push(b.row(l))
+    }
+    if (dropped) {
+      out.push(b.row(`  ${DIM}+${dropped} more — a taller terminal, or ${R}${BOLD}skeins glossary${R}${DIM} for all of them${R}`))
     }
   } else {
     for (const [k, what] of KEYS) out.push(b.row(`  ${BOLD}${fit(k, 10)}${R}  ${DIM}${what}${R}`))
@@ -832,7 +844,64 @@ export function render(state, size) {
     // The body is the height of the BOX, not the height of the list, because
     // the failure panel beside the table is as tall as the space there is: a
     // machine with three projects gets the same graph as one with thirty.
-    const bodyH = Math.max(4, V.h - 2 - rowsOut.length)
+    // ---- are you improving ------------------------------------------------
+    //
+    // The only line on any screen that answers "is this getting better". It is
+    // MACHINE-WIDE and stated as such: measured on real data, per-project
+    // fortnights are mostly empty, and an arrow drawn from two landings is a
+    // confident lie.
+    const T = trend(projects, state.sessions, { now, since })
+    const rows4 = [
+      { label: 'landed', good: 'up', vals: T.buckets.map(b => b.landed), fmt: v => String(v) },
+      { label: 'attention per change', good: 'down', vals: T.buckets.map(b => b.perShip), fmt: v => humanMs(v) },
+      { label: 'change failure rate', good: 'down', vals: T.buckets.map(b => b.cfr), fmt: v => `${Math.round(v * 100)}%` },
+      { label: 'spent compacting', good: 'down', vals: T.buckets.map(b => b.compactShare), fmt: v => `${(v * 100).toFixed(1)}%` },
+    ]
+    const CELL = 7
+    // The verdict WORD is the first thing to go on a narrow terminal, not the
+    // numbers: an arrow still points, and the numbers are the evidence.
+    const words = W >= 118
+    const VERD = words ? 12 : 2
+    const bandRows = []
+    if (T.buckets.length) {
+      bandRows.push(` ${DIM}${'─'.repeat(Math.max(0, W - 2))}${R}`)
+      const heads = T.buckets.map((b, i) => (i === T.buckets.length - 1 ? 'now' : `-${(T.buckets.length - i) * 2}w`))
+      const lay = (left, cells, tail) => {
+        const body = cells.map(s => String(s).padStart(CELL)).join('')
+        const pad = Math.max(1, W - 2 - width(left) - body.length - width(tail) - 1)
+        return `${left}${' '.repeat(pad)}${body} ${tail}`
+      }
+      // The heading's tail must be as wide as a row's -- arrow, space, verdict
+      // -- or the column labels sit two cells left of their own numbers.
+      bandRows.push(lay(` ${BOLD}ARE YOU IMPROVING${R}${DIM}  every project · fortnights · ${lookback} loaded${R}`,
+        heads, ' '.repeat(VERD)))
+      for (const r of rows4) {
+        // Enough landings, or no direction at all. Two landings moving to
+        // three is not an improvement.
+        const enough = T.buckets[T.buckets.length - 1].landed >= MIN_LANDED
+        const d = enough ? direction(r.vals, { good: r.good }) : null
+        const arrow = !d ? ' ' : d.dir === 'flat' ? '→' : d.dir === 'up' ? '↑' : '↓'
+        const verdict = !d ? '' : d.better === null ? 'steady' : d.better ? 'better' : (r.good === 'down' ? 'worse' : 'slower')
+        const colour = !d || d.better === null ? THEME.fg : d.better ? LUT.activity[70] : LUT.failure[85]
+        // A bucket the transcripts do not cover prints a dot, never a zero.
+        const cells = r.vals.map(v => (v === null || v === undefined ? `${DIM}·${R}` : `${colour}${r.fmt(v)}${R}`))
+        const body = cells.map(s => {
+          const pad = Math.max(0, CELL - width(s))
+          return ' '.repeat(pad) + s
+        }).join('')
+        const left = `   ${DIM}${r.label}${R}`
+        const tail = `${colour}${arrow}${R}${words ? ` ${DIM}${fit(verdict, VERD - 2)}${R}` : ''}`
+        const pad = Math.max(1, W - 2 - width(left) - width(body) - width(tail) - 1)
+        bandRows.push(`${left}${' '.repeat(pad)}${body} ${tail}`)
+      }
+      if (T.buckets.some(b => b.perShip === null)) {
+        const note = `${DIM}· = before your transcripts begin${R}`
+        bandRows.push(`${' '.repeat(Math.max(1, W - 1 - width(note)))}${note}`)
+      }
+    }
+
+    const bandH = bandRows.length
+    const bodyH = Math.max(4, V.h - 2 - rowsOut.length - bandH)
     // `stats`, not `ranked`: the table is in the app's order so one press of
     // an arrow key moves exactly one row.
     //
@@ -937,6 +1006,7 @@ export function render(state, size) {
       if (!side.length) { if (i < tableRows.length) rowsOut.push(left); continue }
       rowsOut.push(`${left}${' '.repeat(Math.max(0, tableW - width(left)))}${DIM}│${R} ${side[i] ?? ''}`)
     }
+    rowsOut.push(...bandRows)
     const anyGit = stats.filter(s => s.v).length
     return compose(h, [{ rect: V, lines: pane(V, {
       title: 'velocity', key: SUP[3], line: THEME.boxHead,
