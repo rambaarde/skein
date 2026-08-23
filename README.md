@@ -6,15 +6,11 @@
 read-only door so the agents can check who else is in a file before they write
 it.**
 
-Four sessions open across three repos, two of them on the same repo. One edits
-`src/auth/session.ts`; twenty minutes later another opens the same file with a
-stale picture of it and rewrites a function the first one had already changed.
-Neither agent could have known. Both behaved correctly.
+Two agents, one repo. One edits `src/auth/session.ts`; twenty minutes later the
+other rewrites the same function from a stale picture. Neither could have known.
 
-Most agent dashboards scope to the **session**. You do not work in sessions — you
-work in projects, and the collisions that cost you happen *between* sessions,
-where a session-shaped tool cannot look. skeins's unit is the **project**, and the
-agents can consult it themselves.
+Dashboards scope to the **session**. You work in **projects**, and collisions
+happen *between* sessions — where a session-shaped tool cannot look.
 
 No daemon. No account. No telemetry. Nothing leaves the machine.
 
