@@ -23,6 +23,8 @@ import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW }
 import { velocity, landings, cfrSeries, bucket } from './delivery.js'
 import { GLOSSARY } from './glossary.js'
 import { banner, bannerWidth, ROWS as MENU_ROWS } from './menu.js'
+import { canvas } from './canvas.js'
+import { contention, layout as forceLayout, MAX_FILES, MAX_SESSIONS } from './graph.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -88,7 +90,7 @@ const KEYS = [
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
-  ['1-4', 'jump straight to a preset: all · watch · table · velocity'],
+  ['1-5', 'jump straight to a preset: all · watch · table · velocity · graph'],
   ['', 'the selected project is lit on the chart; the rest fade back'],
   ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
   ['space', 'peek at a project inline without leaving the list'],
@@ -611,6 +613,125 @@ export function render(state, size) {
     return compose(h, panes)
   }
 
+  // ---- graph: who is in the same file as whom -----------------------------
+  //
+  // The picture the tool is actually about. Every other screen answers "what
+  // happened"; this one answers "where are two of you standing on the same
+  // floorboard", which is the thing no per-session dashboard can see at all.
+  //
+  // ONE project's contention, not the machine's. The whole-machine version is
+  // 1573 nodes on this developer's laptop, which is a hairball by every
+  // measure in the literature; one project is 1-13 sessions and up to 36
+  // contested files, which is the size a node-link picture is FOR.
+  function graphScreen(V) {
+    const p = projects[sel] ?? projects[0]
+    const g = p ? contention(p) : { nodes: [], edges: [], moreFiles: 0, moreSessions: 0, totalShared: 0 }
+    const W = V.w - 2
+    // Two rows of chrome inside the box: the caption and the legend.
+    const H = Math.max(3, V.h - 4)
+    const rows = []
+
+    if (!g.nodes.length) {
+      rows.push('')
+      rows.push(` ${DIM}${p ? p.name : 'no project'} has no file that two sessions both touched${R}`)
+      rows.push('')
+      rows.push(` ${DIM}that is the good outcome. A node here is a file, an edge is a session${R}`)
+      rows.push(` ${DIM}that wrote it, and a file with one writer is not a graph -- it is work.${R}`)
+    } else {
+      const c = canvas(W, H)
+      // Margin in SUBPIXELS, so a label near the edge still has room to sit.
+      const mx = 2, my = 4
+      const at = forceLayout(g.nodes, g.edges, { seed: p?.root ?? p?.name ?? 'skeins' })
+      const px = i => mx + at[i].x * (c.sw - 2 * mx - 1)
+      const py = i => my + at[i].y * (c.sh - 2 * my - 1)
+
+      // Edges first and dimmest: they are the structure, not the subject.
+      for (const [a, b] of g.edges) c.line(px(a), py(a), px(b), py(b), THEME.inactive)
+
+      // Then the nodes, forced over whatever edge crossed them.
+      g.nodes.forEach((n, i) => {
+        const x = Math.round(px(i)), y = Math.round(py(i))
+        const colour = n.kind === 'session' ? (hue(state.sessions?.get(n.id)?.agent) || THEME.boxHead) : LUT.heat[Math.min(100, (n.weight ?? 2) * 25)]
+        // A file drawn bigger the more sessions are in it -- R3, colour and
+        // size encode the value rather than the identity.
+        const r = n.kind === 'session' ? 1 : Math.min(2, Math.max(1, (n.weight ?? 2) - 1))
+        for (let ox = -r; ox <= r; ox++) for (let oy = -r * 2; oy <= r * 2; oy++) c.dot(x + ox, y + oy, colour, true)
+      })
+
+      // Labels last, so nothing draws over them -- and never over each other.
+      //
+      // Two labels written into the same cells produced
+      // `src/app/(marketing)src/app/globals.css`, which is not a file, not two
+      // files, and not something a reader can recover. A label that cannot be
+      // placed truthfully is not placed: the node is still drawn, and the
+      // legend already says what a node is.
+      const taken = new Set()
+      const free = (cx, cy, len) => {
+        if (cy < 0 || cy >= c.h || cx < 0 || cx + len > c.w) return false
+        for (let i = -1; i <= len; i++) if (taken.has(`${cy}:${cx + i}`)) return false
+        return true
+      }
+      const claim = (cx, cy, len) => { for (let i = 0; i < len; i++) taken.add(`${cy}:${cx + i}`) }
+      // Most contested first: when two labels compete for the same row, the
+      // one that matters more should be the one that survives.
+      const order = g.nodes.map((n, i) => i).sort((a, b) => (g.nodes[b].weight ?? 0) - (g.nodes[a].weight ?? 0))
+      for (const i of order) {
+        const n = g.nodes[i]
+        const cx = Math.round(px(i) / 2), cy = Math.round(py(i) / 4)
+        // Paths truncate from the LEFT. `src/app/features/…` five times over
+        // is five identical labels for five different files -- the end of a
+        // path is what tells them apart, and the start is the part they share.
+        const txt = n.label.length <= 18 ? n.label
+          : n.kind === 'file' ? `…${n.label.slice(-17)}`
+          : trunc(n.label, 18) ?? n.label
+        // Right of the node, then left, then a row above or below. Four tries
+        // and then it goes unlabelled rather than on top of something.
+        const spots = [
+          [cx + 2, cy], [cx - txt.length - 2, cy],
+          [cx + 2, cy - 1], [cx + 2, cy + 1],
+        ]
+        const spot = spots.find(([x, y]) => free(x, y, txt.length))
+        if (!spot) continue
+        claim(spot[0], spot[1], txt.length)
+        c.label(spot[0], spot[1], txt, n.kind === 'session' ? THEME.dim : THEME.fg)
+      }
+      rows.push(...c.rows())
+    }
+
+    const sessions = g.nodes.filter(n => n.kind === 'session').length
+    const files = g.nodes.filter(n => n.kind === 'file').length
+    // Say what was left out. A capped graph that does not admit it is a claim
+    // that the project is calmer than it is.
+    const capped = [
+      g.moreFiles ? `+${g.moreFiles} more file${g.moreFiles === 1 ? '' : 's'}` : null,
+      g.moreSessions ? `+${g.moreSessions} more session${g.moreSessions === 1 ? '' : 's'}` : null,
+    ].filter(Boolean).join(' · ')
+
+    return compose(h, [{ rect: V, lines: pane(V, {
+      title: 'graph', key: SUP[4], line: THEME.boxHead,
+      head: (() => {
+        const at = V.x + 6 + 'graph'.length + width(SUP[4])
+        hit.tags.push({ y: V.y, x0: at, x1: at + 'm menu'.length, key: 'm' })
+        return tag('m', 'menu')
+      })(),
+      right: (() => {
+        const painted = `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`
+        const x0 = V.x + V.w - width(painted) - 3
+        hit.tags.push({ y: V.y, x0, x1: x0 + 12, key: 'p' })
+        return painted
+      })(),
+      rows: [
+        ` ${BOLD}${p?.name ?? '—'}${R}${DIM} · ${sessions} session${sessions === 1 ? '' : 's'} · ${files} contested file${files === 1 ? '' : 's'}${capped ? ` · ${capped}` : ''}${R}`,
+        ...rows,
+      ],
+      state: (() => {
+        const note = `${DIM}${THEME.boxHead}●${R}${DIM} session · ${R}${LUT.heat[75]}●${R}${DIM} file, bigger is more contested · ${lookback}${R}`
+        const keys = [tag('↑↓', 'project'), tag('1', 'back'), tag('p', 'preset'), tag('a', lookback), tag('q', 'quit')]
+        return `${note}  ${keys.join(TAG_SEP)}`
+      })(),
+    }) }])
+  }
+
   // ---- velocity: what landed, and how long it took to land ----------------
   //
   // DORA, translated for ONE developer. Three quarters of DORA does not
@@ -913,6 +1034,7 @@ export function render(state, size) {
   }
   // Same reason, same place: velocityScreen reads clock and pulse.
   if (L.velocity) return velocityScreen(L.velocity)
+  if (L.graph) return graphScreen(L.graph)
 
   // Fitted to the budget rather than switched at two breakpoints, and the two
   // escape hatches are PINNED. Adding one control used to push '? keys' off the

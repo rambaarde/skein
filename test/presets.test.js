@@ -49,5 +49,12 @@ test('a preset drops boxes, and the survivors take the space', () => {
   assert.equal(vel.feed, undefined)
   assert.equal(vel.velocity.h, 32, 'velocity gets the whole screen')
 
-  assert.equal(PRESETS.length, 4)
+  // graph is the same kind of screen as velocity, for the same reason: a
+  // picture of who is in the same file as whom is not a panel of anything.
+  const gr = layout(120, 32, apply(parse(DEFAULT_PRESETS).presets[4]).shown)
+  assert.equal(gr.head, undefined, 'the project list is gone, not shrunk')
+  assert.equal(gr.graph.h, 32, 'graph gets the whole screen')
+  assert.match(parse('graph:0:default,feed:0:default').error, /whole screen/)
+
+  assert.equal(PRESETS.length, 5)
 })
