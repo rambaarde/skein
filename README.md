@@ -273,6 +273,33 @@ person. skeins ships the part that does and names the part it cannot — see
 header says which: under seven days it reads `/DAY`, because a weekly rate
 extrapolated from two days is a projection wearing a measurement's clothes.
 
+### Are you improving?
+
+Under the velocity table, every project pooled, per fortnight:
+
+```
+ARE YOU IMPROVING  every project · fortnights · 30d loaded    -8w   -6w   -4w   now
+  landed                                                       47   122   150   149 ↑ better
+  attention per change                                          ·     ·    7m    9m ↑ worse
+  change failure rate                                          0%    3%    0%   12% ↑ worse
+  spent compacting                                              ·     ·  3.8%  2.7% ↓ better
+                                              · = before your transcripts begin
+```
+
+The arrow knows which way is **good**: more landed is better, more attention
+per change is not, and both point up. A move under 10% is `flat` rather than a
+trend, and no direction is drawn at all from fewer than eight landings.
+
+**Pooled, and per fortnight, because that is what the data supports.** Measured
+on a real machine: per-project *weekly* figures had two of four weeks empty for
+every project, and the weeks that were not empty read `4m` then `17m` — which
+is two landings, not a trend.
+
+A `·` is a fortnight your loaded window does not reach. Press `a` to widen it
+and the band fills in. git history reaches back further than agent transcripts
+do, so `landed` can be real in a fortnight where `attention per change` is
+unknown — and unknown is printed as a dot, never as a zero.
+
 ### Change failure rate
 
 The share of your deployments that had to be repaired. It gets its own graph
