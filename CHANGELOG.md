@@ -1,5 +1,12 @@
 # Changelog
 
+## [0.39.2](https://github.com/rambaarde/skein/compare/v0.39.1...v0.39.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** move worktrees into project page ([e8657ab](https://github.com/rambaarde/skein/commit/e8657abd18b540592a68e3417c82a54a886cd8d5))
+
 ## [0.39.1](https://github.com/rambaarde/skein/compare/v0.39.0...v0.39.1) (2026-08-23)
 
 
