@@ -1267,3 +1267,39 @@ test('a project with only an open session reports it, not the epoch', async () =
   // require a wider screen than the pane has.
   assert.match(frame, /open · no/, 'and say what kind of session it is')
 })
+
+test('keys reach the screen, not just the variable', async () => {
+  // The menu shipped broken while every unit test passed. render() drew it
+  // correctly when handed `menu: 0`, and the key handler set the variable --
+  // but sync() copied twelve interactive fields into the live state object and
+  // `menu` was not one of them, so the screen repainted from a stale value.
+  //
+  // Nothing here drove a real keypress through start(), so nothing could catch
+  // it. This does: it presses the key and reads the pixels.
+  const { start } = await import('../src/tui.js')
+  const { PassThrough } = await import('node:stream')
+  const out = new PassThrough(); out.columns = 140; out.rows = 40; out.isTTY = true
+  const inp = new PassThrough(); inp.isTTY = true; inp.setRawMode = () => {}
+  let painted = ''
+  out.on('data', d => { painted += d.toString() })
+  start({ stdout: out, stdin: inp })
+  await new Promise(r => setTimeout(r, 120))
+
+  const after = async k => {
+    painted = ''
+    inp.write(k)
+    await new Promise(r => setTimeout(r, 120))
+    return painted.replace(/\x1b\[[0-9;]*m/g, '')
+  }
+
+  // m opens the menu: five-row letters over the dashboard.
+  assert.match(await after('m'), /█/, 'm must draw the menu')
+  // The cursor moves inside it.
+  assert.match(await after('\x1b[B'), /█/, 'and it stays open while moving')
+  // Enter on a choice leaves the banner for the page it opens.
+  assert.doesNotMatch(await after('\r'), /█/, 'enter opens the chosen page')
+  // esc comes back to the menu rather than all the way out.
+  assert.match(await after('\x1b'), /█/, 'esc returns one level, to the menu')
+  // And out.
+  assert.doesNotMatch(await after('m'), /█/, 'm closes it again')
+})

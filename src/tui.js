@@ -1587,9 +1587,10 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     if (onlyColliding) list = list.filter(p => built.colls.some(c => c.project === p.root))
     list = [...list].sort(SORTS[sortIdx].cmp)
     state = {
-      ...built, projects: list, sel, expanded, tier, now: t,
-      lookback: LOOKBACKS[lb][1], windowMin, tick,
-      sort: SORTS[sortIdx].label, filter, help, menu, onlyColliding, focus, preset, tab, feedTop, page,
+      ...built, projects: list, expanded, tier,
+      lookback: LOOKBACKS[lb][1], windowMin,
+      ...interactive(),
+      now: t,
     }
     if (sel >= state.projects.length) sel = Math.max(0, state.projects.length - 1)
     state.sel = sel
@@ -1605,23 +1606,31 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   // "nothing happens when I click" and "it takes about two seconds": the work
   // was instant, the result just was not on screen yet.
   //
-  // Listing them here rather than at each call site is the point. The bug was
-  // an omission, and an omission repeats every time a new piece of state is
-  // added unless there is exactly one place to add it.
-  const sync = () => {
-    state.sel = sel
-    state.now = now()
-    state.tick = tick
-    state.help = help
-    state.filter = filter
-    state.focus = focus
-    state.preset = preset
-    state.tab = tab
-    state.feedTop = feedTop
-    state.page = page
-    state.onlyColliding = onlyColliding
-    state.sort = SORTS[sortIdx].label
-  }
+  // ONE function, used by both writers. Listing them in one place was already
+  // the stated point, and it still was not enough: `menu` was added to the
+  // reload() literal and not to this list, so pressing m set the variable, the
+  // screen repainted, and the menu never appeared. Exactly the bug the comment
+  // above describes, one new field later.
+  //
+  // A list you have to remember to extend is not one place, it is two that
+  // happen to agree today. reload() spreads this, sync() assigns it, and a
+  // field added here cannot be missed by either.
+  const interactive = () => ({
+    sel,
+    now: now(),
+    tick,
+    help,
+    menu,
+    filter,
+    focus,
+    preset,
+    tab,
+    feedTop,
+    page,
+    onlyColliding,
+    sort: SORTS[sortIdx].label,
+  })
+  const sync = () => Object.assign(state, interactive())
 
   const draw = () => {
     sync()
