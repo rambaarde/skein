@@ -121,8 +121,6 @@ total. The project you have selected is lit; the rest fade back.
 | **3 table** | the project table alone, the most projects on screen |
 | **4 velocity** | what landed on each trunk, how long it took, what had to be repaired, and whether the trend is improving |
 | **5 graph** | change coupling: which files move together, and which one two agents were both in at once |
-| **6 estate** | the selected project's worktrees, recent commits, dirty files, upstream sync and live CPU |
-| **7 worktrees** | the same selected-project worktree view under the explicit name |
 
 `⏎` opens a project's own screen: its agents, its sessions and their context
 pressure, its files, its version control, its collisions.
@@ -394,14 +392,15 @@ stated on screen (`+9 weaker pairs`) rather than applied silently, and the
 drawing's size follows the node count — a small graph sits compactly in the
 middle rather than being stretched across the terminal.
 
-### The estate
+### Project worktrees
 
-Preset `6` is scoped to the selected project. Everything else on screen reads
-agent transcripts or git history — records of what already happened. Estate adds
-the working-copy state and OS sample for the repo under the cursor:
+Open a project and switch the lower-right tab to `worktrees`. The view is scoped
+to that selected project, beside its agents, sessions, files and tools. Everything
+else on screen reads agent transcripts or git history -- records of what already
+happened. The worktrees tab adds working-copy state and the OS CPU sample:
 
 ```
-skeins · estate
+git worktrees
 version 0.36.0 tag 0.36.0
 └─ develop            current
    claude+codex  █■·· 42.3%  3 files  ↑1 ↓0  abc123 ship worktrees view
@@ -416,7 +415,7 @@ version 0.36.0 tag 0.36.0
 - **CHANGES / SYNC** show uncommitted file count and upstream ahead/behind state.
   Skeins does not invent live `PUSHING` or `MERGING` labels from a snapshot.
 - **CPU** is sampled from the OS, not derived from a transcript, and is attributed
-  to the most-specific worktree path.
+  to the selected project/worktree path.
 
 `skeins worktrees [path]` is the same checkout-state idea in the CLI door.
 
@@ -468,7 +467,7 @@ answers.
 | `⏎` | open the project's own screen |
 | `space` | peek at it inline |
 | `tab` | switch the detail pane — info · sessions · files · tools · collisions |
-| `p` · `1`–`4` | presets |
+| `p` · `1`-`5` | presets |
 | `a` | window: 6h · 24h · 7d · 30d |
 | `s` | sort: recent · time · files · sessions · name |
 | `/` | filter by name |
@@ -530,11 +529,11 @@ that rots.
   honest version and skeins does show it — how full a session's window is now is
   an operational state, like memory pressure, not a receipt.
 - **Process trees, per-core breakdowns, memory and disk gauges.** agtop's are
-  good, and skeins is not trying to be a second one. What preset 6 does show is
-  narrower than that promise sounds: one CPU number per PROJECT, sampled only
-  while that screen is open and on a slow cadence, batched into one `ps` call
-  and one cwd lookup rather than one per process — not a live gauge, a snapshot
-  you asked for by looking.
+  good, and skeins is not trying to be a second one. The project page shows one
+  CPU number for the selected PROJECT, sampled only while that page is open and
+  on a slow cadence, batched into one `ps` call and one cwd lookup rather than
+  one per process -- not a process monitor, a scoped snapshot you asked for by
+  looking.
 - **Session management.** herdr and agent-manager own this.
 - **Anything hosted or shared.** Paths and titles carry client names.
 - **Telemetry.** Absent, not off-by-default.

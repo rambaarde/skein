@@ -8,10 +8,12 @@
 // once, on a timer that already backs off from 2s to 16s, it is free.
 import { execFileSync } from 'node:child_process'
 import { readlinkSync } from 'node:fs'
+import { normalize } from 'node:path'
 import { gitRoot } from './project.js'
 
 const WIN = process.platform === 'win32'
 const LINUX = process.platform === 'linux'
+const pathKey = p => normalize(String(p ?? '')).replace(/\\/g, '/').toLowerCase()
 export const AGENTS = ['claude', 'codex', 'opencode']
 
 // pid -> { cpu, agent }, filtered to the three agents skein already reads
@@ -118,9 +120,11 @@ export function byRoot(rows) {
 /** Attribute sampled processes to most-specific linked checkout paths. */
 export function attributeToPaths(rows, paths) {
   const out = new Map(paths.map(path => [path, { cpu: 0, agents: new Set() }]))
+  const keys = new Map(paths.map(path => [path, pathKey(path)]))
   for (const row of rows) {
+    const cwd = pathKey(row.cwd)
     const path = [...out.keys()]
-      .filter(candidate => row.cwd === candidate || row.cwd?.startsWith(`${candidate}/`))
+      .filter(candidate => cwd === keys.get(candidate) || cwd.startsWith(`${keys.get(candidate)}/`))
       .sort((a, b) => b.length - a.length)[0]
     if (!path) continue
     const bucket = out.get(path)

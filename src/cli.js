@@ -399,7 +399,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   }
   // A different SOURCE from every other command here: the OS, not the
   // transcripts or git. `skeins estate` exists for the same reason the TUI's
-  // estate preset does -- worktrees, the gap between a working copy and what
+  // project worktrees tab does -- worktrees, the gap between a working copy and what
   // it claims to be, and live CPU never appear anywhere else, and D13 says a
   // number the TUI can show belongs in this door too.
   if (cmd === 'estate') {
