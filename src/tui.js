@@ -340,15 +340,26 @@ export function render(state, size) {
     // Geometry: a tall headline with the graph, then three boxes across, then
     // collisions along the bottom if there are any.
     const collsHere = colls.filter(c => c.project === p.root)
+    // Read before the geometry, because the geometry asks whether this repo
+    // has anything to say about failure before it reserves a row for it.
+    //
+    const vp = velocity(p.root, p.events ?? [], { since, now, attention: att(p) })
+    // WHY it failed, not just how often. A percentage tells you to worry; a
+    // list of what shipped broken and what repaired it tells you where.
+    const broke = (vp?.cfrOf?.verdicts ?? []).filter(v => v.failed).reverse()
+    const repeats = vp?.cfrOf?.offenders ?? []
     // The graph is capped rather than given whatever is left. Twenty-three
     // gradations is not more information than ten — it is the same shape with a
     // finer ruler, and it was eating the panes that carry the actual detail.
     const GRAPH_MAX = 10
     const collH = collsHere.length ? Math.min(Math.max(4, collsHere.length + 3), Math.floor(h * 0.3)) : 0
-    const rowsP = Math.max(2, Math.min(GRAPH_MAX, h - collH - 15))
+    // Only when there is something to say. A box reading "no failures" on
+    // every repo that never shipped twice is a row of furniture.
+    const failH = broke.length ? Math.min(Math.max(5, Math.min(6, Math.max(broke.length, repeats.length)) + 2), Math.floor(h * 0.28)) : 0
+    const rowsP = Math.max(2, Math.min(GRAPH_MAX, h - collH - failH - 15))
     // rowsP graph rows, the chart's own rule/times/legend, and two borders.
     const headHp = rowsP + CHART_BELOW + 2
-    const lowerH = h - headHp - collH
+    const lowerH = h - headHp - collH - failH
     // Four across, not three. "1354 tool calls" on the border said a number
     // and answered nothing: WHICH tools, and in what proportion, is the whole
     // question, and it is the same question the files box answers about files.
@@ -359,7 +370,13 @@ export function render(state, size) {
       sessions: { x: q, y: headHp, w: q, h: lowerH },
       files: { x: q * 2, y: headHp, w: q, h: lowerH },
       tools: { x: q * 3, y: headHp, w: w - q * 3, h: lowerH },
-      colls: { x: 0, y: headHp + lowerH, w, h: collH },
+      // Two halves of one question: which files keep breaking, and which
+      // releases they broke. Split rather than stacked, because reading one
+      // without the other is how a popularity contest gets mistaken for a
+      // finding.
+      breaks: { x: 0, y: headHp + lowerH, w: Math.floor(w / 2), h: failH },
+      broke: { x: Math.floor(w / 2), y: headHp + lowerH, w: w - Math.floor(w / 2), h: failH },
+      colls: { x: 0, y: headHp + lowerH + failH, w, h: collH },
     }
 
     // --- the headline: this project's attention, one line per AGENT
@@ -401,7 +418,6 @@ export function render(state, size) {
     // project answers "is it improving"; the number that belongs to the repo
     // you opened belongs on the screen about that repo, or the preset is the
     // only place it exists and you have to hold it in your head to use it.
-    const vp = velocity(p.root, p.events ?? [], { since, now, attention: att(p) })
     const stats = [
       `${humanMs(att(p))} attention`,
       `${Math.round((att(p) / totalAll) * 100)}% of all`,
@@ -507,6 +523,31 @@ export function render(state, size) {
           return `${DIM}${n ? `${t.length} tool${t.length === 1 ? '' : 's'} · ${n} call${n === 1 ? '' : 's'}` : 'none recorded'}${R}`
         })() }) },
     ]
+    if (failH > 0) {
+      const bw = rects.breaks.w - 2
+      panes.push({ rect: rects.breaks, lines: pane(rects.breaks, {
+        title: 'what keeps breaking', line: LUT.failure[60],
+        // The denominator is the whole point. "7 times" reads as a fragile
+        // file; "7 of 22" reads as what it is -- and without it a reader goes
+        // and rewrites whichever file ships most often.
+        state: `${DIM}repaired after shipping · of the releases it shipped in${R}`,
+        rows: repeats.slice(0, Math.max(1, failH - 2)).map(o => {
+          const pct = Math.round((o.hotfixed / Math.max(1, o.shipped)) * 100)
+          return ` ${LUT.failure[pct]}${String(`${o.hotfixed}/${o.shipped}`).padStart(6)}${R} ${DIM}${String(pct).padStart(3)}%${R}  ${fit(short(o.file, p.root), Math.max(8, bw - 14))}`
+        }),
+      }) })
+      panes.push({ rect: rects.broke, lines: pane(rects.broke, {
+        title: 'and what repaired it', line: LUT.failure[60],
+        state: `${DIM}${broke.length} of ${vp?.cfrOf?.judged ?? 0} deployments shipped something that came back${R}`,
+        rows: broke.slice(0, Math.max(1, failH - 2)).map(v => {
+          const tag = v.name ?? new Date(v.at).toISOString().slice(0, 10)
+          // The subject of the commit that repaired it, not a count. A
+          // developer recognises their own commit message instantly and a
+          // number tells them nothing they can act on.
+          return ` ${LUT.failure[70]}${fit(tag, 12)}${R}${DIM}${fit(trunc(v.by[0] ?? '', Math.max(10, rects.broke.w - 17)), Math.max(10, rects.broke.w - 16))}${R}`
+        }),
+      }) })
+    }
     if (collH > 0) {
       panes.push({ rect: rects.colls, lines: pane(rects.colls, {
         title: 'collisions', line: LUT.heat[90],

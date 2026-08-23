@@ -205,3 +205,67 @@ test('a trend with nothing to judge is flat, not absent', () => {
   assert.deepEqual(cfrSeries([], 4, 0, 100), [0, 0, 0, 0])
   assert.deepEqual(cfrSeries(null, 3, 0, 100), [0, 0, 0])
 })
+
+test('a failure rate says what failed, not only how often', async () => {
+  // A percentage tells a reader to worry; it does not tell them where. The
+  // overlap that decides the verdict is already computed -- which hotfix
+  // touched which shipped file -- and was being thrown away.
+  const { failureRate } = await import('../src/delivery.js')
+  const D = 86_400_000
+  const t0 = Date.parse('2026-08-01T00:00:00Z')
+  const all = [
+    { at: t0 + 1 * D, subject: 'feat: a', files: ['src/a.js'], release: false, hotfix: false },
+    { at: t0 + 2 * D, subject: 'chore(main): release 1.0.0', files: [], release: true, hotfix: false },
+    { at: t0 + 3 * D, subject: 'fix: repair a', files: ['src/a.js'], release: false, hotfix: true },
+    { at: t0 + 4 * D, subject: 'feat: b', files: ['src/b.js'], release: false, hotfix: false },
+    { at: t0 + 5 * D, subject: 'chore(main): release 1.1.0', files: [], release: true, hotfix: false },
+    { at: t0 + 6 * D, subject: 'fix: unrelated', files: ['src/z.js'], release: false, hotfix: true },
+    { at: t0 + 7 * D, subject: 'chore(main): release 1.2.0', files: [], release: true, hotfix: false },
+  ]
+  const deploys = [
+    { at: t0 + 2 * D, name: 'v1.0.0' },
+    { at: t0 + 5 * D, name: 'v1.1.0' },
+    { at: t0 + 7 * D, name: 'v1.2.0' },
+  ]
+  const cfr = failureRate(all, deploys)
+  assert.equal(cfr.judged, 2)
+  assert.equal(cfr.failed, 1, 'only the release whose file came back counts')
+
+  const [first, second] = cfr.verdicts
+  assert.equal(first.name, 'v1.0.0')
+  assert.deepEqual(first.by, ['fix: repair a'], 'the commit that repaired it, by name')
+  assert.deepEqual(first.files, ['src/a.js'], 'and what it touched of what went out')
+  // A deployment that held reports empty arrays, never absent ones: a caller
+  // must not have to tell "nothing broke" from "we did not look".
+  assert.equal(second.failed, false)
+  assert.deepEqual(second.by, [])
+  assert.deepEqual(second.files, [])
+
+  // The rollup carries the DENOMINATOR. Without it a bare count is a
+  // popularity contest and the busiest file always wins.
+  const a = cfr.offenders.find(o => o.file === 'src/a.js')
+  assert.equal(a.hotfixed, 1)
+  // TWO, not one: the repair itself shipped in the next release, so the file
+  // went out twice. That is the honest denominator -- a file you keep fixing
+  // keeps shipping, and pretending otherwise would inflate every rate.
+  assert.equal(a.shipped, 2)
+  assert.equal(cfr.offenders.find(o => o.file === 'src/z.js'), undefined, 'a fix to what nothing shipped is not a failure')
+})
+
+test('the offender list is not won by the file that ships most', async () => {
+  // Measured on this repository: the raw rate put three 1-of-3 files above
+  // src/tui.js at 7-of-22, and a file repaired once out of three shipments is
+  // not evidence of anything.
+  const { offenders } = await import('../src/delivery.js')
+  const batches = [
+    ...Array.from({ length: 20 }, () => ({ shipped: new Set(['big.js']) })),
+    ...Array.from({ length: 3 }, () => ({ shipped: new Set(['small.js']) })),
+  ]
+  const verdicts = [
+    ...Array.from({ length: 6 }, () => ({ files: ['big.js'] })),
+    { files: ['small.js'] },
+  ]
+  const [top] = offenders(verdicts, batches)
+  assert.equal(top.file, 'big.js', '6 of 20 outranks 1 of 3')
+  assert.equal(top.shipped, 20)
+})
