@@ -1526,8 +1526,14 @@ test('switching to the estate preset paints a fresh CPU sample, not a stale one'
   const inp = new PassThrough(); inp.isTTY = true; inp.setRawMode = () => {}
   let painted = ''
   out.on('data', d => { painted += d.toString() })
-  const fakeSample = () => [{ pid: 1, agent: 'claude', cpu: 33.7, cwd: process.cwd(), root: process.cwd() }]
-  start({ stdout: out, stdin: inp, sampleMachine: fakeSample })
+  const root = process.cwd()
+  const fakeSample = () => [{ pid: 1, agent: 'claude', cpu: 33.7, cwd: root, root }]
+  const buildState = (windowMin, lookbackMs, t) => {
+    const event = { at: t - 60_000, agent: 'claude', session: 's', path: `${root}/f.ts`, project: root }
+    const project = { name: 'skeins', root, sessions: 1, files: 1, agents: ['claude'], last: event.at, events: [event] }
+    return { events: [event], sessions: new Map([['s', { agent: 'claude', cwd: root, last: event.at }]]), projects: [project], colls: [], since: t - lookbackMs, dirty: false }
+  }
+  start({ stdout: out, stdin: inp, sampleMachine: fakeSample, buildState })
   await new Promise(r => setTimeout(r, 120))
   painted = ''
   inp.write('6')
