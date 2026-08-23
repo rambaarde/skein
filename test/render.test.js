@@ -579,7 +579,7 @@ test('the headline is a chart per project, tall and graduated', async () => {
   assert.ok(lines.some(l => l.includes('⣿⣿ r') || l.includes('⣿⣿ q')), 'the legend names the lines')
   assert.ok(lines.some(l => l.includes('attention · 24h')), 'and says what the axis measures')
   assert.ok(lines.some(l => /└┬/.test(l)), 'the x axis is ruled with ticks')
-  assert.ok(lines.some(l => /\d\d:\d\d.*now\s*│/.test(l)), 'and labelled with clock times ending at now')
+  assert.ok(lines.some(l => /\d{1,2}:\d\d[ap]m.*now\s*│/.test(l)), 'and labelled with clock times ending at now')
 })
 
 test('a per-project sparkline is short and stands next to a number', async () => {

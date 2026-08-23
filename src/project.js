@@ -37,23 +37,50 @@ export const NO_REPO = 'not in a repo'
 export const projectName = root => (root ? basename(root) : NO_REPO)
 
 // Group events by project. `loose` is a real bucket, never a silent discard.
-export function byProject(events) {
+export function byProject(events, sessions = null) {
   const map = new Map()
   for (const e of events) {
     const root = e.project ?? gitRoot(e.path)
     const key = root ?? 'loose'
-    if (!map.has(key)) map.set(key, { root, name: projectName(root), events: [] })
+    if (!map.has(key)) map.set(key, { root, name: projectName(root), events: [], open: [] })
     map.get(key).events.push(e)
+  }
+  // A session OPEN in a repo counts, even before it has written anything.
+  //
+  // Measured on this machine: three of the twelve newest sessions never wrote
+  // a file at all, and of the ones that did the gap from opening to the first
+  // edit ran from zero to forty-one minutes -- reading, planning, or writing
+  // only into a scratchpad, which is correctly filtered as noise. For all of
+  // that time the repo was invisible: absent from the dashboard, and absent
+  // from `skeins who`, which is the door that exists to warn the next agent.
+  // The README's opening scenario is two agents in one repo, and skeins was
+  // blind for exactly the window in which a warning is worth having.
+  //
+  // The row stays honest: no edits means no files and no attention. What it
+  // gains is existing.
+  for (const [id, s] of sessions ?? []) {
+    if (!s?.cwd) continue
+    const root = gitRoot(`${s.cwd}/.`) ?? s.cwd
+    const key = root ?? 'loose'
+    if (!map.has(key)) map.set(key, { root, name: projectName(root), events: [], open: [] })
+    const p = map.get(key)
+    p.open.push({ session: id, agent: s.agent ?? null, at: s.last ?? 0, title: s.title ?? null })
   }
   for (const p of map.values()) {
     p.events.sort((a, b) => a.at - b.at)
-    p.last = p.events.at(-1)?.at ?? 0
-    p.sessions = new Set(p.events.map(e => e.session)).size
+    // The most recent sign of life, whether it left a file behind or not.
+    // Sorting by "recent" has to mean recent, or the repo you are working in
+    // right now sits below one you finished with this morning.
+    p.last = Math.max(p.events.at(-1)?.at ?? 0, ...p.open.map(o => o.at), 0)
+    p.sessions = new Set([...p.events.map(e => e.session), ...p.open.map(o => o.session)]).size
+    // Sessions that have not written yet, so a screen can say so rather than
+    // showing a row of dashes with no explanation.
+    p.idle = p.open.filter(o => !p.events.some(e => e.session === o.session)).length
     // Thesis §2: the question is where the ATTENTION went, not how many edits
     // there were. Two projects with a hundred edits each can be an afternoon
     // and ten minutes.
     p.attention = attentionOf(p.events)
-    p.agents = [...new Set(p.events.map(e => e.agent))].sort()
+    p.agents = [...new Set([...p.events.map(e => e.agent), ...p.open.map(o => o.agent)].filter(Boolean))].sort()
     p.files = new Set(p.events.map(e => e.path)).size
   }
   return map

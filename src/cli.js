@@ -142,10 +142,14 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   // D13 — the same filter the TUI applies, or the two doors report different
   // numbers for the same question and one of them is lying.
   const recent = events.filter(e => e.at >= since && !isNoise(e.path))
+  // Sessions get the same window the events get. Without it a repo whose last
+  // session closed five days ago showed up under `--since 24h`, and every
+  // session skeins had ever seen counted toward the SESSIONS column.
+  const live = new Map([...sessions].filter(([, s]) => (s.last ?? 0) >= since))
   const root = gitRoot(`${cwd}/.`)
 
   if (cmd === 'rollup' || cmd === 'ls') {
-    const projects = [...byProject(recent).values()]
+    const projects = [...byProject(recent, live).values()]
       .filter(p => opts.all || cmd === 'ls' || p.last >= now - 6 * 3_600_000)
       .sort((a, b) => b.last - a.last)
     const cols = projects.map(p => ({
@@ -184,11 +188,14 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   if (cmd === 'who') {
     const path = opts._[1] ? (isAbsolute(opts._[1]) ? opts._[1] : join(cwd, opts._[1])) : null
     const rows = who(recent, sessions, { root, path, activeMin: opts.window, self: envVar('SESSION') ?? null, now })
-      .map(o => ({ agent: o.agent, kind: o.kind, file: short(o.path, root), branch: o.branch ?? '', title: trunc(o.title, 40) ?? '', ago: ago(o.at, now) }))
+      // An open session has no file and no kind. Both stay null rather than
+      // becoming an empty string: absence is explicit, and "has written
+      // nothing here" is a different answer from "wrote a file with no name".
+      .map(o => ({ agent: o.agent, kind: o.kind, file: o.path ? short(o.path, root) : null, branch: o.branch ?? '', title: trunc(o.title, 40) ?? '', ago: ago(o.at, now) }))
     return {
       code: 0,
       text: out(opts, 'agents', rows, ['agent', 'kind', 'file', 'branch', 'title', 'ago'],
-        () => table(rows, [
+        () => table(rows.map(r => ({ ...r, kind: r.kind === 'open' ? 'open' : r.kind, file: r.file ?? '— nothing written here yet' })), [
           { head: 'AGENT', key: 'agent' }, { head: 'DID', key: 'kind' }, { head: 'FILE', key: 'file' },
           { head: 'BRANCH', key: 'branch' }, { head: 'AGO', key: 'ago', right: true },
         ]),
@@ -269,7 +276,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
 
   // What the agents called, not only what they wrote. Same door rule.
   if (cmd === 'tools') {
-    const projects = [...byProject(recent).values()]
+    const projects = [...byProject(recent, live).values()]
       .filter(p => opts.all || !root || p.root === root)
       .sort((a, b) => b.last - a.last)
     const rows = []
@@ -308,7 +315,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   // along on the row, so the whole picture is in one flat shape an agent can
   // consume without a second call.
   if (cmd === 'failures') {
-    const projects = [...byProject(recent).values()]
+    const projects = [...byProject(recent, live).values()]
       .filter(p => opts.all || !root || p.root === root)
       .sort((a, b) => b.last - a.last)
     const rows = []
@@ -349,7 +356,7 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
   // shows, the CLI answers, and the reverse — otherwise one door becomes
   // second-class, which is the failure that makes most TUIs unscriptable.
   if (cmd === 'velocity') {
-    const projects = [...byProject(recent).values()]
+    const projects = [...byProject(recent, live).values()]
       .filter(p => opts.all || !root || p.root === root)
       .sort((a, b) => b.last - a.last)
     const rows = projects.map(p => {

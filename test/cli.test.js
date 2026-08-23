@@ -176,3 +176,16 @@ test('a metric is defined in every door, or in none', async () => {
   assert.match(text, /0-15% elite and high, 16-30% medium/)
   assert.match(text, /newest can never be judged/)
 })
+
+test('who renders an open session in every door', async () => {
+  // `skeins who` and `skeins who --json` both crashed on the null path the
+  // first time an open session reached them.
+  const home = mkdtempSync(join(tmpdir(), 'skein-who-'))
+  const env = { ...process.env, HOME: home, USERPROFILE: home, XDG_DATA_HOME: join(home, 'data'), XDG_CONFIG_HOME: join(home, 'config'), CLAUDE_CONFIG_DIR: join(home, 'claude'), SKEINS_HOME: join(home, 'state') }
+  const bin = fileURLToPath(new URL('../bin/skeins.js', import.meta.url))
+  for (const args of [['who'], ['who', '--json'], ['ls'], ['hook']]) {
+    const r = spawnSync(process.execPath, [bin, ...args], { encoding: 'utf8', env })
+    assert.equal(r.status, 0, `skeins ${args.join(' ')} exited ${r.status}: ${r.stderr}`)
+    assert.doesNotMatch(r.stderr, /Cannot read properties/, `skeins ${args.join(' ')} threw`)
+  }
+})
