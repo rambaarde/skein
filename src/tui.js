@@ -226,8 +226,8 @@ function helpOverlay(w, h, page = 1) {
 // A pane is exactly rect.h lines of exactly rect.w visible columns — that
 // invariant is what lets two of them sit side by side without the right one
 // drifting a character further out on every row.
-function pane(rect, { title, key, right = '', state = '', rows, line = null }) {
-  const b = box({ w: rect.w, title, key, right, state, line })
+function pane(rect, { title, key, right = '', state = '', rows, line = null, head = '' }) {
+  const b = box({ w: rect.w, title, key, right, state, line, head })
   const body = rows.slice(0, Math.max(0, rect.h - 2))
   const lines = [b.top, ...body.map(r => b.row(r))]
   while (lines.length < rect.h - 1) lines.push(b.row(''))
@@ -898,10 +898,9 @@ export function render(state, size) {
       TAG_KEY.set(s, key)
       return s
     }
-    // `menu` is pinned where '? keys' was, because it is btop's one discoverable
-    // control and it leads to the keys anyway. 'q quit' stays beside it: a way
-    // out that needs a menu opened first is one step too many.
-    const pinned = [mk('m', 'menu'), mk('q', 'quit')]
+    // `menu` moved to the TITLE line, where btop keeps it, so the footer does
+    // not print it twice and '? keys' gets its pinned slot back.
+    const pinned = [mk('?', 'keys'), mk('q', 'quit')]
     const optional = [
       mk('⏎', 'expand', '\r'),
       mk('s', state.sort ?? 'recent'),
@@ -909,10 +908,6 @@ export function render(state, size) {
       mk('a', lookback),
       mk('/', state.filter || 'filter'),
       mk('c', state.onlyColliding ? 'colliding' : 'all'),
-      // Last, not first: the menu leads here anyway, so '? keys' yields the
-      // border to the controls that state a CURRENT VALUE -- the window, the
-      // sort, the preset. A tag that reports something outranks a shortcut.
-      mk('?', 'keys'),
     ]
     const plain = s => s.replace(/\x1b\[[0-9;]*m/g, '')
     const sepW = plain(TAG_SEP).length
@@ -1283,6 +1278,17 @@ export function render(state, size) {
   }
   const headPane = pane(L.head, {
     title: 'skeins', key: SUP[0], line: THEME.boxHead,
+    // btop's own placement: `¹cpu ┘menu┘preset 0`. The one control that opens
+    // everything else sits beside the box name, not down in the footer row
+    // where it was one tag among seven and read as another shortcut.
+    //
+    // box() lays the head out as ─ ' ' title key ' ' ─ ' ' head ' ', so the
+    // tag starts at 1 + 1 + len(title) + len(key) + 1 + 1 + 1 from the left.
+    head: (() => {
+      const at = L.head.x + 6 + 'skeins'.length + width(SUP[0])
+      hit.tags.push({ y: L.head.y, x0: at, x1: at + 'm menu'.length, key: 'm' })
+      return tag('m', 'menu')
+    })(),
     // btop prints 'preset N' in the cpu box border. Same place, same reason:
     // the layout you are looking at is state, and state belongs in the border.
     right: (() => {
