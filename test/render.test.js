@@ -782,7 +782,10 @@ test('a label that looks like a control is one', async () => {
   const top = raw.split('\n')[0].replace(/\x1b\[[0-9;]*m/g, '')
 
   // 'preset 1 all' sat in the border doing nothing when clicked.
-  const region = state.hit.tags.find(t => t.y === 0)
+  //
+  // Found by KEY, not by row: the title line now carries `m menu` as well, and
+  // picking the first tag on row 0 quietly started testing the wrong one.
+  const region = state.hit.tags.find(t => t.y === 0 && t.key === 'p')
   assert.ok(region, 'the preset label registers a hit region')
   assert.equal(hitTag(state.hit, region.x0, 0), 'p')
   assert.equal(hitTag(state.hit, region.x0 - 1, 0), null, 'and only where the label actually is')
@@ -790,6 +793,13 @@ test('a label that looks like a control is one', async () => {
 
   // The glyph is what you read; the key is what it sends. Conflating them is
   // what put a carriage return on screen.
+  // btop puts `menu` beside the box name, and so does this. It has to be
+  // clickable exactly where it is drawn, or it is a label again.
+  const menu = state.hit.tags.find(t => t.y === 0 && t.key === 'm')
+  assert.ok(menu, 'the menu tag registers a hit region')
+  assert.equal(top.slice(menu.x0, menu.x1), 'm menu', 'and lines up with the text')
+  assert.equal(hitTag(state.hit, menu.x0 - 1, 0), null, 'only where the label actually is')
+
   const expand = state.hit.tags.find(t => t.key === '\r')
   assert.ok(expand, 'expand dispatches Enter')
   assert.match(raw, /⏎/, 'and displays a glyph, not the byte')
