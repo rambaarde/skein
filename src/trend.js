@@ -148,8 +148,12 @@ export function direction(values, { good = 'up', minSamples = 2 } = {}) {
   const before = seen.slice(0, -1)
   const base = before.reduce((a, b) => a + b, 0) / before.length
   if (!Number.isFinite(base)) return null
+  // Nothing moved FROM zero. A baseline of zero has no ratio to move along,
+  // so "0m then 1m" was reported as a 100% rise and drawn as `worse` -- a
+  // verdict on one minute against nothing at all.
+  if (base === 0) return last === 0 ? { dir: 'flat', better: null, move: 0 } : null
   // A tenth either way is noise at these volumes, not a trend.
-  const move = base === 0 ? (last === 0 ? 0 : 1) : (last - base) / Math.abs(base)
+  const move = (last - base) / Math.abs(base)
   const dir = Math.abs(move) < 0.1 ? 'flat' : move > 0 ? 'up' : 'down'
   if (dir === 'flat') return { dir, better: null, move }
   return { dir, better: good === 'up' ? dir === 'up' : dir === 'down', move }
