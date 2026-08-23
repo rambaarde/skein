@@ -1440,3 +1440,48 @@ test('compaction time is named beside the attention it is part of', async () => 
   // quiet project is a column of zeroes pretending to be information.
   assert.doesNotMatch(frame({ agent: 'claude' }), /compacting/)
 })
+
+test('the improving band never starves the failure panel', async () => {
+  // The chart claimed 60% of the screen before the band existed, so the band's
+  // rows came out of what was left and the failure panel -- which needs eight
+  // -- silently disappeared. That panel is what this screen was built around.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = n => ({
+    name: n, root: `/w/${n}`, sessions: 1, files: 2, agents: ['claude'], last: now,
+    events: [{ at: now - 3600_000, agent: 'claude', session: 's', path: `/w/${n}/f.ts`, project: `/w/${n}` }],
+  })
+  const at = rows => render({
+    projects: [mk('alpha'), mk('beta')], events: [], sessions: new Map(), sel: 0,
+    expanded: new Set(), colls: [], tier: 'braille', since: now - 86_400_000, now,
+    lookback: '24h', windowMin: 30, tick: 0, sort: 'recent', filter: '',
+    onlyColliding: false, preset: 3, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  for (const rows of [30, 34, 44]) {
+    const f = at(rows)
+    assert.match(f, /ARE YOU IMPROVING/, `the band is drawn at ${rows} rows`)
+    assert.match(f, /CHANGE FAILURE/, `and the failure panel survives at ${rows} rows`)
+  }
+})
+
+test('a row that is all dots becomes a sentence', async () => {
+  // At a 24h window only the newest fortnight is loaded, so three of the four
+  // rows were four columns of nothing, four times over.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const p = {
+    name: 'a', root: '/w/a', sessions: 1, files: 1, agents: ['claude'], last: now,
+    events: [{ at: now - 600_000, agent: 'claude', session: 's', path: '/w/a/f.ts', project: '/w/a' }],
+  }
+  const f = render({
+    projects: [p], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 3, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 34 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(f, /need a wider window/, 'it says what would fix it')
+  assert.match(f, /a widens it/, 'and which key does it')
+  // The jargon is gone: nobody outside Britain measures in fortnights.
+  assert.doesNotMatch(f, /fortnight/)
+})
