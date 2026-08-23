@@ -1,28 +1,29 @@
-// The one graph skeins actually has, and the layout that makes it readable.
+// The one graph skeins has that carries structure: which files change together.
 //
-// The obvious thing to draw is every file as a node, the way a notes app does.
-// Measured on a real machine over thirty days: 1512 files and 61 sessions, so
-// 1573 nodes into a 180x45 terminal's 8100 cells. That is the documented
-// failure mode of force-directed layout on dense graphs -- a hairball -- and
-// the literature is blunt that matrix forms beat node-link above roughly
-// twenty nodes.
+// The obvious graph was sessions against the files they touched. Measured on
+// real data it is DEGENERATE for a solo developer -- two agents in one repo
+// both touch the same files, every node ends up with the same degree, and a
+// force-directed layout given a graph with no structure draws a symmetric
+// starburst. It conveyed one fact, on a whole screen, that the files pane
+// already gives in three rows.
 //
-// So this draws the SMALL graph instead: within one project, which sessions
-// touched the same file. Measured on the same machine that is 1-13 sessions
-// and up to 36 contested files per project, which is the regime where a
-// node-link picture is the right form rather than a decorative one. And it is
-// the graph the tool is about: a file two sessions are both in is the thing
-// skeins exists to warn you about.
+// Change coupling does have structure. Measured on this repository over
+// ninety days: 49 commits, 55 files, 762 co-change pairs, 24 of them strong,
+// and they cluster into things a reader recognises -- package.json with its
+// release manifest, a module with its test, a renderer with the mouse code it
+// grew alongside. That is a finding: two files that always move together are
+// one thing wearing two names, or a test welded to an implementation.
 //
-// Files no one shares are not drawn. They are not edges, and a node with no
-// edge is a dot that means "nothing happened here".
+// The collision overlay stays on top of it, because that is the part only
+// skeins can know. Structure from git, danger from the transcripts, one
+// picture.
 import { short } from './format.js'
 
 // Caps, so the picture stays a picture. Both are stated on screen when they
 // bite (AXI 5): a graph that silently drops half its nodes is a lie about how
 // contested a project is.
-export const MAX_FILES = 10
-export const MAX_SESSIONS = 12
+export const MAX_NODES = 22
+export const MAX_EDGES = 26
 
 // Deterministic pseudo-randomness. Math.random would reseat every node on
 // every repaint and the graph would boil; seeding from the project root means
@@ -39,69 +40,81 @@ const seeded = str => {
   }
 }
 
-// Who shares what, inside one project.
-export function contention(project) {
-  const byFile = new Map()
-  for (const e of project?.events ?? []) {
-    if (!e.path || !e.session) continue
-    if (!byFile.has(e.path)) byFile.set(e.path, new Map())
-    const m = byFile.get(e.path)
-    m.set(e.session, Math.max(m.get(e.session) ?? 0, e.at ?? 0))
-  }
-  const shared = [...byFile]
-    .filter(([, s]) => s.size > 1)
-    .sort((a, b) => b[1].size - a[1].size || a[0].localeCompare(b[0]))
-
-  const files = shared.slice(0, MAX_FILES)
-  const sessions = new Map()
-  for (const [, s] of files) {
-    for (const [id, at] of s) sessions.set(id, Math.max(sessions.get(id) ?? 0, at))
-  }
-  const kept = [...sessions]
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, MAX_SESSIONS)
-    .map(([id]) => id)
-  const keep = new Set(kept)
-
-  const nodes = [
-    ...kept.map(id => ({
-      id,
-      kind: 'session',
-      label: id.slice(0, 8),
-      // When this session last wrote one of the contested files. A node with
-      // no time on it says a session exists; with one it says whether you are
-      // looking at something live or something from Tuesday.
-      at: sessions.get(id) ?? 0,
-      // How many of the drawn files it is in -- the session equivalent of a
-      // file's contention.
-      weight: files.filter(([, s]) => s.has(id)).length,
-    })),
-    ...files.map(([path, s]) => ({
-      id: path,
-      kind: 'file',
-      label: short(path, project?.root),
-      // How contested, which is what the node's size means on screen.
-      weight: [...s.keys()].filter(x => keep.has(x)).length,
-      at: Math.max(...[...s.values()], 0),
-    })),
-  ].filter(n => n.kind === 'session' || n.weight > 1)
-
-  const index = new Map(nodes.map((n, i) => [n.id, i]))
-  const edges = []
-  for (const [path, s] of files) {
-    if (!index.has(path)) continue
-    for (const id of s.keys()) {
-      if (index.has(id)) edges.push([index.get(id), index.get(path)])
+// Files that change in the same commit, and how reliably.
+//
+// The ratio is co-changes over the FEWER of the two files' own change counts,
+// not over their union. A file changed twice, always alongside a file changed
+// fifty times, is entirely coupled to it -- that is the reading a developer
+// wants, and dividing by the union would bury it at 4%.
+export function coupling(commits, { minTogether = 3, minRatio = 0.4 } = {}) {
+  const count = new Map(), together = new Map()
+  for (const c of commits ?? []) {
+    // A release commit touches everything it bumps and means nothing about
+    // how the code is organised.
+    if (c.release) continue
+    const files = [...new Set((c.files ?? []).filter(Boolean))]
+    // A commit touching half the repo says nothing about which two files
+    // belong together; it just makes every pair in it look coupled.
+    if (files.length > 12) continue
+    for (const f of files) count.set(f, (count.get(f) ?? 0) + 1)
+    for (let i = 0; i < files.length; i++) {
+      for (let j = i + 1; j < files.length; j++) {
+        const k = files[i] < files[j] ? `${files[i]}\u0000${files[j]}` : `${files[j]}\u0000${files[i]}`
+        together.set(k, (together.get(k) ?? 0) + 1)
+      }
     }
+  }
+  const pairs = []
+  for (const [k, n] of together) {
+    if (n < minTogether) continue
+    const [a, b] = k.split('\u0000')
+    const ratio = n / Math.max(1, Math.min(count.get(a) ?? 1, count.get(b) ?? 1))
+    if (ratio < minRatio) continue
+    pairs.push({ a, b, n, ratio })
+  }
+  // Strongest first, and a tie goes to the pair seen more often -- a 3-of-3
+  // is weaker evidence than a 25-of-25 at the same ratio.
+  pairs.sort((x, y) => y.ratio - x.ratio || y.n - x.n)
+  return { pairs, count }
+}
+
+// The graph itself: nodes are files, edges are couplings, and anything two
+// sessions were both in is marked whether it is coupled or not.
+export function coupled(commits, { root = '', contested = new Map() } = {}) {
+  const { pairs, count } = coupling(commits)
+  const kept = pairs.slice(0, MAX_EDGES)
+  const names = new Set()
+  for (const p of kept) { names.add(p.a); names.add(p.b) }
+  // A contested file is drawn even with no coupling: it is the reason this
+  // tool exists, and leaving it out because git happens not to have paired it
+  // would be the graph hiding the one thing it is best placed to show.
+  for (const f of contested.keys()) names.add(f)
+
+  const list = [...names]
+    .sort((a, b) => (contested.has(b) ? 1 : 0) - (contested.has(a) ? 1 : 0) || (count.get(b) ?? 0) - (count.get(a) ?? 0))
+    .slice(0, MAX_NODES)
+  const index = new Map(list.map((f, i) => [f, i]))
+
+  const nodes = list.map(f => ({
+    id: f,
+    kind: 'file',
+    label: short(f, root),
+    // How often it changes at all -- what the node's size means on screen.
+    weight: count.get(f) ?? 0,
+    contested: contested.get(f) ?? null,
+  }))
+  const edges = []
+  for (const p of kept) {
+    if (!index.has(p.a) || !index.has(p.b)) continue
+    edges.push([index.get(p.a), index.get(p.b), p.ratio, p.n])
   }
   return {
     nodes,
     edges,
-    // What was left out, so the screen can say so rather than imply the
-    // project is calmer than it is.
-    moreFiles: Math.max(0, shared.length - files.length),
-    moreSessions: Math.max(0, sessions.size - kept.length),
-    totalShared: shared.length,
+    morePairs: Math.max(0, pairs.length - kept.length),
+    moreFiles: Math.max(0, names.size - list.length),
+    files: count.size,
+    pairs: pairs.length,
   }
 }
 

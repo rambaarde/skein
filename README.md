@@ -268,51 +268,43 @@ not the same as never failing, and the screen says so instead of drawing a zero.
 
 ### The graph
 
-Preset `5` draws the one graph skeins has: inside a project, which sessions
-touched the same file.
+Preset `5` plots **change coupling**: a node is a file, an edge is "these two
+are edited in the same commit", and the size of a node is how often it changes.
 
 ```
-        ⣤⡄                                          ⣀⡀
-        ⠿⠗⢦…t/presets.test.js                     ⣀⡤⣿⡇ …st/render.test.js
-           ⠈⠚⢕⡢⢄⡀                            ⣀⠤⢔⡪⠛⠉
-     ⣀⣀⣀⣀⡠⠤⠤⠤⠔⠒⠒⠓⠲⣒⠒⠒⠉⠉⣉⠝⠿⠟b6cf8790⢒⠶⠒⠣⠤⠤⠤⠤⣀⣀⣀⣀⣀⡀
-  ⢰⣶⣀⣀⠤⠤⠤⠔⠒⠒⠒⠊⠉⠉⠉                    ⠑⠢⡠⠔⠉     ⠈⠒⢄⡀⣀⠤⠊⠁
-  ⠘⠛ src/theme.js                                 tools/sandbox.mjs
+skeins · 39 files changed · 35 coupled pairs · +9 weaker pairs
 
-  ● session   ● file, bigger is more contested
+   ●src/context.js ×3════●test/context.test.js ×3
+   ●src/live.js ×4═══════●test/live.test.js ×3
+                 ╲
+     ●README.md ×22──●src/tui.js ×21──●test/render.test.js ×20
+                                      ●AGENTS.md ⚠ 0m apart
 ```
 
-**Red is the point.** A file two sessions merely share is dim; a file two
-*overlapping* sessions wrote minutes apart is red, and its label says the gap:
+Two files that always move together are one thing wearing two names, or a test
+welded to an implementation. The ratio is measured against the **rarer** of the
+two files — a file changed twice, always alongside one changed fifty times, is
+entirely coupled to it, and dividing by the union would bury that at 4%.
 
-```
-…-legacy/AGENTS.md ×4 · 0m apart      ← four sessions, two of them simultaneous
-src/presets.js ×2 · 19h               ← shared, but nineteen hours apart
-```
+Release commits and sweeping commits are excluded: a release touches everything
+it bumps, and a commit touching half the repo makes every pair in it look
+coupled. Neither says anything about how the code is organised.
 
-That distinction is the whole tool. "Two sessions touched this" is a fact the
-files pane already gives you; "two live sessions were in it twelve minutes
-apart" is a warning, and it is the only thing on any of these screens that
-could have prevented the overwrite at the top of this README.
+**Red is the part only skeins can draw.** A file two overlapping sessions wrote
+minutes apart is marked whatever its coupling — it is drawn even if git never
+paired it with anything, because it is the reason this tool exists.
 
-Every node carries its context: a file says how many sessions are in it and
-when it was last written (`×2 · 15h`), a session says which agent it is and
-when it last wrote (`claude · 15h`). Sessions draw as a **hollow ring** in the
-agent's hue, files as a **solid block** that grows and reddens with how
-contested they are.
+The first version of this screen plotted sessions against the files they
+touched. On real solo-developer data that is degenerate: two agents in one repo
+both touch the same files, every node ends up the same degree, and the layout
+draws a symmetric starburst that carries one fact. Change coupling has
+structure; that one did not.
 
-A file **no one shares is not drawn** — one writer is work, not a conflict.
 Layout is Fruchterman–Reingold, seeded from the project root, so the same repo
-always draws the same shape rather than boiling on every repaint.
-
-It is deliberately **one project, not the machine**. The whole-machine version
-measured 1,573 nodes on a real laptop, which every result in the literature
-says renders as an unreadable hairball; one project is 1–13 sessions and a
-handful of contested files, which is the size a node-link picture is *for*.
-Caps are stated on screen (`+19 more files`) rather than applied silently, and
-the drawing's size follows the node count — a five-node graph sits compactly in
-the middle rather than being stretched across the terminal, so the space around
-it means *this project is quiet*.
+always draws the same shape rather than boiling on every repaint. Caps are
+stated on screen (`+9 weaker pairs`) rather than applied silently, and the
+drawing's size follows the node count — a small graph sits compactly in the
+middle rather than being stretched across the terminal.
 
 ### Collisions
 
