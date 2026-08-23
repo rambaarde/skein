@@ -282,6 +282,12 @@ touched the same file.
   ● session   ● file, bigger is more contested
 ```
 
+Every node carries its context: a file says how many sessions are in it and
+when it was last written (`×2 · 15h`), a session says which agent it is and
+when it last wrote (`claude · 15h`). Sessions draw as a **hollow ring** in the
+agent's hue, files as a **solid block** that grows and reddens with how
+contested they are.
+
 A file **no one shares is not drawn** — one writer is work, not a conflict.
 Layout is Fruchterman–Reingold, seeded from the project root, so the same repo
 always draws the same shape rather than boiling on every repaint.
@@ -290,7 +296,10 @@ It is deliberately **one project, not the machine**. The whole-machine version
 measured 1,573 nodes on a real laptop, which every result in the literature
 says renders as an unreadable hairball; one project is 1–13 sessions and a
 handful of contested files, which is the size a node-link picture is *for*.
-Caps are stated on screen (`+19 more files`) rather than applied silently.
+Caps are stated on screen (`+19 more files`) rather than applied silently, and
+the drawing's size follows the node count — a five-node graph sits compactly in
+the middle rather than being stretched across the terminal, so the space around
+it means *this project is quiet*.
 
 ### Collisions
 
