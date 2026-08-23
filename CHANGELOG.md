@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.2](https://github.com/rambaarde/skein/compare/v0.32.1...v0.32.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** an open session shows its time, not the epoch ([3908444](https://github.com/rambaarde/skein/commit/3908444fddff68603ea8898c85a37d373b18271f))
+* **tui:** an open session shows its time, not the epoch ([#144](https://github.com/rambaarde/skein/issues/144)) ([d17ed1f](https://github.com/rambaarde/skein/commit/d17ed1f30693848f521986769e3d087d7b29c83a))
+
 ## [0.32.1](https://github.com/rambaarde/skein/compare/v0.32.0...v0.32.1) (2026-08-23)
 
 
