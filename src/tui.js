@@ -783,7 +783,83 @@ export function render(state, size) {
     const cols = Math.max(24, V.w - 11) - 7
     // Same split as the headline: the chart takes a share rather than the
     // rows the table did not want.
-    const rowsV = Math.max(5, Math.min(18, Math.round((V.h - 8) * 0.6)))
+    const W = V.w - 2
+    // ---- are you improving ------------------------------------------------
+    //
+    // The only line on any screen that answers "is this getting better". It is
+    // MACHINE-WIDE and stated as such: measured on real data, per-project
+    // fortnights are mostly empty, and an arrow drawn from two landings is a
+    // confident lie.
+    const T = trend(projects, state.sessions, { now, since })
+    const rows4 = [
+      { label: 'landed', good: 'up', vals: T.buckets.map(b => b.landed), fmt: v => String(v) },
+      { label: 'attention per change', good: 'down', vals: T.buckets.map(b => b.perShip), fmt: v => humanMs(v) },
+      { label: 'change failure rate', good: 'down', vals: T.buckets.map(b => b.cfr), fmt: v => `${Math.round(v * 100)}%` },
+      { label: 'spent compacting', good: 'down', vals: T.buckets.map(b => b.compactShare), fmt: v => `${(v * 100).toFixed(1)}%` },
+    ]
+    const CELL = 7
+    // The verdict WORD is the first thing to go on a narrow terminal, not the
+    // numbers: an arrow still points, and the numbers are the evidence.
+    const words = W >= 118
+    const VERD = words ? 12 : 2
+    const bandRows = []
+    if (T.buckets.length) {
+      bandRows.push(` ${DIM}${'─'.repeat(Math.max(0, W - 2))}${R}`)
+      const heads = T.buckets.map((b, i) => (i === T.buckets.length - 1 ? 'now' : `-${(T.buckets.length - i) * 2}w`))
+      const lay = (left, cells, tail) => {
+        const body = cells.map(s => String(s).padStart(CELL)).join('')
+        const pad = Math.max(1, W - 2 - width(left) - body.length - width(tail) - 1)
+        return `${left}${' '.repeat(pad)}${body} ${tail}`
+      }
+      // The heading's tail must be as wide as a row's -- arrow, space, verdict
+      // -- or the column labels sit two cells left of their own numbers.
+      bandRows.push(lay(` ${BOLD}ARE YOU IMPROVING${R}${DIM}  every project · 2 weeks each · ${lookback} loaded${R}`,
+        heads, ' '.repeat(VERD)))
+      // Rows that are ALL dots are collapsed into one sentence.
+      //
+      // At a 24h window only the newest fortnight is loaded, so three of the
+      // four rows were a field of dots pretending to be a table -- four
+      // columns of nothing, four times over. `landed` survives because it
+      // comes from git, which reaches back regardless of the window.
+      const dead = rows4.filter(r => r.vals.every(v => v === null || v === undefined))
+      const alive = rows4.filter(r => !dead.includes(r))
+      for (const r of alive) {
+        // Enough landings, or no direction at all. Two landings moving to
+        // three is not an improvement.
+        const enough = T.buckets[T.buckets.length - 1].landed >= MIN_LANDED
+        const d = enough ? direction(r.vals, { good: r.good }) : null
+        const arrow = !d ? ' ' : d.dir === 'flat' ? '→' : d.dir === 'up' ? '↑' : '↓'
+        const verdict = !d ? '' : d.better === null ? 'steady' : d.better ? 'better' : (r.good === 'down' ? 'worse' : 'slower')
+        const colour = !d || d.better === null ? THEME.fg : d.better ? LUT.activity[70] : LUT.failure[85]
+        // A bucket the transcripts do not cover prints a dot, never a zero.
+        const cells = r.vals.map(v => (v === null || v === undefined ? `${DIM}·${R}` : `${colour}${r.fmt(v)}${R}`))
+        const body = cells.map(s => {
+          const pad = Math.max(0, CELL - width(s))
+          return ' '.repeat(pad) + s
+        }).join('')
+        const left = `   ${DIM}${r.label}${R}`
+        const tail = `${colour}${arrow}${R}${words ? ` ${DIM}${fit(verdict, VERD - 2)}${R}` : ''}`
+        const pad = Math.max(1, W - 2 - width(left) - width(body) - width(tail) - 1)
+        bandRows.push(`${left}${' '.repeat(pad)}${body} ${tail}`)
+      }
+      if (dead.length) {
+        const names = dead.map(r => r.label).join(', ')
+        bandRows.push(`   ${DIM}${trunc(`${names} — need a wider window`, Math.max(20, W - 22))}${R}  ${BOLD}${THEME.hi}a${R}${DIM} widens it${R}`)
+      }
+      if (alive.some(r => r.vals.some(v => v === null || v === undefined))) {
+        const note = `${DIM}· = before your transcripts begin${R}`
+        bandRows.push(`${' '.repeat(Math.max(1, W - 1 - width(note)))}${note}`)
+      }
+    }
+
+    const bandH = bandRows.length
+    // The CHART yields the band's rows, not the failure panel.
+    //
+    // The chart claimed 60% of the screen before the band existed, so the band
+    // came out of what was left and the panel -- which needs eight rows --
+    // silently disappeared. That panel is the thing this screen was built
+    // around; a graph of the same numbers one row taller is not worth it.
+    const rowsV = Math.max(5, Math.min(18, Math.round((V.h - 8 - bandH) * 0.6)))
     const stats = projects.map(p => ({
       p,
       v: velocity(p.root, p.events ?? [], { since, now, attention: att(p) }),
@@ -819,7 +895,6 @@ export function render(state, size) {
       rowsOut.push(` ${DIM}no git history in any of these projects${R}`)
     }
     rowsOut.push('')
-    const W = V.w - 2
     const nameW = Math.max(12, Math.min(26, projects.reduce((m, p) => Math.max(m, p.name.length + 2), 10)))
     // A rate over a window shorter than a week is a projection, not a
     // measurement, so the column says which one it is.
@@ -844,63 +919,6 @@ export function render(state, size) {
     // The body is the height of the BOX, not the height of the list, because
     // the failure panel beside the table is as tall as the space there is: a
     // machine with three projects gets the same graph as one with thirty.
-    // ---- are you improving ------------------------------------------------
-    //
-    // The only line on any screen that answers "is this getting better". It is
-    // MACHINE-WIDE and stated as such: measured on real data, per-project
-    // fortnights are mostly empty, and an arrow drawn from two landings is a
-    // confident lie.
-    const T = trend(projects, state.sessions, { now, since })
-    const rows4 = [
-      { label: 'landed', good: 'up', vals: T.buckets.map(b => b.landed), fmt: v => String(v) },
-      { label: 'attention per change', good: 'down', vals: T.buckets.map(b => b.perShip), fmt: v => humanMs(v) },
-      { label: 'change failure rate', good: 'down', vals: T.buckets.map(b => b.cfr), fmt: v => `${Math.round(v * 100)}%` },
-      { label: 'spent compacting', good: 'down', vals: T.buckets.map(b => b.compactShare), fmt: v => `${(v * 100).toFixed(1)}%` },
-    ]
-    const CELL = 7
-    // The verdict WORD is the first thing to go on a narrow terminal, not the
-    // numbers: an arrow still points, and the numbers are the evidence.
-    const words = W >= 118
-    const VERD = words ? 12 : 2
-    const bandRows = []
-    if (T.buckets.length) {
-      bandRows.push(` ${DIM}${'─'.repeat(Math.max(0, W - 2))}${R}`)
-      const heads = T.buckets.map((b, i) => (i === T.buckets.length - 1 ? 'now' : `-${(T.buckets.length - i) * 2}w`))
-      const lay = (left, cells, tail) => {
-        const body = cells.map(s => String(s).padStart(CELL)).join('')
-        const pad = Math.max(1, W - 2 - width(left) - body.length - width(tail) - 1)
-        return `${left}${' '.repeat(pad)}${body} ${tail}`
-      }
-      // The heading's tail must be as wide as a row's -- arrow, space, verdict
-      // -- or the column labels sit two cells left of their own numbers.
-      bandRows.push(lay(` ${BOLD}ARE YOU IMPROVING${R}${DIM}  every project · fortnights · ${lookback} loaded${R}`,
-        heads, ' '.repeat(VERD)))
-      for (const r of rows4) {
-        // Enough landings, or no direction at all. Two landings moving to
-        // three is not an improvement.
-        const enough = T.buckets[T.buckets.length - 1].landed >= MIN_LANDED
-        const d = enough ? direction(r.vals, { good: r.good }) : null
-        const arrow = !d ? ' ' : d.dir === 'flat' ? '→' : d.dir === 'up' ? '↑' : '↓'
-        const verdict = !d ? '' : d.better === null ? 'steady' : d.better ? 'better' : (r.good === 'down' ? 'worse' : 'slower')
-        const colour = !d || d.better === null ? THEME.fg : d.better ? LUT.activity[70] : LUT.failure[85]
-        // A bucket the transcripts do not cover prints a dot, never a zero.
-        const cells = r.vals.map(v => (v === null || v === undefined ? `${DIM}·${R}` : `${colour}${r.fmt(v)}${R}`))
-        const body = cells.map(s => {
-          const pad = Math.max(0, CELL - width(s))
-          return ' '.repeat(pad) + s
-        }).join('')
-        const left = `   ${DIM}${r.label}${R}`
-        const tail = `${colour}${arrow}${R}${words ? ` ${DIM}${fit(verdict, VERD - 2)}${R}` : ''}`
-        const pad = Math.max(1, W - 2 - width(left) - width(body) - width(tail) - 1)
-        bandRows.push(`${left}${' '.repeat(pad)}${body} ${tail}`)
-      }
-      if (T.buckets.some(b => b.perShip === null)) {
-        const note = `${DIM}· = before your transcripts begin${R}`
-        bandRows.push(`${' '.repeat(Math.max(1, W - 1 - width(note)))}${note}`)
-      }
-    }
-
-    const bandH = bandRows.length
     const bodyH = Math.max(4, V.h - 2 - rowsOut.length - bandH)
     // `stats`, not `ranked`: the table is in the app's order so one press of
     // an arrow key moves exactly one row.
