@@ -1332,3 +1332,32 @@ test('the menu has one bright word, not three', async () => {
   // the longest one.
   assert.match(frame(1), /⣀.*▒|▒.*⣀/, 'the screen shows around the words')
 })
+
+test('the selected row keeps its colours', async () => {
+  // It was painted with reverse video over a stripped copy of the line, so the
+  // one row you are looking at was the only row on screen with no colour in
+  // it: the context gauge, the agent hue and the heat of a number all vanished
+  // exactly when you selected the thing you wanted to read.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = n => ({
+    name: n, root: `/w/${n}`, sessions: 1, files: 3, agents: ['claude'], last: now,
+    events: [{ at: now - 3600_000, agent: 'claude', session: 's', path: `/w/${n}/f.ts`, project: `/w/${n}` }],
+  })
+  const raw = render({
+    projects: [mk('alpha'), mk('beta')], events: [], sessions: new Map(), sel: 0,
+    expanded: new Set(), colls: [], tier: 'braille', since: now - 86_400_000, now,
+    lookback: '24h', windowMin: 30, tick: 0, sort: 'recent', filter: '',
+    onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 26 })
+
+  assert.doesNotMatch(raw, /\x1b\[7m/, 'reverse video is never used for the selection')
+  const row = raw.split('\n').find(l => l.includes('alpha') && l.includes('\x1b[48;2;'))
+  assert.ok(row, 'the selected row is painted with a real background colour')
+  // A background is cancelled by every reset the row contains, so it has to be
+  // re-armed after each one -- that is the whole trick, and without it the row
+  // loses its highlight partway across.
+  const resets = (row.match(/\x1b\[0m/g) ?? []).length
+  const rearms = (row.match(/\x1b\[0m\x1b\[48;2;\d+;\d+;\d+m/g) ?? []).length
+  assert.ok(rearms >= resets - 1, `every reset re-arms the background (${rearms} of ${resets})`)
+})
