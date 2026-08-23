@@ -11,6 +11,8 @@ import { velocity } from './delivery.js'
 import { toolsOf, totalOf, classify } from './tools.js'
 import { attentionOf, humanMs } from './attention.js'
 import { GLOSSARY } from './glossary.js'
+import { worktrees, versionOf } from './estate.js'
+import { sample as sampleMachine, byRoot } from './machine.js'
 
 const HELP = `skeins — every agent running across every repository, grouped by project.
 
@@ -21,6 +23,7 @@ const HELP = `skeins — every agent running across every repository, grouped by
   skeins velocity            what landed, how long it took, what failed
   skeins tools               which tools the agents actually called
   skeins failures           why the change failure rate is what it is
+  skeins estate              worktrees, version drift, live CPU per project
   skeins glossary            what every number on these screens counts
   skeins doctor              why is my screen empty
   skeins hook                print the ambient line and exit
@@ -391,6 +394,57 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
              '\ncfr = deployments followed by a hotfix to what they shipped; needs two deployments to mean anything' +
              '\nmean-time-to-restore needs incident data and is not shown',
         `no projects with git history in the last ${argvSince(opts)} (0 projects)`),
+    }
+  }
+  // A different SOURCE from every other command here: the OS, not the
+  // transcripts or git. `skeins estate` exists for the same reason the TUI's
+  // estate preset does -- worktrees, the gap between a working copy and what
+  // it claims to be, and live CPU never appear anywhere else, and D13 says a
+  // number the TUI can show belongs in this door too.
+  if (cmd === 'estate') {
+    const projects = [...byProject(recent, live).values()]
+      .filter(p => opts.all || !root || p.root === root)
+      .sort((a, b) => b.last - a.last)
+    const machine = byRoot(sampleMachine())
+    const rows = projects.map(p => {
+      const wt = p.root ? worktrees(p.root) : null
+      const ver = p.root ? versionOf(p.root) : null
+      const cpu = p.root ? machine.roots.get(p.root) : null
+      // Branch lives on the SESSION, not the event -- the same join the TUI's
+      // metaOf makes. The newest session that stated one wins.
+      const branch = [...new Map((p.events ?? []).map(e => [e.session, e])).values()]
+        .sort((a, b) => b.at - a.at)
+        .map(e => live.get(e.session))
+        .filter(Boolean)
+        .map(s => s.branch)
+        .find(Boolean) ?? null
+      return {
+        project: p.name,
+        branch,
+        // AXI 5: a project this cannot read is null, not zero worktrees --
+        // "one worktree" and "no git history here" are different statements.
+        // The count excludes this checkout itself -- "worktrees: 1" would
+        // read as one other one, and this repo is not another one.
+        worktrees: wt ? Math.max(0, wt.length - 1) : null,
+        version: ver?.declared ?? null,
+        tag: ver?.tag ?? null,
+        cpu: cpu ? Number(cpu.cpu.toFixed(1)) : null,
+        running: cpu ? [...cpu.agents].join('+') : null,
+      }
+    })
+    const FIELDS = ['project', 'branch', 'worktrees', 'version', 'tag', 'cpu', 'running']
+    return {
+      code: 0,
+      text: out(opts, 'estate', rows, FIELDS,
+        () => table(rows.map(r => Object.fromEntries(FIELDS.map(k => [k, r[k] ?? '—']))), [
+          { head: 'PROJECT', key: 'project' }, { head: 'BRANCH', key: 'branch' },
+          { head: 'WORKTREES', key: 'worktrees', right: true }, { head: 'VERSION', key: 'version', right: true },
+          { head: 'TAG', key: 'tag', right: true }, { head: 'CPU%', key: 'cpu', right: true },
+          { head: 'RUNNING', key: 'running' },
+        ]) + '\n\nworktrees = other checkouts of the same repo, this one not counted' +
+             '\nversion = package.json, tag = the latest git tag -- a gap between them is a working copy that has drifted from what shipped' +
+             '\ncpu = sampled from the OS right now, not from any transcript; it is true for this instant only',
+        `no running agents found (0 projects)`),
     }
   }
   return { code: 1, err: `skeins: unknown command "${cmd}"\ntry: skeins --help` }
