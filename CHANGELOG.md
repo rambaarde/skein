@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.1](https://github.com/rambaarde/skein/compare/v0.32.0...v0.32.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* a repo appears when a session opens in it, not when it first writes ([4306097](https://github.com/rambaarde/skein/commit/4306097382385cd4776229a83f287014e5cad6fb))
+* a repo appears when a session opens in it, not when it first writes ([#139](https://github.com/rambaarde/skein/issues/139)) ([25e4e8c](https://github.com/rambaarde/skein/commit/25e4e8c8210f806ced78c1b38954fd72dc326cc6))
+
 ## [0.32.0](https://github.com/rambaarde/skein/compare/v0.31.2...v0.32.0) (2026-08-23)
 
 
