@@ -1,6 +1,6 @@
 {
   "name": "skeins",
-  "version": "0.33.0",
+  "version": "0.33.1",
   "description": "Every agent running across every repository, grouped by project — and a read-only door so the agents can check who else is in a file before they write it.",
   "keywords": [
     "claude-code",
