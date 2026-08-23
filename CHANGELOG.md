@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.34.0](https://github.com/rambaarde/skein/compare/v0.33.3...v0.34.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** preset 5 draws who is in the same file as whom ([9698de8](https://github.com/rambaarde/skein/commit/9698de89068ea9b9685c8036fed39103e311e0c7))
+* **tui:** preset 5 draws who is in the same file as whom ([#167](https://github.com/rambaarde/skein/issues/167)) ([fcdffe8](https://github.com/rambaarde/skein/commit/fcdffe8ca7706c1b226831f07a854a594f5fb993))
+
 ## [0.33.3](https://github.com/rambaarde/skein/compare/v0.33.2...v0.33.3) (2026-08-23)
 
 
