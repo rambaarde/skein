@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.4](https://github.com/rambaarde/skein/compare/v0.32.3...v0.32.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** a clean window says so instead of leaving a blank line ([d865bcb](https://github.com/rambaarde/skein/commit/d865bcbe385aadf4ed505576c9af78287e3f487c))
+* **tui:** a clean window says so instead of leaving a blank line ([#150](https://github.com/rambaarde/skein/issues/150)) ([057d718](https://github.com/rambaarde/skein/commit/057d718d5b173c277f838d43b3836f2d1826d91d))
+
 ## [0.32.3](https://github.com/rambaarde/skein/compare/v0.32.2...v0.32.3) (2026-08-23)
 
 
