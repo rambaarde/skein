@@ -20,7 +20,7 @@ export const GLOSSARY = [
   ['deployment', 'a version tag. Where a repo tags nothing, a release commit instead -- never both, or release-please counts one publish twice.'],
   ['deploys n/m', 'm deployments in the window, n of them judged. The newest can never be judged: nothing has shipped after it yet.'],
   ['CFR', 'change failure rate -- the share of judged deployments whose NEXT deployment carried a fix or revert touching a file that deployment shipped.'],
-  ['', 'the unit is the deployment, not the commit. A fix that lands before the next release means nothing ever shipped broken: 92% of this repo by the loose rule, 30% by this one.'],
+  ['', 'the unit is the deployment, not the commit. A fix that lands before the next release means nothing ever shipped broken: 92% of this repo by the loose rule, 15% by this one.'],
   ['hotfixed n/m', 'of the m deployments a file shipped in, n were repaired by the next one. The denominator is the point: the file that ships most often is not the file that breaks most often, and a bare count sends you to rewrite the wrong one.'],
   ['bands', "DORA's own: 0-15% elite and high, 16-30% medium, above that low. The colour is red at every value and only the tone moves, so it reads as severity."],
   ['open', 'a session is in a repo and has written nothing there yet. It still counts: measured on a real machine, the gap between opening a session and its first write ran from zero to forty-one minutes, and a quarter of sessions never wrote at all. That is exactly when a warning is worth having.'],

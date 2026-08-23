@@ -125,6 +125,48 @@ total. The project you have selected is lit; the rest fade back.
 `⏎` opens a project's own screen: its agents, its sessions and their context
 pressure, its files, its tool calls, its collisions.
 
+### Every screen
+
+All of these are the real program, recorded against the invented world in
+[`tools/sandbox.mjs`](tools/sandbox.mjs). Rebuild them with `sh docs/shots.sh`.
+
+**A project's own screen** — `⏎` on any row. Agents, sessions and their context
+pressure, files, tool calls, what keeps breaking and what repaired it, and the
+collisions underneath.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/project.png" alt="the project screen" width="900">
+
+**1 all** — the chart, the project table, a detail pane and the live feed.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/preset-1-all.png" alt="preset 1, all" width="900">
+
+**2 watch** — the chart and the feed at full width: what is happening now.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/preset-2-watch.png" alt="preset 2, watch" width="900">
+
+**3 table** — the project table alone, the most projects on screen.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/preset-3-table.png" alt="preset 3, table" width="900">
+
+**4 velocity** — what landed, how long it took, and the change failure rate
+for whichever project the cursor is on.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/preset-4-velocity.png" alt="preset 4, velocity" width="900">
+
+**5 graph** — which files change together, and which of them two agents were
+both in.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/preset-5-graph.png" alt="preset 5, graph" width="900">
+
+**`m` the menu** — over a dimmed dashboard, because the numbers behind it are
+still live.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/menu.png" alt="the menu" width="900">
+
+**METRICS** — what every number on every screen counts. Also `skeins glossary`.
+
+<img src="https://raw.githubusercontent.com/rambaarde/skein/main/docs/shots/metrics.png" alt="the metrics page" width="900">
+
 ---
 
 ## Where the numbers come from

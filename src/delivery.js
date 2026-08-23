@@ -104,7 +104,7 @@ function gitLog(root, trunk, since) {
 // The files are what makes a change failure rate possible at all. Without
 // them, "was this deployment hotfixed" collapses to "did a fix happen
 // afterwards" — which on any repository actually being worked on is always
-// yes. Measured on this one: 92% by that rule, against 30% when the hotfix
+// yes. Measured on this one: 92% by that rule, against 15% when the hotfix
 // has to touch what the deployment shipped.
 export function parse(raw) {
   const out = []
@@ -200,7 +200,7 @@ function gitTags(root) {
 //
 //   The unit is the deployment. A fix that lands before the next release means
 //   nothing ever shipped broken, and counting it made every fast repository
-//   look broken -- 92% on this one, against 30% by this definition.
+//   look broken -- 92% on this one, against 15% by this definition.
 //
 //   The hotfix has to touch what the deployment shipped. "A fix happened
 //   afterwards" is true of every repository being worked on.
