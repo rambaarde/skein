@@ -112,7 +112,7 @@ total. The project you have selected is lit; the rest fade back.
 
 ### Four screens, one key
 
-`p` cycles them, `1`–`4` jump straight there.
+`p` cycles them, `1`–`5` jump straight there.
 
 | | Shows |
 |---|---|
@@ -120,6 +120,7 @@ total. The project you have selected is lit; the rest fade back.
 | **2 watch** | the chart and the feed at full width — what is happening right now |
 | **3 table** | the project table alone, the most projects on screen |
 | **4 velocity** | what landed on each trunk, how long it took, and what had to be repaired |
+| **5 graph** | within one project, which sessions touched the same file |
 
 `⏎` opens a project's own screen: its agents, its sessions and their context
 pressure, its files, its tool calls, its collisions.
@@ -264,6 +265,32 @@ observe would be a horoscope.
 
 A project with fewer than two deployments has no change failure rate. That is
 not the same as never failing, and the screen says so instead of drawing a zero.
+
+### The graph
+
+Preset `5` draws the one graph skeins has: inside a project, which sessions
+touched the same file.
+
+```
+        ⣤⡄                                          ⣀⡀
+        ⠿⠗⢦…t/presets.test.js                     ⣀⡤⣿⡇ …st/render.test.js
+           ⠈⠚⢕⡢⢄⡀                            ⣀⠤⢔⡪⠛⠉
+     ⣀⣀⣀⣀⡠⠤⠤⠤⠔⠒⠒⠓⠲⣒⠒⠒⠉⠉⣉⠝⠿⠟b6cf8790⢒⠶⠒⠣⠤⠤⠤⠤⣀⣀⣀⣀⣀⡀
+  ⢰⣶⣀⣀⠤⠤⠤⠔⠒⠒⠒⠊⠉⠉⠉                    ⠑⠢⡠⠔⠉     ⠈⠒⢄⡀⣀⠤⠊⠁
+  ⠘⠛ src/theme.js                                 tools/sandbox.mjs
+
+  ● session   ● file, bigger is more contested
+```
+
+A file **no one shares is not drawn** — one writer is work, not a conflict.
+Layout is Fruchterman–Reingold, seeded from the project root, so the same repo
+always draws the same shape rather than boiling on every repaint.
+
+It is deliberately **one project, not the machine**. The whole-machine version
+measured 1,573 nodes on a real laptop, which every result in the literature
+says renders as an unreadable hairball; one project is 1–13 sessions and a
+handful of contested files, which is the size a node-link picture is *for*.
+Caps are stated on screen (`+19 more files`) rather than applied silently.
 
 ### Collisions
 
