@@ -16,7 +16,7 @@ import { TABS, TAB_TITLES, sessionsTab, filesTab, toolsTab, collisionsTab } from
 import * as mouse from './mouse.js'
 import { highWater, limitOf, humanTokens } from './context.js'
 import { HOME } from './paths.js'
-import { ago, short, trunc } from './format.js'
+import { ago, short, trunc, clock12 } from './format.js'
 import { attentionSeries, attentionOf, humanMs } from './attention.js'
 import { rateSeries, ratePerMin, byAgent, activeSessions, liveSessions, pickWindow, LADDER } from './live.js'
 import { chart, niceMax, cumulative, MARKERS, MAX_SERIES, BELOW as CHART_BELOW } from './chart.js'
@@ -800,7 +800,7 @@ export function render(state, size) {
   // A dashboard that never moves is indistinguishable from a frozen one. The
   // pulse advances every refresh, so an idle machine still shows a live tool.
   const pulse = '⠋⠙⠹⠸⠼⠴⠦⠧⠇⠏'[(state.tick ?? 0) % 10]
-  const clock = new Date(now).toTimeString().slice(0, 8)
+  const clock = clock12(now, { seconds: true })
 
   // Dispatched here and not earlier: projectPage reads `clock`, and a function
   // declaration hoists while a const does not. Calling it above this line threw
@@ -1293,7 +1293,7 @@ export function render(state, size) {
     field('agent', `${hue(focus.agent)}${focus.agent}${R}`)
     field('file', short(focus.path, root))
     field('project', `${projectName(root)}${meta?.branch ? `${DIM}  ${meta.branch}${R}` : ''}`)
-    field('when', `${new Date(focus.at).toTimeString().slice(0, 8)}${DIM}   ${ago(focus.at, now)} ago${R}`)
+    field('when', `${clock12(focus.at, { seconds: true })}${DIM}   ${ago(focus.at, now)} ago${R}`)
     if (meta?.title) field('session', trunc(meta.title, Math.max(8, detailW - 14)))
     if (sc) {
       const cap = limitOf(meta, ceiling)
@@ -1447,7 +1447,7 @@ export function render(state, size) {
     feedFrom = Math.max(0, Math.min(state.feedTop ?? 0, Math.max(0, feedTotal - rows)))
     const feed = all.slice(feedFrom, feedFrom + rows)
     for (const e of feed) {
-      const at = new Date(e.at).toTimeString().slice(0, 8)
+      const at = clock12(e.at, { seconds: true })
       const root = e.project ?? gitRoot(e.path)
       const pw = Math.max(8, Math.min(20, Math.floor(feedW * 0.22)))
       hit.feed.push({ y: L.feed.y + 1 + feedRows.length, event: e })
