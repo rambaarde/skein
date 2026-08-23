@@ -92,3 +92,47 @@ test('a Windows absolute path is not treated as relative', async () => {
   assert.equal(abs('C:\\repo\\src\\a.ts', '/other'), 'C:\\repo\\src\\a.ts')
   assert.equal(abs('/repo/a.ts', '/other'), '/repo/a.ts')
 })
+
+test('a compaction is read from the record Claude actually writes', async () => {
+  // This looked for `compact_file_reference`, which Claude Code no longer
+  // writes. Measured across 169 real transcripts in thirty days: skeins
+  // reported ZERO compactions against 36 that happened, 21 sessions affected,
+  // 58.8M tokens dropped and 83 minutes of wall clock spent.
+  //
+  // A metric that silently reads zero is worse than an absent one -- nobody
+  // goes looking for it, and every screen that shows it is quietly lying.
+  const { parse } = await import('../src/sources/claude.js')
+  const lines = [
+    JSON.stringify({ type: 'user', cwd: '/w/p', timestamp: '2026-08-20T10:00:00Z', sessionId: 's' }),
+    JSON.stringify({
+      type: 'system', subtype: 'compact_boundary', content: 'Conversation compacted',
+      compactMetadata: { trigger: 'auto', preTokens: 999319, postTokens: 14401, cumulativeDroppedTokens: 984918, durationMs: 134335 },
+    }),
+    JSON.stringify({
+      type: 'system', subtype: 'compact_boundary',
+      compactMetadata: { trigger: 'manual', preTokens: 500000, postTokens: 10000, cumulativeDroppedTokens: 490000, durationMs: 60000 },
+    }),
+    // A system record that is NOT a compaction must not be counted.
+    JSON.stringify({ type: 'system', subtype: 'turn_duration', content: '12s' }),
+  ].map(String)
+  const { meta } = parse(lines, { session: 's' })
+
+  assert.equal(meta.compactions, 2)
+  // What it COST is the part worth having: durationMs is attention, spent
+  // rebuilding a picture the session already had.
+  assert.equal(meta.dropped, 984918 + 490000)
+  assert.equal(meta.compactMs, 134335 + 60000)
+  // `auto` means the ceiling was hit rather than a compaction chosen -- 33 of
+  // the 36 real ones were automatic.
+  assert.equal(meta.autoCompactions, 1)
+})
+
+test('the cache version moves when the shape of a parse changes', async () => {
+  // Transcripts are append-only, so a file that has not grown is re-served
+  // from cache and a parser fix is invisible. The compaction fix read zero on
+  // a real machine until this moved -- which is exactly the case the comment
+  // above VERSION describes, now having actually happened.
+  const { VERSION, load } = await import('../src/cache.js')
+  assert.ok(VERSION >= 4, 'bumped for the compact_boundary parse')
+  assert.equal(load().version, VERSION, 'a cache written by an older version is discarded')
+})
