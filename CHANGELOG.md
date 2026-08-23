@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.1](https://github.com/rambaarde/skein/compare/v0.37.0...v0.37.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the band stopped the failure panel from drawing ([b167ad3](https://github.com/rambaarde/skein/commit/b167ad396557c16edf6296213c573f9120118470))
+* **tui:** the band stopped the failure panel from drawing ([#191](https://github.com/rambaarde/skein/issues/191)) ([ad1edea](https://github.com/rambaarde/skein/commit/ad1edea2cffe457c4dc81e750e8caa7f58126eb7))
+
 ## [0.37.0](https://github.com/rambaarde/skein/compare/v0.36.1...v0.37.0) (2026-08-23)
 
 
