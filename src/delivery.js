@@ -69,18 +69,46 @@ const memo = new Map()
 // Returns null — not an empty list — when there is no git history to read, so
 // a caller can say "no history here" rather than "you shipped nothing", which
 // are very different statements (AXI 5).
+// The memo key is quantised to the DAY, and the answer is then trimmed back
+// to the exact `since` the caller asked for.
+//
+// Every screen computes `since` as `now - lookback`, and `now` advances every
+// second, so the key `${stamp(root)}|${since}` was different on every single
+// draw and nothing ever hit. Measured at a 30-day window: 680ms a repaint.
+// Quantising at each call site fixed one screen at a time and was forgotten
+// twice; doing it here fixes every caller at once, including the ones not
+// written yet.
+//
+// git is asked for whole days, which is a superset, and the extra commits are
+// filtered out before returning -- so the answer is exactly what was asked
+// for and only the cache is coarser.
+const day = ms => Math.floor(ms / 86_400_000) * 86_400_000
+
+// Keyed on the root AND the window, not one slot per root.
+//
+// One slot meant two screens asking about different windows evicted each
+// other on every draw: the velocity table asks for thirty days and the trend
+// band asks for eight weeks, so each call missed the other's entry and git was
+// spawned again. A CPU profile of twelve draws showed 8.7 SECONDS inside
+// spawnSync -- 726ms a draw, all of it re-answering questions already answered.
+const slot = (m, root, key) => {
+  const hit = m.get(`${root}\u0000${key}`)
+  return hit ?? null
+}
+
 export function landings(root, { since, run = gitLog } = {}) {
   if (!root) return null
   // The memo is keyed on the repo, so it MUST NOT answer for an injected
   // reader -- the whole point of passing one is to get a different answer for
   // the same root, and a cache that ignores that hands back the last one.
-  const key = `${stamp(root)}|${since}`
-  const hit = run === gitLog ? memo.get(root) : null
-  if (hit && hit.key === key) return hit.value
+  const asked = day(since)
+  const key = `${stamp(root)}|${asked}`
+  const hit = run === gitLog ? slot(memo, root, key) : null
+  if (hit) return hit.value.filter(s => s.at >= since)
   const trunk = trunkOf(root)
-  const out = trunk ? run(root, trunk, since) : null
-  if (run === gitLog) memo.set(root, { key, value: out })
-  return out
+  const out = trunk ? run(root, trunk, asked) : null
+  if (run === gitLog && out) memo.set(`${root}\u0000${key}`, { key, value: out })
+  return out ? out.filter(s => s.at >= since) : out
 }
 
 function gitLog(root, trunk, since) {
@@ -165,18 +193,19 @@ export function leadTimes(ships, events, since) {
 const deployMemo = new Map()
 
 export function deployments(root, { since, all = null, run = gitTags } = {}) {
-  const key = `${stamp(root)}|${since}`
-  const hit = run === gitTags ? deployMemo.get(root) : null
+  const asked = day(since)
+  const key = `${stamp(root)}|${asked}`
+  const hit = run === gitTags ? slot(deployMemo, root, key) : null
   // `all` only decides the FALLBACK, and the fallback is only consulted when
   // the repo has no version tags -- so it cannot change an answer the tags
   // already gave, and it is derived from landings, which is keyed the same way.
-  if (hit && hit.key === key) return hit.value
-  const tags = (run(root) ?? []).filter(t => t.at >= since).sort((a, b) => a.at - b.at)
+  if (hit) return hit.value.filter(d => d.at >= since)
+  const tags = (run(root) ?? []).filter(t => t.at >= asked).sort((a, b) => a.at - b.at)
   const value = tags.length
     ? tags
     : (all ?? []).filter(s => s.release).map(s => ({ at: s.at, name: s.subject })).sort((a, b) => a.at - b.at)
-  if (run === gitTags) deployMemo.set(root, { key, value })
-  return value
+  if (run === gitTags) deployMemo.set(`${root}\u0000${key}`, { key, value })
+  return value.filter(d => d.at >= since)
 }
 
 function gitTags(root) {
