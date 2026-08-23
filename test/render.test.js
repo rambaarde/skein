@@ -985,7 +985,7 @@ test('esc leaves a full-screen preset instead of quitting', async () => {
   assert.match(plain, /\? keys/)
 })
 
-test('the project page keeps tools visible and tabs to version control', async () => {
+test('the project page keeps tools visible and tabs to worktrees', async () => {
   const { render } = await import('../src/tui.js')
   const now = Date.now()
   const events = Array.from({ length: 6 }, (_, i) => ({
@@ -998,19 +998,45 @@ test('the project page keeps tools visible and tabs to version control', async (
     sel: 0, expanded: new Set(), colls: [], tier: 'braille',
     since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
     sort: 'recent', filter: '', onlyColliding: false, preset: 0, feedTop: 0, page: '/w/a',
+    machine: { roots: new Map([['/w/a', { cpu: 42.3, agents: new Set(['claude']) }]]), unrooted: 0, rows: [] },
   }
   const toolsPage = render({ ...base, tab: 0 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
-  const versionPage = render({ ...base, tab: 1 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
+  const worktreesPage = render({ ...base, tab: 1 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
 
   assert.match(toolsPage, /tab panes/, 'the project page has a real tab control')
-  assert.match(toolsPage, /tools  version  collisions/, 'the project tabs are visible')
+  assert.match(toolsPage, /tools  worktrees  collisions/, 'the project tabs are visible')
   assert.match(toolsPage, /Bash/, 'the tools panel was not traded away for git state')
-  assert.match(versionPage, /─ version control ─/, 'version control is a project tab')
-  assert.match(versionPage, /no worktrees found/, 'git absence is explicit instead of an empty pane')
-  assert.match(versionPage, /esc back/, 'the working controls are still there')
-  assert.match(versionPage, /q quit/)
+  assert.match(toolsPage, /CPU .*42\.3%/, 'the project page has a btop-style live CPU gauge')
+  assert.match(worktreesPage, /─ git worktrees ─/, 'worktrees are a project tab')
+  assert.match(worktreesPage, /no worktrees found/, 'git absence is explicit instead of an empty pane')
+  assert.match(worktreesPage, /esc back/, 'the working controls are still there')
+  assert.match(worktreesPage, /q quit/)
 })
 
+test('the project page lower panes scroll together', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = Array.from({ length: 34 }, (_, i) => ({
+    at: now - i * 60_000, agent: 'claude', session: 's', path: `/w/a/src/f${String(i).padStart(2, '0')}.ts`, project: '/w/a',
+  }))
+  const p = { name: 'a', root: '/w/a', sessions: 1, files: 34, agents: ['claude'], last: now, events }
+  const base = {
+    projects: [p], events,
+    sessions: new Map([['s', { agent: 'claude', tools: { Bash: 30 } }]]),
+    sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 0, page: '/w/a',
+    machine: { roots: new Map(), unrooted: 0, rows: [] },
+  }
+  const top = render({ ...base, feedTop: 0 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
+  const scrolled = render({ ...base, feedTop: 12 }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(top, /f00\.ts/)
+  assert.doesNotMatch(top, /f33\.ts/)
+  assert.match(scrolled, /f33\.ts/)
+  assert.doesNotMatch(scrolled, /f00\.ts/)
+  assert.match(scrolled, /wheel\/page scroll|scroll \d+-\d+ of/)
+})
 test('the info pane is a live rolling graph, and it slides with now', async () => {
   // The headline chart is a running total over the lookback: it answers "where
   // did the day go" and is deliberately smooth and slow. Nothing answered "is
@@ -1510,16 +1536,11 @@ test('nodes with no edges are explained, not scattered', async () => {
   assert.match(f, /a\.ts/)
 })
 
-test('switching to the estate preset paints a fresh CPU sample, not a stale one', async () => {
+test('opening a project page paints a fresh CPU sample, not a stale one', async () => {
   // pollMachine() updated a closure variable and sync() never picked it up --
   // the same sync()/reload() split this file already hit once for `menu`.
   // render() alone cannot catch this: it was handed `machine` directly and
   // drew it correctly every time. Only a real keypress through start() can.
-  //
-  // The sampler is INJECTED, not the real ps/lsof: a test that hit the real
-  // process table would pass on a machine with an agent running the suite and
-  // fail on any CI runner without one, which is exactly the flakiness every
-  // other reader in this codebase avoids the same way.
   const { start } = await import('../src/tui.js')
   const { PassThrough } = await import('node:stream')
   const out = new PassThrough(); out.columns = 150; out.rows = 24; out.isTTY = true
@@ -1536,16 +1557,14 @@ test('switching to the estate preset paints a fresh CPU sample, not a stale one'
   start({ stdout: out, stdin: inp, sampleMachine: fakeSample, buildState })
   await new Promise(r => setTimeout(r, 120))
   painted = ''
-  inp.write('6')
+  inp.write('\r')
   await new Promise(r => setTimeout(r, 300))
   const plain = painted.replace(/\x1b\[[0-9;]*m/g, '')
-  assert.match(plain, /estate/, 'the preset switched')
-  // The EXACT injected number, not just any percentage -- proving the sample
-  // pollMachine() just took reached the screen rather than an empty default.
-  assert.match(plain, /33\.7%/)
+  assert.match(plain, /skeins/, 'the project page opened')
+  assert.match(plain, /CPU .*33\.7%/)
 })
 
-test('the estate screen shows the selected project worktrees and live CPU', async () => {
+test('the project worktrees tab shows selected checkout state and live CPU', async () => {
   const { render } = await import('../src/tui.js')
   const root = process.cwd()
   const now = Date.now()
@@ -1564,21 +1583,19 @@ test('the estate screen shows the selected project worktrees and live CPU', asyn
   const frame = render({
     projects: [rooted], events: [], sessions: new Map(), sel: 0, expanded: new Set(),
     colls: [], tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30,
-    tick: 0, sort: 'recent', filter: '', onlyColliding: false, preset: 5, tab: 0, feedTop: 0,
-    page: null, machine,
-  }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
+    tick: 0, sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 1, feedTop: 0,
+    page: root, machine,
+  }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
 
-  assert.match(frame, /skeins · estate/)
+  assert.match(frame, /git worktrees/)
   assert.match(frame, /current/, 'the selected checkout is the first-class object')
   assert.match(frame, /claude\+codex/, 'both agents running in it, not just one')
-  assert.match(frame, /42\.3%/, 'worktree CPU is summed from attributed process rows')
+  assert.match(frame, /42\.3%/, 'project CPU is visible in the header')
   assert.match(frame, /clean|\d+ files?/, 'working-tree dirtiness is visible')
 })
 
-test('the version gap is coloured, and worktree wording counts OTHER checkouts', async () => {
+test('the worktree tab counts OTHER checkouts without a standalone preset', async () => {
   const { render } = await import('../src/tui.js')
-  // Use this repo itself, which genuinely has at least the current checkout
-  // and therefore can prove the wording does not count phantom siblings.
   const root = process.cwd()
   const now = Date.now()
   const p = {
@@ -1588,8 +1605,8 @@ test('the version gap is coloured, and worktree wording counts OTHER checkouts',
   const frame = render({
     projects: [p], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
     tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
-    sort: 'recent', filter: '', onlyColliding: false, preset: 5, tab: 0, feedTop: 0, page: null,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 0, tab: 1, feedTop: 0, page: root,
     machine: { roots: new Map(), unrooted: 0 },
-  }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
+  }, { cols: 150, rows: 42 }).replace(/\x1b\[[0-9;]*m/g, '')
   assert.match(frame, /current/, 'a single-worktree repo still shows the current checkout')
 })

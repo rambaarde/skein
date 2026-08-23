@@ -56,12 +56,6 @@ test('a preset drops boxes, and the survivors take the space', () => {
   assert.equal(gr.graph.h, 32, 'graph gets the whole screen')
   assert.match(parse('graph:0:default,feed:0:default').error, /whole screen/)
 
-  // estate is a different SOURCE (the OS, not the transcripts) and gets the
-  // same treatment for the same reason.
-  const es = layout(120, 32, apply(parse(DEFAULT_PRESETS).presets[5]).shown)
-  assert.equal(es.head, undefined, 'the project list is gone, not shrunk')
-  assert.equal(es.estate.h, 32, 'estate gets the whole screen')
-  assert.match(parse('estate:0:default,feed:0:default').error, /whole screen/)
 
-  assert.equal(PRESETS.length, 7)
+  assert.equal(PRESETS.length, 5)
 })

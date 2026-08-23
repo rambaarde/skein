@@ -4,6 +4,7 @@
 // object is a PROJECT, and projects are a variable-length list with sessions
 // nested under them -- so we take btop's border grammar and its graph tables,
 // and leave its box-grid layout behind.
+import { normalize } from 'node:path'
 import { collect, probe } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
@@ -29,8 +30,9 @@ import { coupled, layout as forceLayout } from './graph.js'
 import { worktrees, versionOf, worktreeState } from './estate.js'
 import { sample as sampleMachineDefault, byRoot, attributeToPaths } from './machine.js'
 
-const PROJECT_TABS = ['tools', 'version', 'collisions']
-const PROJECT_TAB_TITLES = ['tool calls, most used first', 'version control', 'collisions']
+const PROJECT_TABS = ['tools', 'worktrees', 'collisions']
+const PROJECT_TAB_TITLES = ['tool calls, most used first', 'git worktrees', 'collisions']
+const pathKey = p => normalize(String(p ?? '')).replace(/\\/g, '/').toLowerCase()
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
 const CLEAR = '\x1b[H\x1b[2J'
@@ -94,9 +96,9 @@ const KEYS = [
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
-  ['1-7', 'jump straight to a preset: all · watch · table · velocity · graph · estate · worktrees'],
+  ['1-5', 'jump straight to a preset: all · watch · table · velocity · graph'],
   ['', 'the selected project is lit on the chart; the rest fade back'],
-  ['⏎', "open the project's own page — graph, agents, sessions, files, version control"],
+  ['⏎', "open the project's own page — graph, agents, sessions, files, tools, worktrees"],
   ['space', 'peek at a project inline without leaving the list'],
   ['esc', 'back one level: page, then detail, then preset 1, then quit'],
   ['tab', 'switch the detail pane: info · sessions · files · tools · collisions'],
@@ -401,12 +403,15 @@ export function render(state, size) {
     const list = worktrees(p.root) ?? []
     if (!list.length) return rows.length ? rows : [` ${DIM}no worktrees found${R}`]
 
-    const cpu = attributeToPaths(state.machine?.rows ?? [], list.map(wt => wt.path))
+    const paths = list.map(wt => wt.path)
+    const cpu = attributeToPaths(state.machine?.rows ?? [], paths)
+    const cpuByKey = new Map([...cpu].map(([path, live]) => [pathKey(path), live]))
+    const rootKey = pathKey(p.root)
     for (const [i, wt] of list.entries()) {
       const snap = worktreeState(wt.path)
-      const live = cpu.get(wt.path)
+      const live = cpu.get(wt.path) ?? cpuByKey.get(pathKey(wt.path))
       const branch = wt.branch ?? 'detached'
-      const current = wt.path === p.root
+      const current = pathKey(wt.path) === rootKey
       const agents = live?.agents.size ? [...live.agents].map(a => `${hue(a)}${a}${R}`).join('+') : `${DIM}—${R}`
       const cpuText = live?.cpu ? `${meter(Math.min(1, live.cpu / 100), 4, LUT.heat)} ${live.cpu.toFixed(1)}%` : `${DIM}idle${R}`
       const changes = snap ? (snap.changes.length ? `${snap.changes.length} file${snap.changes.length === 1 ? '' : 's'}` : 'clean') : '—'
@@ -420,7 +425,7 @@ export function render(state, size) {
       } else {
         rows.push(`    ${fit(agents, 12)} ${fit(cpuText, 12)} ${fit(changes, 9)} ${DIM}${sync}${R}`)
       }
-    }
+      }
     return rows
   }
   // ---- the project page --------------------------------------------------
@@ -535,8 +540,10 @@ export function render(state, size) {
       }
       return { ms, n, auto }
     })()
+    const cpuHere = p.root ? state.machine?.roots?.get(p.root)?.cpu ?? 0 : 0
     const stats = [
       `${humanMs(att(p))} attention`,
+      `CPU ${meter(Math.min(1, cpuHere / 100), 8, LUT.heat)} ${cpuHere.toFixed(1)}%`,
       // Only when it happened. "0m compacting" on every quiet project is a
       // column of zeroes pretending to be information.
       compacted.n ? `${humanMs(compacted.ms)} of it compacting${compacted.auto ? ` · ${compacted.auto} auto` : ''}` : null,
@@ -590,22 +597,43 @@ export function render(state, size) {
     // for the same selected project.
     const F = { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling }
     const tctx = k => ({ state, now, detailW: rects[k].w - 2, detailH: rects[k].h, collsHere, lookback, F })
-    const sessRows = sessionsTab(p, tctx('sessions'))
-    const fileRows = filesTab(p, tctx('files'))
+    const fullCtx = k => ({ ...tctx(k), detailH: 1_000_000 })
+    const sessRows = sessionsTab(p, fullCtx('sessions'))
+    const fileRows = filesTab(p, fullCtx('files'))
     const projectTabI = Math.min(state.tab ?? 0, PROJECT_TABS.length - 1)
-    const projectRows = []
+    const projectContent = []
     let tx = 1
     const projectBar = PROJECT_TABS.map((name, i) => {
       hit.tabs.push({ y: rects.detail.y + 1, x0: rects.detail.x + tx, x1: rects.detail.x + tx + name.length, index: i })
       tx += name.length + 2
       return i === projectTabI ? `${BOLD}${THEME.hi}${name}${R}` : `${DIM}${name}${R}`
     }).join('  ')
-    projectRows.push(` ${projectBar}`)
-    projectRows.push(` ${DIM}${PROJECT_TABS.map((n, i) => (i === projectTabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`)
-    const projectCtx = { ...tctx('detail'), detailH: rects.detail.h - 4 }
-    if (projectTabI === 1) projectRows.push(...versionRows(p, rects.detail.w - 2).slice(0, Math.max(1, rects.detail.h - 4)))
-    else if (projectTabI === 2) projectRows.push(...collisionsTab(p, projectCtx))
-    else projectRows.push(...toolsTab(p, projectCtx))
+    const projectCtx = { ...fullCtx('detail') }
+    if (projectTabI === 1) projectContent.push(...versionRows(p, rects.detail.w - 2))
+    else if (projectTabI === 2) projectContent.push(...collisionsTab(p, projectCtx))
+    else projectContent.push(...toolsTab(p, projectCtx))
+
+    const pageTop = Math.max(0, state.feedTop ?? 0)
+    const cap = rect => Math.max(1, rect.h - 2)
+    const capProject = Math.max(1, rects.detail.h - 4)
+    const scroll = (rows, n) => rows.slice(Math.min(pageTop, Math.max(0, rows.length - n)), Math.min(pageTop, Math.max(0, rows.length - n)) + n)
+    const maxScroll = Math.max(
+      0,
+      agentRows.length - cap(rects.agents),
+      sessRows.length - cap(rects.sessions),
+      fileRows.length - cap(rects.files),
+      projectContent.length - capProject,
+    )
+    state.feedMax = maxScroll
+    state.feedRect = { x: 0, y: headHp, w, h: lowerH }
+    const projectRows = [
+      ` ${projectBar}`,
+      ` ${DIM}${PROJECT_TABS.map((n, i) => (i === projectTabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`,
+      ...scroll(projectContent, capProject),
+    ]
+    const scrollState = maxScroll
+      ? `${DIM}scroll ${Math.min(pageTop, maxScroll) + 1}-${Math.min(pageTop, maxScroll) + capProject} of ${projectContent.length}${R}`
+      : `${DIM}top${R}`
 
     const panes = [
       { rect: rects.head, lines: pane(rects.head, {
@@ -652,13 +680,13 @@ export function render(state, size) {
         })(),
         rows,
       }) },
-      { rect: rects.agents, lines: pane(rects.agents, { title: 'agents', line: THEME.boxDetail, rows: agentRows,
-        state: `${DIM}${perAgent.length} in ${lookback}${R}` }) },
-      { rect: rects.sessions, lines: pane(rects.sessions, { title: 'sessions', line: THEME.boxDetail, rows: sessRows }) },
-      { rect: rects.files, lines: pane(rects.files, { title: 'files', line: THEME.boxFeed, rows: fileRows,
-        state: `${DIM}${p.files} touched${R}` }) },
+      { rect: rects.agents, lines: pane(rects.agents, { title: 'agents', line: THEME.boxDetail, rows: scroll(agentRows, cap(rects.agents)),
+        state: `${DIM}${perAgent.length} in ${lookback}${maxScroll ? ` · wheel/page scroll` : ''}${R}` }) },
+      { rect: rects.sessions, lines: pane(rects.sessions, { title: 'sessions', line: THEME.boxDetail, rows: scroll(sessRows, cap(rects.sessions)) }) },
+      { rect: rects.files, lines: pane(rects.files, { title: 'files', line: THEME.boxFeed, rows: scroll(fileRows, cap(rects.files)),
+        state: `${DIM}${p.files} touched${maxScroll ? ` · ${Math.min(pageTop, maxScroll) + 1}/${maxScroll + 1}` : ''}${R}` }) },
       { rect: rects.detail, lines: pane(rects.detail, { title: PROJECT_TAB_TITLES[projectTabI], line: THEME.boxFeed, rows: projectRows,
-        state: `${tag('tab', 'panes')} ${PROJECT_TABS.map((n, i) => i === projectTabI ? `${BOLD}${n}${R}` : `${DIM}${n}${R}`).join(`${DIM} · ${R}`)}${R}` }) },
+        state: `${tag('tab', 'panes')} ${PROJECT_TABS.map((n, i) => i === projectTabI ? `${BOLD}${n}${R}` : `${DIM}${n}${R}`).join(`${DIM} · ${R}`)}${R}${maxScroll ? ` · ${scrollState}` : ''}` }) },
     ]
     if (failH > 0) {
       const bw = rects.breaks.w - 2
@@ -839,43 +867,6 @@ export function render(state, size) {
     }) }])
   }
 
-  // ---- estate: what is actually checked out, and what is running --------
-  //
-  // A different SOURCE from every other screen. Everything else reads agent
-  // transcripts or git history -- records of what already happened. This
-  // reads the OS, right now: which worktree a project is in, whether the
-  // working copy matches what it claims to be, and which agent process is
-  // spending CPU where. None of that exists in a transcript.
-  function estateScreen(V) {
-    return worktreesScreen(V, { title: 'estate', key: SUP[5] })
-  }
-
-  // One-project worktree view: linked checkouts are useful only with their owner.
-  function worktreesScreen(V, { title = 'worktrees', key = SUP[6] } = {}) {
-    const p = projects[sel]
-    const W = V.w - 2
-    const rows = p?.root
-      ? versionRows(p, W, { expanded: true })
-      : [` ${DIM}selected project has no git worktrees${R}`]
-    const live = (state.machine?.rows ?? []).filter(r => p?.root && (r.cwd === p.root || r.cwd?.startsWith(`${p.root}/`))).length
-    return compose(h, [{ rect: V, lines: pane(V, {
-      title: `${p?.name ?? 'no project'} · ${title}`, key, line: THEME.boxHead,
-      head: (() => {
-        const label = `${p?.name ?? 'no project'} · ${title}`
-        const at = V.x + 6 + label.length + width(key)
-        hit.tags.push({ y: V.y, x0: at, x1: at + 'm menu'.length, key: 'm' })
-        return tag('m', 'menu')
-      })(),
-      right: (() => {
-        const painted = `${DIM}selected project ${sel + 1}/${projects.length}${R}  ${clock} ${DIM}${pulse}${R}`
-        const x0 = V.x + V.w - width(painted) - 3
-        hit.tags.push({ y: V.y, x0, x1: x0 + 12, key: 'p' })
-        return painted
-      })(),
-      rows,
-      state: `${DIM}${live} live process${live === 1 ? '' : 'es'} here · recent commits · uncommitted files · ahead/behind upstream${R}  ${tag('↑↓', 'project')} ${tag('1', 'back')} ${tag('r', 'refresh')} ${tag('q', 'quit')}`,
-    }) }])
-  }
 
   // ---- velocity: what landed, and how long it took to land ----------------
   //
@@ -1256,8 +1247,6 @@ export function render(state, size) {
   // Same reason, same place: velocityScreen reads clock and pulse.
   if (L.velocity) return velocityScreen(L.velocity)
   if (L.graph) return graphScreen(L.graph)
-  if (L.estate) return estateScreen(L.estate)
-  if (L.worktrees) return worktreesScreen(L.worktrees)
 
   // Fitted to the budget rather than switched at two breakpoints, and the two
   // escape hatches are PINNED. Adding one control used to push '? keys' off the
@@ -1946,14 +1935,11 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   let preset = 0, tab = 0, feedTop = 0, page = null
   // Sampled from the OS, not built from anything in `build()`. It costs a
   // process spawn -- measured at ~50ms each for `ps` and the batched cwd
-  // lookup -- so it is taken on the SLOW poll cadence and only while the
-  // estate preset is actually the one on screen, never on every paint tick
-  // and never for a preset nobody is looking at.
-  const ESTATE = NAMES.indexOf('estate')
-  const WORKTREES = NAMES.indexOf('worktrees')
+  // lookup -- so it is taken on the SLOW poll cadence and only while a project
+  // page is open. That page is where live CPU is displayed now.
   let machine = { roots: new Map(), unrooted: 0, rows: [] }
   // Read OS sample only on screens that display live CPU attribution.
-  const pollMachine = () => { if (preset === ESTATE || preset === WORKTREES) machine = byRoot(sampleMachine()) }
+  const pollMachine = () => { if (page) machine = byRoot(sampleMachine()) }
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -2015,8 +2001,8 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   })
   // `machine` is not user input, so it does not belong in interactive() --
   // but it is the other thing draw() must reflect without waiting for a full
-  // reload(), or pressing 6 to reach the estate preset paints the CPU sample
-  // pollMachine() JUST took into the closure variable and never onto state.
+  // reload(), or opening a project page paints the CPU sample pollMachine()
+  // JUST took into the closure variable and never onto state.
   // Exactly the sync()/reload() split this file already hit once for `menu`.
   const sync = () => Object.assign(state, interactive(), { machine })
 
@@ -2114,7 +2100,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
         }
       } else {
         const tabHit = mouse.hitTab(state.hit ?? {}, ev.x, ev.y)
-        if (tabHit !== null) { tab = tabHit; draw(); return }
+        if (tabHit !== null) { tab = tabHit; if (page) feedTop = 0; draw(); return }
         // A clicked control runs the key it displays, through this very
         // function — so clicking 'p all' and pressing p cannot diverge.
         const tagKey = mouse.hitTag(state.hit ?? {}, ev.x, ev.y)
@@ -2129,7 +2115,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
           // indistinguishable from the mouse not working at all.
           sel = row
           const target = state.projects[row]
-          if (target) { page = target.root ?? target.name; focus = null; tab = 0 }
+          if (target) { page = target.root ?? target.name; focus = null; tab = 0; feedTop = 0; pollMachine() }
         }
       }
       draw()
@@ -2190,7 +2176,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // this repo" needs a screen, not an expansion.
     else if (k === '\r' || k === '\n') {
       const p = current()
-      if (p) { page = p.root ?? p.name; focus = null; tab = 0 }
+      if (p) { page = p.root ?? p.name; focus = null; tab = 0; feedTop = 0; pollMachine() }
     }
     else if (k === ' ') {
       const p = current()
@@ -2208,8 +2194,8 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // straight to one, which is how you actually use them once you know them.
     // Tab switches the detail pane's view, which is the key agtop uses for the
     // same job. Shift-Tab steps back.
-    else if (k === '\t') tab = (tab + 1) % (page ? PROJECT_TABS.length : TABS.length)
-    else if (k === '\x1b[Z') tab = (tab - 1 + (page ? PROJECT_TABS.length : TABS.length)) % (page ? PROJECT_TABS.length : TABS.length)
+    else if (k === '\t') { tab = (tab + 1) % (page ? PROJECT_TABS.length : TABS.length); if (page) feedTop = 0 }
+    else if (k === '\x1b[Z') { tab = (tab - 1 + (page ? PROJECT_TABS.length : TABS.length)) % (page ? PROJECT_TABS.length : TABS.length); if (page) feedTop = 0 }
     else if (k === 'p') { preset = (preset + 1) % PRESETS.length; pollMachine() }
     else if (k === 'P') { preset = (preset - 1 + PRESETS.length) % PRESETS.length; pollMachine() }
     else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) { preset = Number(k) - 1; pollMachine() }

@@ -28,7 +28,6 @@ export const GLOSSARY = [
   ['collision', 'two SESSIONS editing one file close enough together to overwrite each other, and whose lifetimes actually overlapped. Frequently the same agent twice.'],
   ['graph', 'preset 5: change coupling. A node is a file, an edge is "these two are edited in the same commit", and the ratio is measured against the rarer of the two. Two files that always move together are one thing wearing two names. Red marks a file two overlapping sessions wrote minutes apart, drawn whether git paired it or not.'],
   ['improving', 'the ARE YOU IMPROVING band under the velocity table. Every project pooled, every two weeks, because measured on real solo-developer data a per-project week has two of four buckets EMPTY and an arrow drawn from two landings is a confident lie. An arrow knows which way is GOOD: more landed is better, more attention per change is not. A dot is a two-week bucket your loaded window does not reach.'],
-  ['estate', 'preset 6: the selected project\'s linked checkouts, recent commits, uncommitted files, upstream sync, and live agents.'],
-  ['worktrees', 'preset 7: an alias for the same selected-project worktree/version-control view.'],
+  ['worktrees', 'project-page tab: the selected project\'s linked checkouts, recent commits, uncommitted files, upstream sync, version/tag gap and live CPU.'],
   ['not here', 'mean time to restore needs incidents a laptop does not have, and deployment frequency for one developer is the landed column. Two of DORA\'s four are absent rather than faked.'],
 ]
