@@ -1303,3 +1303,32 @@ test('keys reach the screen, not just the variable', async () => {
   // And out.
   assert.doesNotMatch(await after('m'), /█/, 'm closes it again')
 })
+
+test('the menu has one bright word, not three', async () => {
+  // Three words at equal weight on one slab of black read as a wall, and hid
+  // the dashboard the menu is supposed to be standing in FRONT of. btop
+  // darkens only what each word needs and lights only the selection.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const mk = n => ({
+    name: n, root: `/w/${n}`, sessions: 1, files: 2, agents: ['claude'], last: now,
+    events: [{ at: now - 3600_000, agent: 'claude', session: 's', path: `/w/${n}/f.ts`, project: `/w/${n}` }],
+  })
+  const frame = sel => render({
+    projects: [mk('alpha'), mk('beta')], events: [], sessions: new Map(), sel: 0,
+    expanded: new Set(), colls: [], tier: 'braille', since: now - 86_400_000, now,
+    lookback: '24h', windowMin: 30, tick: 0, sort: 'recent', filter: '',
+    onlyColliding: false, preset: 0, tab: 0, feedTop: 0, page: null, menu: sel,
+  }, { cols: 150, rows: 34 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  for (const sel of [0, 1, 2]) {
+    const f = frame(sel)
+    assert.match(f, /█/, `selection ${sel} is drawn solid`)
+    assert.match(f, /▒/, `and the other two are drawn light`)
+  }
+
+  // The dashboard is still there: the ground is per WORD, so the chart either
+  // side of a short word survives rather than being blanked to the width of
+  // the longest one.
+  assert.match(frame(1), /⣀.*▒|▒.*⣀/, 'the screen shows around the words')
+})

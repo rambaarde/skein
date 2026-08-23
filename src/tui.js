@@ -169,30 +169,47 @@ function menuOverlay(frame, sel, w, h, hit) {
     for (let r = 0; r < tall; r++) hit.rows.push({ y: y + at + r, index: i, menu: true })
   })
 
-  // A solid ground under the whole block, two columns of air either side.
-  // Without it the letters interleave with whatever the dashboard was drawing
-  // there and neither is readable -- btop paints the same dark rectangle, and
-  // it is what makes a menu look like it is IN FRONT rather than mixed in.
+  // A ground PER WORD, not one slab across the block.
+  //
+  // Sized to the widest word it covered the whole column, so a menu of three
+  // short words blanked a rectangle forty characters wide and the dashboard
+  // it is supposed to be standing in front of disappeared behind it. btop
+  // darkens only what each word actually needs; everything between the words
+  // is still the live screen, which is the entire reason for dimming rather
+  // than replacing.
   const pad = 2
-  const x0 = Math.max(0, x - pad), x1 = Math.min(w, x + bw + pad)
-  const top = y - 1, bottom = y + block.length
 
   return lines.map((line, row) => {
     const plain = [...line.replace(/\x1b\[[0-9;]*m/g, '')]
     while (plain.length < w) plain.push(' ')
-    if (row < top || row > bottom) return `${back}${plain.slice(0, w).join('')}${R}`
+    const b = block[row - y]
+    if (b === undefined) return `${back}${plain.slice(0, w).join('')}${R}`
 
-    const b = block[row - y] ?? ''
     const on = spans.find(sp => row - y >= sp.at && row - y < sp.at + tall)
+    const lit = on?.i === sel
+    const glyphs = [...b]
+    // The unselected words are drawn in a LIGHT shade, not the same solid
+    // block. Three words at equal weight made the menu read as a wall and the
+    // selection as a colour change nobody notices; one bright word among two
+    // faint ones reads as a selection from across the room.
+    const text = lit ? b : b.replace(/█/g, '▒')
     const colour = row - y === block.length - 1
       ? THEME.dim
-      : on?.i === sel ? `${BOLD}${THEME.hi}` : THEME.inactive
-    // Every word centred on the widest of them, so the column of words reads
-    // as one object rather than three left-aligned ones.
-    const glyphs = [...b]
-    const at = x0 + pad + Math.max(0, Math.round((bw - glyphs.length) / 2))
+      : lit ? `${BOLD}${THEME.hi}` : THEME.inactive
+
+    // The patch is this WORD's own width, centred like the word is.
+    const at = x + Math.max(0, Math.round((bw - glyphs.length) / 2))
+    const trimmed = b.replace(/\s+$/, '')
+    const first = b.length - b.replace(/^\s+/, '').length
+    const x0 = Math.max(0, at + first - pad)
+    const x1 = Math.min(w, at + trimmed.length + pad)
+    if (x1 <= x0) return `${back}${plain.slice(0, w).join('')}${R}`
+
     const ground = new Array(x1 - x0).fill(' ')
-    glyphs.forEach((g, i) => { if (at - x0 + i < ground.length) ground[at - x0 + i] = g })
+    ;[...text].forEach((g, i) => {
+      const c = at + i - x0
+      if (g !== ' ' && c >= 0 && c < ground.length) ground[c] = g
+    })
     const left = plain.slice(0, x0).join('')
     const right = plain.slice(x1, w).join('')
     return `${back}${left}${R}${THEME.surface}${colour}${ground.join('')}${R}${back}${right}${R}`
