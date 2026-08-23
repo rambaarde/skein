@@ -25,5 +25,6 @@ export const GLOSSARY = [
   ['bands', "DORA's own: 0-15% elite and high, 16-30% medium, above that low. The colour is red at every value and only the tone moves, so it reads as severity."],
   ['open', 'a session is in a repo and has written nothing there yet. It still counts: measured on a real machine, the gap between opening a session and its first write ran from zero to forty-one minutes, and a quarter of sessions never wrote at all. That is exactly when a warning is worth having.'],
   ['collision', 'two SESSIONS editing one file close enough together to overwrite each other, and whose lifetimes actually overlapped. Frequently the same agent twice.'],
+  ['graph', 'preset 5: within one project, which sessions touched the same file. A node is a session or a contested file, an edge is "this session wrote that file", and a file no one shares is not drawn -- it is work, not a conflict.'],
   ['not here', 'mean time to restore needs incidents a laptop does not have, and deployment frequency for one developer is the landed column. Two of DORA\'s four are absent rather than faked.'],
 ]
