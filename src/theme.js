@@ -97,7 +97,13 @@ const INHERIT = {
   title: `${BOLD}${fgOf('#e6edf5')}`,
   hi: fgOf('#e5b567'),          // keybind letters, so a control reads as pressable
   inactive: fgOf('#4d5666'),
-  selBg: REV, selFg: '', surface: DEFAULT_BG,
+  // A background, not REV. Reverse video paints the row white and, because it
+  // is a mode rather than a colour, every 24-bit reset inside the row cancels
+  // it -- so the row had to be stripped of colour to stay readable, and the
+  // one row you are looking at became the only monochrome row on screen.
+  // A real background colour survives being re-armed after each reset, so the
+  // selection can keep its own hues the way btop's does.
+  selBg: `\x1b[48;2;38;48;66m`, selFg: '', surface: DEFAULT_BG,
   // Per-pane outlines, btop's four box colours mapped onto skeins's three.
   box: fgOf('#3f4b5e'),
   boxHead: fgOf('#4fb3c8'),     // cpu: the headline
@@ -148,7 +154,9 @@ export function buildTheme(nameOrPath) {
     // An empty main_bg is btop saying "inherit the terminal". Honour it — an
     // explicit choice in a theme file outranks our default.
     surface: t.main_bg ? (bg(t.main_bg) ?? DEFAULT_BG) : '',
-    selBg: bg(t.selected_bg) ?? REV,
+    // Falling back to REV here would put the white row back for any btop theme
+    // that does not state selected_bg, which is most of them.
+    selBg: bg(t.selected_bg) ?? INHERIT.selBg,
     selFg: fg(t.selected_fg) ?? '',
     box: fg(t.proc_box ?? t.cpu_box ?? t.div_line) ?? INHERIT.box,
     // cpu_* is btop's busy-ness ramp, which is what an activity timeline is.
