@@ -25,12 +25,19 @@ let seed = 7
 const rnd = () => ((seed = (seed * 1103515245 + 12345) & 0x7fffffff) / 0x7fffffff)
 const pick = a => a[Math.floor(rnd() * a.length)]
 
+// Wide enough that a batch between releases covers a MINORITY of the repo.
+//
+// With five files a release shipped nearly all of them, so every subsequent
+// fix touched something it shipped and the fixture reported a 100% change
+// failure rate -- a catastrophically broken repo, in the screenshot that is
+// supposed to show the tool working. The rate is a property of how much of a
+// repo each release covers, so the fixture has to look like a repo.
 const PROJECTS = [
-  { name: 'atlas-api', files: ['src/auth/session.ts', 'src/auth/middleware.ts', 'src/routes/users.ts', 'src/db/pool.ts', 'test/auth.test.ts'] },
-  { name: 'atlas-web', files: ['app/login/page.tsx', 'app/dashboard/page.tsx', 'lib/api.ts', 'components/Nav.tsx'] },
-  { name: 'checkout', files: ['src/cart.ts', 'src/pricing.ts', 'test/cart.test.ts'] },
-  { name: 'notify-svc', files: ['worker.go', 'queue.go', 'README.md'] },
-  { name: 'docs-site', files: ['content/intro.md', 'content/guide.md'] },
+  { name: 'atlas-api', files: ['src/auth/session.ts', 'src/auth/middleware.ts', 'src/routes/users.ts', 'src/routes/orders.ts', 'src/db/pool.ts', 'src/db/migrate.ts', 'src/mail/send.ts', 'src/config.ts', 'src/log.ts', 'test/auth.test.ts'] },
+  { name: 'atlas-web', files: ['app/login/page.tsx', 'app/dashboard/page.tsx', 'app/settings/page.tsx', 'lib/api.ts', 'lib/format.ts', 'components/Nav.tsx', 'components/Table.tsx', 'styles/theme.css'] },
+  { name: 'checkout', files: ['src/cart.ts', 'src/pricing.ts', 'src/tax.ts', 'src/coupon.ts', 'src/receipt.ts', 'test/cart.test.ts'] },
+  { name: 'notify-svc', files: ['worker.go', 'queue.go', 'retry.go', 'templates.go', 'README.md'] },
+  { name: 'docs-site', files: ['content/intro.md', 'content/guide.md', 'content/api.md', 'content/faq.md'] },
 ]
 // Weighted by how often a real session reaches for them: Read dominates,
 // then Grep and Bash, with the occasional Task and web call.
@@ -87,7 +94,35 @@ for (const [pi, p] of PROJECTS.entries()) {
   execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: dir })
   // Busier projects land more. The first one ships most, so the demo has a
   // leader rather than five identical lines.
-  const n = Math.max(3, 22 - pi * 4)
+  // Enough commits that a PAIR repeats. Coupling needs three co-changes to
+  // count as evidence, and twenty commits walking a ring of ten files visits
+  // each pair exactly twice -- so the fixture had real files, real releases,
+  // and a coupling graph of three edges that looked broken rather than quiet.
+  const n = Math.max(8, 40 - pi * 7)
+  // Commits TOUCH FILES, and touch them in pairs.
+  //
+  // They were `--allow-empty`, which made the fixture silently useless for two
+  // whole screens: the coupling graph had nothing to pair, and the change
+  // failure rate could never fire because its rule is "the hotfix touched a
+  // file this deployment shipped" and no deployment shipped a file. The
+  // sandbox reported 0% forever and looked correct.
+  //
+  // A source file lands with its test, which is what real commits do and what
+  // makes the graph show a cluster rather than a scatter.
+  // A project whose files are ALL markdown -- docs-site -- has no source to
+  // pair with a test, and filtering left it with nothing to commit at all.
+  // Pair each file with the next one instead; the point is co-change, not
+  // that one of them is called a test.
+  // Each file pairs with its NEIGHBOUR, not with one shared test.
+  //
+  // Pairing every source against the single test file put that test in every
+  // commit, so every release shipped it and every subsequent fix touched
+  // something the release shipped -- a 100% change failure rate produced
+  // entirely by the fixture's shape. Neighbours spread the commits across the
+  // repo the way real work does.
+  const sources = p.files.filter(f => !f.startsWith('test/'))
+  const ring = sources.length > 1 ? sources : p.files
+  const pairs = ring.map((f, i) => [f, ring[(i + 1) % ring.length]])
   for (let i = 0; i < n; i++) {
     // Spread back over the month, newest last, with a little jitter so the
     // lead times are not all identical. The last one lands within the hour:
@@ -95,7 +130,33 @@ for (const [pi, p] of PROJECTS.entries()) {
     // default 24h window, which is a poor thing to look at and a worse thing
     // to test velocity against.
     const at = NOW - ((n - 1 - i) / Math.max(1, n - 1)) * 26 * DAY - Math.floor(rnd() * 5 * HOUR) - 20 * MIN
-    gitAt(dir, at, ['commit', '-q', '--allow-empty', '-m', SUBJECTS[(i + pi) % SUBJECTS.length]])
+    const subject = SUBJECTS[(i + pi) % SUBJECTS.length]
+    const isFix = /^(fix|revert)/.test(subject)
+    const [src, mate] = pairs[i % pairs.length]
+    const touched = [src, mate]
+    // The README and the test suite move with FEATURE work, not with fixes.
+    //
+    // Touching the README every third commit regardless put it in nearly every
+    // release batch AND in most hotfixes, so the hotfix always hit something
+    // the release had shipped and the fixture reported 100%. A bug fix that
+    // also rewrites the README is not what repositories look like, and here it
+    // was manufacturing the failure rate on its own.
+    if (!isFix && i % 3 === 0) touched.push('README.md')
+    const suite = p.files.find(x => x.startsWith('test/'))
+    if (suite && !isFix && i % 4 === 0) touched.push(suite)
+    for (const f of touched) {
+      mkdirSync(dirname(join(dir, f)), { recursive: true })
+      writeFileSync(join(dir, f), `// ${p.name} · ${f}\n// commit ${i}, fixture only.\n`)
+    }
+    gitAt(dir, at, ['add', '-A'])
+    gitAt(dir, at, ['commit', '-q', '-m', subject])
+    // A version tag every few commits, because a change failure rate needs
+    // DEPLOYMENTS and the fixture had two -- one judgeable batch, so the rate
+    // was whatever that single batch did, and it read 100%. Tags are what
+    // deployments() prefers, and they give the rate a denominator.
+    if (i > 0 && i % 3 === 0) {
+      gitAt(dir, at, ['tag', `v0.${Math.floor(i / 3)}.0`])
+    }
   }
 }
 

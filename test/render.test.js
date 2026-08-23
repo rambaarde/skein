@@ -1395,6 +1395,10 @@ test('the graph marks a collision, not just a shared file', async () => {
 
   const hotFrame = frame(colls)
   assert.match(hotFrame, /1 collision/, 'the header counts it')
+  // ONE node for the file, not two. Collisions carry absolute paths and git
+  // carries repo-relative ones; unmatched, the contested file was added beside
+  // its own coupled node and the same file drew twice.
+  assert.equal((hotFrame.match(/auth\.ts/g) ?? []).length, 1, 'the file is one node')
   // The GAP, not the age: it is what separates a collision from a handover.
   assert.match(hotFrame, /12m apart/)
   // The graph plots CO-CHANGE now, so a file git never paired has no node of
