@@ -1927,7 +1927,7 @@ export function build(windowMin, lookbackMs, now) {
   return { events: recent, sessions, projects, colls, since, dirty }
 }
 
-export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin, sampleMachine = sampleMachineDefault } = {}) {
+export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin, sampleMachine = sampleMachineDefault, buildState = build } = {}) {
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = 0, menu = null, onlyColliding = false, focus = null
@@ -1948,7 +1948,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
 
   const reload = () => {
     const t = now()
-    const built = build(windowMin, LOOKBACKS[lb][0], t)
+    const built = buildState(windowMin, LOOKBACKS[lb][0], t)
     const changed = built.dirty
     // Filter, then collisions-only, then sort. Order matters: sorting a list
     // you are about to shorten is wasted work, and "3 projects" in the border
