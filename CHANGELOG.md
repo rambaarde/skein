@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.32.0](https://github.com/rambaarde/skein/compare/v0.31.2...v0.32.0) (2026-08-23)
+
+
+### Features
+
+* a failure rate that says what failed ([78eb425](https://github.com/rambaarde/skein/commit/78eb4253232ce264aa7776d1656fc16b764e5ed8))
+* a failure rate that says what failed ([#136](https://github.com/rambaarde/skein/issues/136)) ([ae9f5e4](https://github.com/rambaarde/skein/commit/ae9f5e4ca6424d6caf4ef6b237da22295de54726))
+
 ## [0.31.2](https://github.com/rambaarde/skein/compare/v0.31.1...v0.31.2) (2026-08-23)
 
 
