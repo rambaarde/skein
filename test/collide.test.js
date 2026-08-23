@@ -74,3 +74,38 @@ test('a path that still holds a shell variable is not a file', async () => {
   assert.equal(isNoise('$HOME/x.ts'), true)
   assert.equal(isNoise('/r/src/index.ts'), false)
 })
+
+test('a session open in a repo counts before it has written anything', async () => {
+  // The door the tool exists for. skeins answered "nobody else is here" while
+  // another agent sat in the same repo reading the files it was about to
+  // change -- measured on a real machine at zero to forty-one minutes between
+  // a session opening and its first write, and three of twelve sessions never
+  // writing at all.
+  const { who } = await import('../src/collide.js')
+  const { hookLine } = await import('../src/hook.js')
+  const now = Date.now()
+  const root = process.cwd()
+  const sessions = new Map([
+    ['open-one', { cwd: root, agent: 'codex', last: now - 60_000, title: 'planning', branch: 'develop' }],
+    ['elsewhere', { cwd: '/somewhere/else', agent: 'claude', last: now - 60_000 }],
+    ['stale', { cwd: root, agent: 'claude', last: now - 5 * 3600_000 }],
+  ])
+  const rows = who([], sessions, { root, activeMin: 30, now })
+  assert.equal(rows.length, 1, 'only the live session in THIS repo')
+  assert.equal(rows[0].session, 'open-one')
+  assert.equal(rows[0].kind, 'open')
+  // Never a guessed path. skeins knows the session is here and has written
+  // nothing; it does not know what it is reading.
+  assert.equal(rows[0].path, null)
+
+  // And it survives every renderer. Two call sites crashed on this null after
+  // the change, and the suite caught neither.
+  assert.doesNotThrow(() => hookLine({ cwd: root, now }))
+
+  // Asking about ONE file is a different question: a session that has written
+  // nothing cannot be said to be in a particular file.
+  assert.equal(who([], sessions, { root, path: `${root}/README.md`, activeMin: 30, now }).length, 0)
+
+  // Its own session is never reported back to it.
+  assert.equal(who([], sessions, { root, activeMin: 30, self: 'open-one', now }).length, 0)
+})

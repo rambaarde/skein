@@ -87,5 +87,23 @@ export function who(events, sessions, { root, path = null, activeMin = 30, self 
       seen.set(e.session, { session: e.session, agent: e.agent, path: e.path, at: e.at, kind: e.kind, title: sessions.get(e.session)?.title ?? null, branch: sessions.get(e.session)?.branch ?? null })
     }
   }
+  // A session open in this repo that has not written anything counts too.
+  //
+  // This is the door the whole tool exists for: the next agent asks "who else
+  // is in here" and skeins was answering "nobody" while another agent sat in
+  // the same repo for forty minutes reading the files it was about to change.
+  // An agent that has not written yet is the one still worth warning about --
+  // once it has written, the damage it can do is already done.
+  //
+  // `path: null`, never a guessed one. skeins knows the session is open here
+  // and has written nothing; it does not know what it is reading.
+  if (!path) {
+    for (const [id, s] of sessions ?? []) {
+      if (!s?.cwd || seen.has(id) || id === self) continue
+      if ((s.last ?? 0) < cutoff) continue
+      if (root && (gitRoot(`${s.cwd}/.`) ?? s.cwd) !== root) continue
+      seen.set(id, { session: id, agent: s.agent ?? null, path: null, at: s.last, kind: 'open', title: s.title ?? null, branch: s.branch ?? null })
+    }
+  }
   return [...seen.values()].sort((a, b) => b.at - a.at)
 }

@@ -33,7 +33,7 @@ skeins                  # the dashboard
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-197%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-199%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -135,6 +135,29 @@ pressure, its files, its tool calls, its collisions.
 Every term below is also in the tool: press `m` for the menu and choose
 **METRICS**, or run `skeins glossary` (`--json` for agents). One list, three
 doors — they cannot drift apart.
+
+### When a project appears
+
+The moment an agent **opens a session in it** — not when it first writes a
+file. Those are minutes apart, and sometimes much more: measured on one real
+machine, the gap between a session opening and its first write ran from zero to
+forty-one minutes, and a quarter of sessions never wrote a file at all.
+
+That gap used to be a blind spot in the door that matters most. `skeins who`
+would answer *"nobody else is in this repo"* while another agent had been in
+there half an hour reading the files it was about to change — the exact
+scenario at the top of this README.
+
+```
+$ skeins who
+AGENT   DID   FILE                        BRANCH   AGO
+claude  open  — nothing written here yet  develop   2s
+```
+
+`open` is stated, never guessed. skeins knows the session is in the repo and
+has left no file behind; it does not know what it is reading. A project with
+only open sessions shows **0 files and no attention**, because none was
+observed.
 
 ### Attention
 

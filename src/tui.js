@@ -1414,13 +1414,17 @@ export function render(state, size) {
     if (others.length) {
       detailRows_.push(` ${BOLD}${others.length} other agent${others.length === 1 ? '' : 's'} active in this repo${R}`)
       for (const o of others.slice(0, Math.max(1, detailH - 5 - Math.min(3, collsHere.length)))) {
-        const verb = o.kind === 'add' ? 'added' : o.kind === 'delete' ? 'deleted' : 'editing'
+        // A session open here that has written nothing yet has no path to
+        // show, and skeins does not invent one -- it knows the session is in
+        // this repo, not what it is looking at.
+        const verb = !o.path ? 'open' : o.kind === 'add' ? 'added' : o.kind === 'delete' ? 'deleted' : 'editing'
+        const where = o.path ? short(o.path, p.root) : `${DIM}nothing written here yet${R}`
         const os = state.sessions?.get(o.session)
         const sc = os?.context ?? 0
         const gauge = sc
           ? ` ${LUT.heat[Math.round(Math.min(1, sc / limitOf(os, ceiling)) * 100)]}${humanTokens(sc)}${R}`
           : ''
-        detailRows_.push(`   ${hue(o.agent)}${fit(o.agent, 9)}${R}${DIM}${fit(verb, 8)}${R}${fit(short(o.path, p.root), Math.max(6, iw - 7))}${gauge}${DIM}${ago(o.at, now).padStart(5)}${R}`)
+        detailRows_.push(`   ${hue(o.agent)}${fit(o.agent, 9)}${R}${DIM}${fit(verb, 8)}${R}${fit(where, Math.max(6, iw - 7))}${gauge}${DIM}${ago(o.at, now).padStart(5)}${R}`)
       }
     } else {
       // Silence is the correct answer when nobody else is here (PRD Q7), and
@@ -1522,7 +1526,10 @@ export function build(windowMin, lookbackMs, now) {
   const since = now - lookbackMs
   const { events, sessions, dirty } = collect({ sinceMs: since })
   const recent = events.filter(e => e.at >= since && !isNoise(e.path))
-  const projects = [...byProject(recent).values()].sort((a, b) => b.last - a.last)
+  // Sessions get the same window the events get, or a repo idle for days
+  // reappears in a 24h view and the SESSIONS column counts all of history.
+  const live = new Map([...sessions].filter(([, s]) => (s.last ?? 0) >= since))
+  const projects = [...byProject(recent, live).values()].sort((a, b) => b.last - a.last)
   const colls = collisions(recent, sessions, { windowMin, since })
   return { events: recent, sessions, projects, colls, since, dirty }
 }

@@ -19,6 +19,10 @@ export function hookLine({ cwd = process.cwd(), session = null, activeMin = 30, 
   const n = others.length
   const head = `${n} other agent${n === 1 ? '' : 's'} active in this repo`
   const rows = others.slice(0, 5).map(o => {
+    // A session that has written nothing here is stated as exactly that. Not
+    // "reading" -- skeins does not know what it is doing, only that it is in
+    // this repo and has left no file behind yet.
+    if (!o.path) return `  ${(o.agent ?? '?').padEnd(8)} ${'open'.padEnd(8)} ${'nothing written here yet'.padEnd(34)} (${ago(o.at, now)} ago)`
     const verb = o.kind === 'add' ? 'added' : o.kind === 'delete' ? 'deleted' : 'editing'
     return `  ${o.agent.padEnd(8)} ${verb.padEnd(8)} ${short(o.path, root).padEnd(34)} (${ago(o.at, now)} ago)`
   })
