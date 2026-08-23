@@ -8,7 +8,7 @@ import { collect, probe } from './sources/index.js'
 import { collisions, who, isNoise, WINDOW_MIN } from './collide.js'
 import { byProject, gitRoot, projectName, NO_REPO } from './project.js'
 import { graph, graphPair, tierFor } from './symbols.js'
-import { LUT, hue, lineHue, R, DIM, BOLD, REV, SUP, THEME } from './theme.js'
+import { LUT, hue, lineHue, R, DIM, BOLD, SUP, THEME } from './theme.js'
 import { box, tag, TAG_SEP, fit, width, clip } from './box.js'
 import { layout, compose } from './layout.js'
 import { PRESETS, NAMES } from './presets.js'
@@ -243,6 +243,23 @@ function helpOverlay(w, h, page = 1) {
 // A pane is exactly rect.h lines of exactly rect.w visible columns — that
 // invariant is what lets two of them sit side by side without the right one
 // drifting a character further out on every row.
+// The selected row, with its own colours intact.
+//
+// It used to be stripped to plain text and reversed, so the one row you are
+// looking at was the only row on screen with no colour in it -- the context
+// gauge, the agent hue and the heat of a number all vanished exactly when you
+// selected the thing you wanted to read.
+//
+// A background colour is cancelled by every reset the row contains, so it is
+// re-armed after each one. That is the whole trick, and it is why REV could
+// never work here: REV is a mode, and a mode cannot be re-armed selectively
+// without also re-reversing the foreground.
+const selected = (row, w) => {
+  const bg = `${THEME.selBg}${THEME.selFg}`
+  const painted = row.replace(/\x1b\[0m/g, `${R}${bg}`)
+  return `${bg}${painted}${' '.repeat(Math.max(0, w - width(row)))}${R}`
+}
+
 function pane(rect, { title, key, right = '', state = '', rows, line = null, head = '' }) {
   const b = box({ w: rect.w, title, key, right, state, line, head })
   const body = rows.slice(0, Math.max(0, rect.h - 2))
@@ -695,9 +712,8 @@ export function render(state, size) {
         : `${DIM}${'no git history'.padStart(7)}${R}`
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells}`
       hit.rows.push({ y: V.y + 1 + rowsOut.length + tableRows.length, index: projects.indexOf(p) })
-      const plainRow = row.replace(/\x1b\[[0-9;]*m/g, '')
       tableRows.push(on
-        ? `${THEME.selBg}${THEME.selFg}${plainRow}${' '.repeat(Math.max(0, tableW - width(plainRow)))}${R}`
+        ? selected(row, tableW)
         : row)
     }
 
@@ -1271,14 +1287,9 @@ export function render(state, size) {
       // Recency the same way: fresh is bright, stale recedes.
       last: `${LUT.activity[Math.round(Math.max(0, 1 - (now - p.last) / (6 * 3600_000)) * 100)]}${ago(p.last, now).padStart(6)}${R}`,
     })
-    // Selection reverses fg/bg on a plain line. Interleaving REV with 24-bit
-    // colour leaves gaps wherever a reset lands, so the row drops its hues for
-    // the one frame it is selected -- readable on any theme by definition.
     // +1 for the box's own top border; headRows are drawn one row in.
     hit.rows.push({ y: L.head.y + 1 + headRows.length, index: idx })
-    const plain = line.replace(/\x1b\[[0-9;]*m/g, '')
-    const sel_ = `${THEME.selBg}${THEME.selFg}`
-    headRows.push(on ? `${sel_}${plain}${' '.repeat(Math.max(0, listW - 2 - width(plain)))}${R}` : line)
+    headRows.push(on ? selected(line, listW - 2) : line)
 
     // Expanded projects list their sessions inline, which is design-language
     // D2 answered: expand-on-demand rather than a fixed-height sub-table.
