@@ -1514,3 +1514,82 @@ test('nodes with no edges are explained, not scattered', async () => {
   // The contested file is still drawn -- it is the reason the tool exists.
   assert.match(f, /a\.ts/)
 })
+
+test('switching to the estate preset paints a fresh CPU sample, not a stale one', async () => {
+  // pollMachine() updated a closure variable and sync() never picked it up --
+  // the same sync()/reload() split this file already hit once for `menu`.
+  // render() alone cannot catch this: it was handed `machine` directly and
+  // drew it correctly every time. Only a real keypress through start() can.
+  //
+  // The sampler is INJECTED, not the real ps/lsof: a test that hit the real
+  // process table would pass on a machine with an agent running the suite and
+  // fail on any CI runner without one, which is exactly the flakiness every
+  // other reader in this codebase avoids the same way.
+  const { start } = await import('../src/tui.js')
+  const { PassThrough } = await import('node:stream')
+  const out = new PassThrough(); out.columns = 150; out.rows = 24; out.isTTY = true
+  const inp = new PassThrough(); inp.isTTY = true; inp.setRawMode = () => {}
+  let painted = ''
+  out.on('data', d => { painted += d.toString() })
+  const fakeSample = () => [{ pid: 1, agent: 'claude', cpu: 33.7, cwd: process.cwd(), root: process.cwd() }]
+  start({ stdout: out, stdin: inp, sampleMachine: fakeSample })
+  await new Promise(r => setTimeout(r, 120))
+  painted = ''
+  inp.write('6')
+  await new Promise(r => setTimeout(r, 300))
+  const plain = painted.replace(/\x1b\[[0-9;]*m/g, '')
+  assert.match(plain, /estate/, 'the preset switched')
+  // The EXACT injected number, not just any percentage -- proving the sample
+  // pollMachine() just took reached the screen rather than an empty default.
+  assert.match(plain, /33\.7%/)
+})
+
+test('the estate screen shows worktrees, the version gap, and live CPU', async () => {
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const rooted = {
+    name: 'rooted', root: '/w/rooted', sessions: 1, files: 1, agents: ['claude'], last: now,
+    events: [{ at: now - 60_000, agent: 'claude', session: 's', path: '/w/rooted/f.ts', project: '/w/rooted' }],
+  }
+  const loose = { name: 'loose', root: null, sessions: 1, files: 1, agents: ['claude'], last: now, events: [] }
+  const machine = {
+    roots: new Map([['/w/rooted', { cpu: 42.3, agents: new Set(['claude', 'codex']) }]]),
+    unrooted: 1.5,
+  }
+  const frame = render({
+    projects: [rooted, loose], events: [], sessions: new Map(), sel: 0, expanded: new Set(),
+    colls: [], tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30,
+    tick: 0, sort: 'recent', filter: '', onlyColliding: false, preset: 5, tab: 0, feedTop: 0,
+    page: null, machine,
+  }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.match(frame, /estate/)
+  assert.match(frame, /42\.3%/, 'the CPU reading for the rooted project')
+  assert.match(frame, /claude\+codex/, 'both agents running in it, not just one')
+  assert.match(frame, /no git history/, 'the rootless project says so rather than a row of dashes')
+  // AXI 5: unattributed CPU is stated, not folded silently into the total.
+  assert.match(frame, /unattributed/)
+  assert.match(frame, /1 project.* running agent/)
+})
+
+test('the version gap is coloured, and worktree wording counts OTHER checkouts', async () => {
+  const { render } = await import('../src/tui.js')
+  const { worktrees, versionOf } = await import('../src/estate.js')
+  // versionOf and worktrees hit git for a real path; use this repo itself,
+  // which genuinely has one worktree (none other) and a real version.
+  const root = process.cwd()
+  const now = Date.now()
+  const p = {
+    name: 'skeins', root, sessions: 1, files: 1, agents: ['claude'], last: now,
+    events: [{ at: now - 60_000, agent: 'claude', session: 's', path: `${root}/f.ts`, project: root }],
+  }
+  const frame = render({
+    projects: [p], events: [], sessions: new Map(), sel: 0, expanded: new Set(), colls: [],
+    tier: 'braille', since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0,
+    sort: 'recent', filter: '', onlyColliding: false, preset: 5, tab: 0, feedTop: 0, page: null,
+    machine: { roots: new Map(), unrooted: 0 },
+  }, { cols: 150, rows: 20 }).replace(/\x1b\[[0-9;]*m/g, '')
+  // A single-worktree repo reads "none", not "1" -- "1 worktree" would count
+  // this checkout as one of its own others.
+  assert.match(frame, /none/)
+})
