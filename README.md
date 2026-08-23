@@ -282,6 +282,19 @@ touched the same file.
   ● session   ● file, bigger is more contested
 ```
 
+**Red is the point.** A file two sessions merely share is dim; a file two
+*overlapping* sessions wrote minutes apart is red, and its label says the gap:
+
+```
+…-legacy/AGENTS.md ×4 · 0m apart      ← four sessions, two of them simultaneous
+src/presets.js ×2 · 19h               ← shared, but nineteen hours apart
+```
+
+That distinction is the whole tool. "Two sessions touched this" is a fact the
+files pane already gives you; "two live sessions were in it twelve minutes
+apart" is a warning, and it is the only thing on any of these screens that
+could have prevented the overwrite at the top of this README.
+
 Every node carries its context: a file says how many sessions are in it and
 when it was last written (`×2 · 15h`), a session says which agent it is and
 when it last wrote (`claude · 15h`). Sessions draw as a **hollow ring** in the

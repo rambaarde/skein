@@ -626,6 +626,20 @@ export function render(state, size) {
   function graphScreen(V) {
     const p = projects[sel] ?? projects[0]
     const g = p ? contention(p) : { nodes: [], edges: [], moreFiles: 0, moreSessions: 0, totalShared: 0 }
+    // The thing that makes a shared file MATTER, which the picture was missing.
+    //
+    // Two sessions in one file is not news -- they may be an hour apart, or a
+    // handover. Two sessions in one file CLOSE TOGETHER, with overlapping
+    // lifetimes, is the whole reason this tool exists. Without it the graph
+    // said only what the files pane already says in three rows, and took a
+    // screen to say it.
+    const hits = colls.filter(c => c.project === p?.root)
+    const danger = new Map()
+    for (const c of hits) {
+      const cur = danger.get(c.path)
+      if (!cur || c.gapMin < cur.gapMin) danger.set(c.path, c)
+    }
+    const pair = new Set(hits.map(c => [c.a.session, c.b.session].sort().join('|')))
     const W = V.w - 2
     // Two rows of chrome inside the box: the caption and the legend.
     const H = Math.max(3, V.h - 4)
@@ -645,8 +659,21 @@ export function render(state, size) {
       const px = i => mx + at[i].x * (c.sw - 2 * mx - 1)
       const py = i => my + at[i].y * (c.sh - 2 * my - 1)
 
-      // Edges first and dimmest: they are the structure, not the subject.
-      for (const [a, b] of g.edges) c.line(px(a), py(a), px(b), py(b), THEME.inactive)
+      // Edges first and dimmest -- EXCEPT the ones that are a collision. An
+      // edge into a contested file is structure; an edge into a file two
+      // overlapping sessions wrote minutes apart is the finding.
+      const hot = (a, b) => {
+        const f = g.nodes[a].kind === 'file' ? g.nodes[a] : g.nodes[b]
+        const s = g.nodes[a].kind === 'file' ? g.nodes[b] : g.nodes[a]
+        const c = danger.get(f.id)
+        return c && (c.a.session === s.id || c.b.session === s.id)
+      }
+      for (const [a, b] of g.edges) {
+        if (!hot(a, b)) c.line(px(a), py(a), px(b), py(b), THEME.inactive)
+      }
+      for (const [a, b] of g.edges) {
+        if (hot(a, b)) c.line(px(a), py(a), px(b), py(b), LUT.failure[90])
+      }
 
       // Then the nodes, forced over whatever edge crossed them.
       //
@@ -669,7 +696,7 @@ export function render(state, size) {
           }
           return
         }
-        const colour = LUT.failure[Math.min(100, ((n.weight ?? 2) - 1) * 40)]
+        const colour = danger.has(n.id) ? LUT.failure[95] : LUT.failure[Math.min(60, ((n.weight ?? 2) - 1) * 30)]
         const r = Math.min(2, Math.max(1, (n.weight ?? 2) - 1))
         for (let ox = -r; ox <= r; ox++) for (let oy = -r * 2; oy <= r * 2; oy++) c.dot(x + ox, y + oy, colour, true)
       })
@@ -704,8 +731,15 @@ export function render(state, size) {
         // many sessions a file is contested by, which agent a session is, and
         // when either last wrote. Without it the picture says two things are
         // connected and nothing about whether that matters.
+        // The gap is the number. "×2" says two sessions were here; "12m apart"
+        // says whether that was a collision or a handover, and that is the
+        // difference between a fact and a warning.
+        // NOT named `c` -- that is the canvas, and shadowing it inside this
+        // loop threw on the first frame that had a collision to draw.
+        const hit_ = danger.get(n.id)
         const tail = n.kind === 'session'
           ? ` ${state.sessions?.get(n.id)?.agent ?? '?'} · ${ago(n.at, now)}`
+          : hit_ ? ` ×${n.weight} · ${hit_.gapMin}m apart`
           : ` ×${n.weight} · ${ago(n.at, now)}`
         const txt = `${name}${tail}`
         // Right of the node, then left, then a row above or below. Four tries
@@ -745,11 +779,12 @@ export function render(state, size) {
         return painted
       })(),
       rows: [
-        ` ${BOLD}${p?.name ?? '—'}${R}${DIM} · ${sessions} session${sessions === 1 ? '' : 's'} · ${files} contested file${files === 1 ? '' : 's'}${capped ? ` · ${capped}` : ''}${R}`,
+        ` ${BOLD}${p?.name ?? '—'}${R}${DIM} · ${sessions} session${sessions === 1 ? '' : 's'} · ${files} contested file${files === 1 ? '' : 's'}${capped ? ` · ${capped}` : ''}${R}` +
+          (danger.size ? `  ${LUT.failure[95]}${danger.size} collision${danger.size === 1 ? '' : 's'}${R}` : `  ${DIM}no collisions in ${lookback}${R}`),
         ...rows,
       ],
       state: (() => {
-        const note = `${DIM}${THEME.boxHead}○${R}${DIM} session · ${R}${LUT.failure[70]}●${R}${DIM} file, bigger is more contested · ${lookback}${R}`
+        const note = `${DIM}${THEME.boxHead}○${R}${DIM} session · ${R}${LUT.failure[40]}●${R}${DIM} shared · ${R}${LUT.failure[95]}●${R}${DIM} written minutes apart by two live sessions${R}`
         const keys = [tag('↑↓', 'project'), tag('1', 'back'), tag('p', 'preset'), tag('a', lookback), tag('q', 'quit')]
         return `${note}  ${keys.join(TAG_SEP)}`
       })(),
