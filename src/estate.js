@@ -17,6 +17,29 @@ const stamp = root => {
   return k
 }
 
+/** Return recent commits, working-tree changes, and upstream sync for one checkout. */
+export function worktreeState(root, { run = gitWorktreeState } = {}) {
+  if (!root) return null
+  return run(root)
+}
+
+function gitWorktreeState(root) {
+  try {
+    const run = args => execFileSync('git', args, {
+      cwd: root, encoding: 'utf8', timeout: 2_000,
+      maxBuffer: 1 << 20, stdio: ['ignore', 'pipe', 'ignore'],
+    })
+    const commits = run(['log', '-n3', '--pretty=%h%x09%s']).trim().split('\n').filter(Boolean)
+      .map(line => { const [hash, subject] = line.split('\t'); return { hash, subject } })
+    const changes = run(['status', '--porcelain']).split('\n').filter(Boolean)
+    let ahead = null, behind = null
+    try {
+      const [left, right] = run(['rev-list', '--left-right', '--count', '@{u}...HEAD']).trim().split(/\s+/).map(Number)
+      if (Number.isFinite(left) && Number.isFinite(right)) { behind = left; ahead = right }
+    } catch {}
+    return { commits, changes, ahead, behind }
+  } catch { return null }
+}
 const memo = new Map()
 
 // Every worktree of this repo, and which one this project root actually is.

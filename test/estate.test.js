@@ -1,6 +1,6 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { worktrees, versionOf } from '../src/estate.js'
+import { worktrees, versionOf, worktreeState } from '../src/estate.js'
 
 test('worktrees are parsed from porcelain, branch and lock state included', () => {
   const porcelain = `worktree /w/main
@@ -54,4 +54,16 @@ test('the gap is what matters: declared and tag can disagree', () => {
   const v = versionOf(process.cwd(), { run: () => '9.9.9' })
   assert.equal(v.tag, '9.9.9')
   assert.ok(v.declared, 'the real package.json version is still read')
+})
+
+test('worktree state keeps commits, changes, and upstream absence explicit', () => {
+  const state = worktreeState('/w/main', { run: () => ({
+    commits: [{ hash: 'abc123', subject: 'ship it' }],
+    changes: [' M src/a.js'],
+    ahead: null,
+    behind: null,
+  }) })
+  assert.equal(state.commits[0].subject, 'ship it')
+  assert.deepEqual(state.changes, [' M src/a.js'])
+  assert.equal(state.ahead, null)
 })

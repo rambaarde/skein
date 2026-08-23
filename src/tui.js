@@ -26,8 +26,8 @@ import { GLOSSARY } from './glossary.js'
 import { banner, bannerWidth, ROWS as MENU_ROWS } from './menu.js'
 import { canvas } from './canvas.js'
 import { coupled, layout as forceLayout } from './graph.js'
-import { worktrees, versionOf } from './estate.js'
-import { sample as sampleMachineDefault, byRoot } from './machine.js'
+import { worktrees, versionOf, worktreeState } from './estate.js'
+import { sample as sampleMachineDefault, byRoot, attributeToPaths } from './machine.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -792,6 +792,37 @@ export function render(state, size) {
   // working copy matches what it claims to be, and which agent process is
   // spending CPU where. None of that exists in a transcript.
   function estateScreen(V) {
+  // One-project worktree view: linked checkouts are useful only with their owner.
+  function worktreesScreen(V) {
+    const p = projects[sel]
+    const W = V.w - 2
+    const rows = []
+    if (!p?.root) rows.push(`${DIM}selected project has no git worktrees${R}`)
+    else {
+      const list = worktrees(p.root) ?? []
+      const cpu = attributeToPaths(state.machine?.rows ?? [], list.map(w => w.path))
+      rows.push(`${THEME.header} WORKTREE              AGENTS       RECENT COMMITS  CHANGES  SYNC${R}`)
+      for (const [i, wt] of list.entries()) {
+        const snap = worktreeState(wt.path)
+        const live = cpu.get(wt.path)
+        const name = wt.path === p.root ? `${wt.path} (current)` : wt.path
+        const agents = live?.agents.size ? [...live.agents].join('+') : '—'
+        const commits = snap?.commits?.[0]?.subject ?? '—'
+        const changes = snap ? (snap.changes.length ? `${snap.changes.length} files` : 'clean') : '—'
+        const sync = snap?.ahead === null ? 'no upstream' : `↑${snap.ahead} ↓${snap.behind}`
+        const row = ` ${fit(name, Math.max(22, Math.floor(W * 0.36)))}  ${fit(agents, 11)}  ${fit(commits, 24)}  ${fit(changes, 8)}  ${sync}`
+        hit.rows.push({ y: V.y + 1 + rows.length, index: sel })
+        rows.push(row)
+      }
+    }
+    const title = `${p?.name ?? 'worktrees'} · worktrees`
+    return compose(h, [{ rect: V, lines: pane(V, {
+      title, key: SUP[6], line: THEME.boxHead,
+      right: `${DIM}selected project ${sel + 1}/${projects.length}${R}  ${clock} ${DIM}${pulse}${R}`,
+      rows,
+      state: `${DIM}recent commits · uncommitted files · ahead/behind upstream · live agents${R}  ${tag('1', 'back')} ${tag('r', 'refresh')} ${tag('q', 'quit')}`,
+    }) }])
+  }
     const W = V.w - 2
     const rows = []
     const nameW = Math.max(12, Math.min(24, projects.reduce((m, p) => Math.max(m, p.name.length + 2), 10)))
@@ -849,7 +880,7 @@ export function render(state, size) {
             ? `${gapped ? LUT.failure[70] : ''}${fit(ver.declared, COLS[2].w)}${gapped ? R : ''}`
             : `${DIM}${'—'.padStart(COLS[2].w)}${R}`),
           cell(ver?.tag ? fit(ver.tag, COLS[3].w) : `${DIM}${'—'.padStart(COLS[3].w)}${R}`),
-          cell(cpu ? `${LUT.heat[Math.min(100, Math.round(cpu.cpu))]}${`${cpu.cpu.toFixed(1)}%`.padStart(COLS[4].w)}${R}` : `${DIM}${'—'.padStart(COLS[4].w)}${R}`),
+          cell(cpu ? `${meter(cpu.cpu / 100, 1, LUT.heat)} ${cpu.cpu.toFixed(1)}%` : `${DIM}${'—'.padStart(COLS[4].w)}${R}`),
           cell(fit(cpu ? [...cpu.agents].map(a => `${hue(a)}${a}${R}`).join('+') : `${DIM}—${R}`, COLS[5].w)),
         ]
       const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells.map((c, i) => fit(c, COLS[i].w + 2)).join('')}`
@@ -1262,6 +1293,7 @@ export function render(state, size) {
   if (L.velocity) return velocityScreen(L.velocity)
   if (L.graph) return graphScreen(L.graph)
   if (L.estate) return estateScreen(L.estate)
+  if (L.worktrees) return worktreesScreen(L.worktrees)
 
   // Fitted to the budget rather than switched at two breakpoints, and the two
   // escape hatches are PINNED. Adding one control used to push '? keys' off the
@@ -1954,11 +1986,10 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
   // estate preset is actually the one on screen, never on every paint tick
   // and never for a preset nobody is looking at.
   const ESTATE = NAMES.indexOf('estate')
-  let machine = { roots: new Map(), unrooted: 0 }
-  // Injectable, the same discipline every other OS/git read in this codebase
-  // keeps: a test that hits the real process table is a test of this machine,
-  // not of skein, and it is flaky on any CI runner with no agent of its own.
-  const pollMachine = () => { if (preset === ESTATE) machine = byRoot(sampleMachine()) }
+  const WORKTREES = NAMES.indexOf('worktrees')
+  let machine = { roots: new Map(), unrooted: 0, rows: [] }
+  // Read OS sample only on screens that display live CPU attribution.
+  const pollMachine = () => { if (preset === ESTATE || preset === WORKTREES) machine = byRoot(sampleMachine()) }
   const expanded = new Set()
   const tier = tierFor()
   let state = null

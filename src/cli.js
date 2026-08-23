@@ -11,7 +11,7 @@ import { velocity } from './delivery.js'
 import { toolsOf, totalOf, classify } from './tools.js'
 import { attentionOf, humanMs } from './attention.js'
 import { GLOSSARY } from './glossary.js'
-import { worktrees, versionOf } from './estate.js'
+import { worktrees, versionOf, worktreeState } from './estate.js'
 import { sample as sampleMachine, byRoot } from './machine.js'
 
 const HELP = `skeins — every agent running across every repository, grouped by project.
@@ -24,6 +24,7 @@ const HELP = `skeins — every agent running across every repository, grouped by
   skeins tools               which tools the agents actually called
   skeins failures           why the change failure rate is what it is
   skeins estate              worktrees, version drift, live CPU per project
+  skeins worktrees [path]     linked checkouts, commits, changes, upstream sync
   skeins glossary            what every number on these screens counts
   skeins doctor              why is my screen empty
   skeins hook                print the ambient line and exit
@@ -445,6 +446,26 @@ export function run(argv, { cwd = process.cwd(), now = Date.now(), tty = false }
              '\nversion = package.json, tag = the latest git tag -- a gap between them is a working copy that has drifted from what shipped' +
              '\ncpu = sampled from the OS right now, not from any transcript; it is true for this instant only',
         `no running agents found (0 projects)`),
+    }
+  }
+
+  if (cmd === 'worktrees') {
+    const list = worktrees(root ?? cwd)
+    const rows = (list ?? []).map(wt => {
+      const state = worktreeState(wt.path)
+      return {
+        worktree: wt.path, branch: wt.branch, locked: wt.locked,
+        commits: state?.commits?.map(c => c.subject).join(' · ') ?? null,
+        changes: state?.changes?.length ?? null,
+        ahead: state?.ahead, behind: state?.behind,
+      }
+    })
+    const fields = ['worktree', 'branch', 'locked', 'commits', 'changes', 'ahead', 'behind']
+    return {
+      code: 0,
+      text: out(opts, 'worktrees', rows, fields,
+        () => table(rows, fields.map(key => ({ head: key.toUpperCase(), key }))),
+        'no worktrees found'),
     }
   }
   return { code: 1, err: `skeins: unknown command "${cmd}"\ntry: skeins --help` }
