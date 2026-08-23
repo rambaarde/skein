@@ -1413,3 +1413,30 @@ test('the graph marks a collision, not just a shared file', async () => {
   // minutes on a node, which is the thing that must not appear.
   assert.doesNotMatch(frame([]), /×\d+ · \d+m apart/)
 })
+
+test('compaction time is named beside the attention it is part of', async () => {
+  // A compaction is the session rebuilding a picture it already had, and the
+  // transcript states how long it took. Measured over thirty days on one real
+  // machine: 83 minutes, none of it visible anywhere.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const events = [
+    { at: now - 3600_000, agent: 'claude', session: 'a', path: '/w/p/f.ts', project: '/w/p' },
+    { at: now - 3500_000, agent: 'claude', session: 'a', path: '/w/p/g.ts', project: '/w/p' },
+  ]
+  const p = { name: 'p', root: '/w/p', sessions: 1, files: 2, agents: ['claude'], last: now, events }
+  const frame = s => render({
+    projects: [p], events, sessions: new Map([['a', s]]), sel: 0, expanded: new Set(),
+    colls: [], tier: 'braille', since: now - 86_400_000, now, lookback: '24h',
+    windowMin: 30, tick: 0, sort: 'recent', filter: '', onlyColliding: false,
+    preset: 0, tab: 0, feedTop: 0, page: '/w/p',
+  }, { cols: 150, rows: 24 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  const hot = frame({ agent: 'claude', compactions: 2, compactMs: 240_000, autoCompactions: 2 })
+  assert.match(hot, /of it compacting/)
+  assert.match(hot, /2 auto/, 'auto means the ceiling was hit, not a choice')
+
+  // A project that never compacted says nothing. "0m compacting" on every
+  // quiet project is a column of zeroes pretending to be information.
+  assert.doesNotMatch(frame({ agent: 'claude' }), /compacting/)
+})

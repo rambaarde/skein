@@ -251,6 +251,18 @@ elapsed. Everything else on the velocity screen is git's; this is the half only
 skeins has, and it is what makes `ATTN/SHIP` possible: git knows what came out,
 skeins knows what it cost.
 
+Where a session's context window filled and it had to compact, the time that
+took is named beside the attention it is part of:
+
+```
+2h18 attention · 4m of it compacting · 2 auto
+```
+
+A compaction is the session rebuilding a picture it already had. `auto` means
+the ceiling was hit rather than a compaction chosen. **Claude only so far** —
+Codex and opencode compact too and skeins has not found their markers, so this
+under-reports rather than being complete.
+
 ### Velocity, for one developer
 
 DORA is an org metric and half of it does not survive being pointed at one

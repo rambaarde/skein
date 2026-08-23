@@ -16,10 +16,16 @@ import { SKEIN_DIR, CACHE_FILE } from './paths.js'
 //   v3  sessions carry a tool-call tally. A cached session parsed by v2 has no
 //       tools field at all, so without a bump every existing user would see an
 //       empty tools tab forever and conclude the feature was broken.
+//   v4  compactions are read from `compact_boundary` rather than a record type
+//       Claude Code stopped writing, and carry what they cost -- tokens
+//       dropped, wall clock spent, and whether the ceiling was hit or the
+//       compaction was chosen. Transcripts do not grow when a parser is fixed,
+//       so without a bump every existing user keeps the zero forever. This is
+//       the exact case the paragraph above describes, and it has now happened.
 //
 // Exported so tests assert the BEHAVIOUR -- old discarded, current reused --
 // rather than a number they have to be remembered to update.
-export const VERSION = 3
+export const VERSION = 4
 
 export function load() {
   try {

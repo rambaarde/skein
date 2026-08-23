@@ -20,7 +20,7 @@ const isEditTool = name =>
 
 export function parse(lines, { session, seed }) {
   const events = []
-  const meta = { tools: { ...(seed?.tools ?? {}) }, cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
+  const meta = { tools: { ...(seed?.tools ?? {}) }, cwd: seed?.cwd ?? null, branch: seed?.branch ?? null, title: seed?.title ?? null, prLink: seed?.prLink ?? false, first: seed?.first ?? Infinity, last: seed?.last ?? 0, context: seed?.context ?? 0, compactions: seed?.compactions ?? 0, dropped: seed?.dropped ?? 0, compactMs: seed?.compactMs ?? 0, autoCompactions: seed?.autoCompactions ?? 0, model: seed?.model ?? null, limit: seed?.limit ?? 0 }
 
   for (const line of lines) {
     if (!line) continue
@@ -38,7 +38,30 @@ export function parse(lines, { session, seed }) {
     const usage = d?.message?.usage
     if (usage) meta.context = contextOf(usage)
     if (d?.message?.model) meta.model = d.message.model
-    if (d.type === 'compact_file_reference') meta.compactions++
+    // A compaction, and what it cost.
+    //
+    // This looked for `compact_file_reference`, a record type Claude Code no
+    // longer writes: measured across 169 transcripts in thirty days, skeins
+    // reported ZERO compactions against 36 that actually happened, 21 sessions
+    // affected, 58.8M tokens dropped and 83 minutes of wall clock spent. A
+    // metric that silently reads zero is worse than an absent one, because
+    // nobody goes looking for it.
+    //
+    // The real record states what it cost, which is the part worth having:
+    //   { type: 'system', subtype: 'compact_boundary', compactMetadata: {
+    //       trigger: 'auto' | 'manual', preTokens, postTokens,
+    //       cumulativeDroppedTokens, durationMs } }
+    //
+    // durationMs is ATTENTION -- time the session spent rebuilding a picture
+    // it already had -- and `trigger: auto` means the ceiling was hit rather
+    // than a compaction chosen. 33 of those 36 were automatic.
+    if (d.type === 'system' && d.subtype === 'compact_boundary') {
+      const m = d.compactMetadata ?? {}
+      meta.compactions++
+      meta.dropped = (meta.dropped ?? 0) + (m.cumulativeDroppedTokens ?? 0)
+      meta.compactMs = (meta.compactMs ?? 0) + (m.durationMs ?? 0)
+      if (m.trigger === 'auto') meta.autoCompactions = (meta.autoCompactions ?? 0) + 1
+    }
 
     if (d.type === 'ai-title' && typeof d.aiTitle === 'string') meta.title = d.aiTitle
     if (d.type === 'last-prompt' && typeof d.lastPrompt === 'string' && !meta.title) meta.title = d.lastPrompt
