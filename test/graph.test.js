@@ -56,10 +56,17 @@ test('the layout is deterministic and fills its frame', () => {
     assert.ok(q.x >= 0 && q.x <= 1 && q.y >= 0 && q.y <= 1, 'inside the frame')
     assert.ok(Number.isFinite(q.x) && Number.isFinite(q.y), 'and a real number')
   }
-  // Normalised to the full extent, or a graph that settled in one corner
-  // draws at a tenth of the size for no reason a reader can see.
-  assert.equal(Math.min(...a.map(q => q.x)), 0)
-  assert.equal(Math.max(...a.map(q => q.x)), 1)
+  // The extent follows sqrt(n), and it is CENTRED. Filling the frame
+  // unconditionally made five nodes span a whole terminal -- three files and
+  // two sessions as metre-long diagonals across an empty screen, which reads
+  // as a sparse mess rather than as a small graph.
+  const span = xs => Math.max(...xs) - Math.min(...xs)
+  const wide = layout(Array.from({ length: 22 }, (_, i) => ({ id: `n${i}` })),
+    Array.from({ length: 22 }, (_, i) => [i, (i + 1) % 22]), { seed: 'w' })
+  assert.ok(span(a.map(q => q.x)) < span(wide.map(q => q.x)), 'fewer nodes draw smaller')
+  assert.equal(Math.round(span(wide.map(q => q.x)) * 100), 100, 'and a full graph still fills it')
+  const lo = Math.min(...a.map(q => q.x)), hi = Math.max(...a.map(q => q.x))
+  assert.ok(Math.abs(lo - (1 - hi)) < 1e-9, 'a small graph is centred, not pinned to a corner')
 })
 
 test('an empty or single-node graph does not throw', () => {

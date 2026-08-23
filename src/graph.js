@@ -64,13 +64,25 @@ export function contention(project) {
   const keep = new Set(kept)
 
   const nodes = [
-    ...kept.map(id => ({ id, kind: 'session', label: id.slice(0, 8) })),
+    ...kept.map(id => ({
+      id,
+      kind: 'session',
+      label: id.slice(0, 8),
+      // When this session last wrote one of the contested files. A node with
+      // no time on it says a session exists; with one it says whether you are
+      // looking at something live or something from Tuesday.
+      at: sessions.get(id) ?? 0,
+      // How many of the drawn files it is in -- the session equivalent of a
+      // file's contention.
+      weight: files.filter(([, s]) => s.has(id)).length,
+    })),
     ...files.map(([path, s]) => ({
       id: path,
       kind: 'file',
       label: short(path, project?.root),
       // How contested, which is what the node's size means on screen.
       weight: [...s.keys()].filter(x => keep.has(x)).length,
+      at: Math.max(...[...s.values()], 0),
     })),
   ].filter(n => n.kind === 'session' || n.weight > 1)
 
@@ -149,12 +161,23 @@ export function layout(nodes, edges, { seed = 'skeins', iterations = 400 } = {})
     temp *= 0.975
   }
 
-  // Normalise to fill the frame. Without this a graph that settled into one
-  // corner draws at a tenth of the size for no reason a reader can see.
+  // Normalise, then scale to what this many nodes DESERVES.
+  //
+  // Filling the frame unconditionally made five nodes span a whole terminal:
+  // three files and two sessions became metre-long diagonals across an empty
+  // screen, which reads as a sparse mess rather than as a small graph. A
+  // drawing's area should grow with the thing it draws, so the extent follows
+  // sqrt(n) and a five-node graph sits compactly in the middle -- the emptiness
+  // around it is then information: this project is quiet.
   const xs = pos.map(p => p.x), ys = pos.map(p => p.y)
   const x0 = Math.min(...xs), x1 = Math.max(...xs)
   const y0 = Math.min(...ys), y1 = Math.max(...ys)
   const sx = x1 - x0 < 1e-6 ? 1 : x1 - x0
   const sy = y1 - y0 < 1e-6 ? 1 : y1 - y0
-  return pos.map(p => ({ x: (p.x - x0) / sx, y: (p.y - y0) / sy }))
+  const fill = Math.min(1, Math.sqrt(n / 22))
+  const off = (1 - fill) / 2
+  return pos.map(p => ({
+    x: off + ((p.x - x0) / sx) * fill,
+    y: off + ((p.y - y0) / sy) * fill,
+  }))
 }

@@ -649,12 +649,28 @@ export function render(state, size) {
       for (const [a, b] of g.edges) c.line(px(a), py(a), px(b), py(b), THEME.inactive)
 
       // Then the nodes, forced over whatever edge crossed them.
+      //
+      // The two kinds must be told apart at a glance or the legend is a lie:
+      // they drew as the same small blob in near-identical colours, and a
+      // reader had no way to know which dot was a session. A session is a
+      // HOLLOW ring in its agent's hue; a file is SOLID, and grows with how
+      // many sessions are in it (R3 -- size and colour encode the value).
       g.nodes.forEach((n, i) => {
         const x = Math.round(px(i)), y = Math.round(py(i))
-        const colour = n.kind === 'session' ? (hue(state.sessions?.get(n.id)?.agent) || THEME.boxHead) : LUT.heat[Math.min(100, (n.weight ?? 2) * 25)]
-        // A file drawn bigger the more sessions are in it -- R3, colour and
-        // size encode the value rather than the identity.
-        const r = n.kind === 'session' ? 1 : Math.min(2, Math.max(1, (n.weight ?? 2) - 1))
+        if (n.kind === 'session') {
+          const colour = hue(state.sessions?.get(n.id)?.agent) || THEME.boxHead
+          // Radius 4x8 over 32 samples. Smaller than this and braille
+          // quantisation eats the ring -- at 3x5 it resolved to `⠠⠒⠢`, which
+          // reads as three stray dots rather than as a shape, and the two node
+          // kinds were indistinguishable again.
+          for (let a = 0; a < 32; a++) {
+            const th = (a / 32) * 2 * Math.PI
+            c.dot(x + Math.round(Math.cos(th) * 4), y + Math.round(Math.sin(th) * 8), colour, true)
+          }
+          return
+        }
+        const colour = LUT.failure[Math.min(100, ((n.weight ?? 2) - 1) * 40)]
+        const r = Math.min(2, Math.max(1, (n.weight ?? 2) - 1))
         for (let ox = -r; ox <= r; ox++) for (let oy = -r * 2; oy <= r * 2; oy++) c.dot(x + ox, y + oy, colour, true)
       })
 
@@ -681,9 +697,17 @@ export function render(state, size) {
         // Paths truncate from the LEFT. `src/app/features/…` five times over
         // is five identical labels for five different files -- the end of a
         // path is what tells them apart, and the start is the part they share.
-        const txt = n.label.length <= 18 ? n.label
+        const name = n.label.length <= 18 ? n.label
           : n.kind === 'file' ? `…${n.label.slice(-17)}`
           : trunc(n.label, 18) ?? n.label
+        // And the CONTEXT, which a bare dot and a filename do not carry: how
+        // many sessions a file is contested by, which agent a session is, and
+        // when either last wrote. Without it the picture says two things are
+        // connected and nothing about whether that matters.
+        const tail = n.kind === 'session'
+          ? ` ${state.sessions?.get(n.id)?.agent ?? '?'} · ${ago(n.at, now)}`
+          : ` ×${n.weight} · ${ago(n.at, now)}`
+        const txt = `${name}${tail}`
         // Right of the node, then left, then a row above or below. Four tries
         // and then it goes unlabelled rather than on top of something.
         const spots = [
@@ -725,7 +749,7 @@ export function render(state, size) {
         ...rows,
       ],
       state: (() => {
-        const note = `${DIM}${THEME.boxHead}●${R}${DIM} session · ${R}${LUT.heat[75]}●${R}${DIM} file, bigger is more contested · ${lookback}${R}`
+        const note = `${DIM}${THEME.boxHead}○${R}${DIM} session · ${R}${LUT.failure[70]}●${R}${DIM} file, bigger is more contested · ${lookback}${R}`
         const keys = [tag('↑↓', 'project'), tag('1', 'back'), tag('p', 'preset'), tag('a', lookback), tag('q', 'quit')]
         return `${note}  ${keys.join(TAG_SEP)}`
       })(),
