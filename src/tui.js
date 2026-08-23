@@ -24,7 +24,7 @@ import { velocity, landings, cfrSeries, bucket } from './delivery.js'
 import { GLOSSARY } from './glossary.js'
 import { banner, bannerWidth, ROWS as MENU_ROWS } from './menu.js'
 import { canvas } from './canvas.js'
-import { contention, layout as forceLayout, MAX_FILES, MAX_SESSIONS } from './graph.js'
+import { coupled, layout as forceLayout } from './graph.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -625,89 +625,48 @@ export function render(state, size) {
   // contested files, which is the size a node-link picture is FOR.
   function graphScreen(V) {
     const p = projects[sel] ?? projects[0]
-    const g = p ? contention(p) : { nodes: [], edges: [], moreFiles: 0, moreSessions: 0, totalShared: 0 }
-    // The thing that makes a shared file MATTER, which the picture was missing.
-    //
-    // Two sessions in one file is not news -- they may be an hour apart, or a
-    // handover. Two sessions in one file CLOSE TOGETHER, with overlapping
-    // lifetimes, is the whole reason this tool exists. Without it the graph
-    // said only what the files pane already says in three rows, and took a
-    // screen to say it.
+    // Structure comes from git; danger comes from the transcripts. Two
+    // sources, one picture, and each is the only one that knows its half.
     const hits = colls.filter(c => c.project === p?.root)
-    const danger = new Map()
+    const contested = new Map()
     for (const c of hits) {
-      const cur = danger.get(c.path)
-      if (!cur || c.gapMin < cur.gapMin) danger.set(c.path, c)
+      const cur = contested.get(c.path)
+      if (!cur || c.gapMin < cur.gapMin) contested.set(c.path, c)
     }
-    const pair = new Set(hits.map(c => [c.a.session, c.b.session].sort().join('|')))
+    const ships = p?.root ? landings(p.root, { since }) : null
+    const g = coupled(ships, { root: p?.root, contested })
     const W = V.w - 2
-    // Two rows of chrome inside the box: the caption and the legend.
     const H = Math.max(3, V.h - 4)
     const rows = []
 
     if (!g.nodes.length) {
       rows.push('')
-      rows.push(` ${DIM}${p ? p.name : 'no project'} has no file that two sessions both touched${R}`)
+      rows.push(` ${DIM}${p ? p.name : 'no project'} has no two files that change together${R}`)
       rows.push('')
-      rows.push(` ${DIM}that is the good outcome. A node here is a file, an edge is a session${R}`)
-      rows.push(` ${DIM}that wrote it, and a file with one writer is not a graph -- it is work.${R}`)
+      rows.push(` ${DIM}a node is a file and an edge is "these two are edited in the same${R}`)
+      rows.push(` ${DIM}commit". It needs commits on the trunk inside ${lookback} to find any.${R}`)
     } else {
       const c = canvas(W, H)
-      // Margin in SUBPIXELS, so a label near the edge still has room to sit.
       const mx = 2, my = 4
       const at = forceLayout(g.nodes, g.edges, { seed: p?.root ?? p?.name ?? 'skeins' })
       const px = i => mx + at[i].x * (c.sw - 2 * mx - 1)
       const py = i => my + at[i].y * (c.sh - 2 * my - 1)
 
-      // Edges first and dimmest -- EXCEPT the ones that are a collision. An
-      // edge into a contested file is structure; an edge into a file two
-      // overlapping sessions wrote minutes apart is the finding.
-      const hot = (a, b) => {
-        const f = g.nodes[a].kind === 'file' ? g.nodes[a] : g.nodes[b]
-        const s = g.nodes[a].kind === 'file' ? g.nodes[b] : g.nodes[a]
-        const c = danger.get(f.id)
-        return c && (c.a.session === s.id || c.b.session === s.id)
-      }
-      for (const [a, b] of g.edges) {
-        if (!hot(a, b)) c.line(px(a), py(a), px(b), py(b), THEME.inactive)
-      }
-      for (const [a, b] of g.edges) {
-        if (hot(a, b)) c.line(px(a), py(a), px(b), py(b), LUT.failure[90])
+      // The edge's brightness IS its coupling. A pair that always moves
+      // together is the finding; a pair that sometimes does is context.
+      for (const [a, b, ratio] of g.edges) {
+        c.line(px(a), py(a), px(b), py(b), ratio >= 0.9 ? THEME.dim : THEME.inactive)
       }
 
-      // Then the nodes, forced over whatever edge crossed them.
-      //
-      // The two kinds must be told apart at a glance or the legend is a lie:
-      // they drew as the same small blob in near-identical colours, and a
-      // reader had no way to know which dot was a session. A session is a
-      // HOLLOW ring in its agent's hue; a file is SOLID, and grows with how
-      // many sessions are in it (R3 -- size and colour encode the value).
       g.nodes.forEach((n, i) => {
         const x = Math.round(px(i)), y = Math.round(py(i))
-        if (n.kind === 'session') {
-          const colour = hue(state.sessions?.get(n.id)?.agent) || THEME.boxHead
-          // Radius 4x8 over 32 samples. Smaller than this and braille
-          // quantisation eats the ring -- at 3x5 it resolved to `⠠⠒⠢`, which
-          // reads as three stray dots rather than as a shape, and the two node
-          // kinds were indistinguishable again.
-          for (let a = 0; a < 32; a++) {
-            const th = (a / 32) * 2 * Math.PI
-            c.dot(x + Math.round(Math.cos(th) * 4), y + Math.round(Math.sin(th) * 8), colour, true)
-          }
-          return
-        }
-        const colour = danger.has(n.id) ? LUT.failure[95] : LUT.failure[Math.min(60, ((n.weight ?? 2) - 1) * 30)]
-        const r = Math.min(2, Math.max(1, (n.weight ?? 2) - 1))
+        // Contested files are red whatever their coupling. That is the half
+        // of this picture no other tool on the machine can draw.
+        const colour = n.contested ? LUT.failure[95] : LUT.activity[Math.min(100, (n.weight ?? 1) * 12)]
+        const r = n.contested ? 2 : Math.min(2, Math.max(1, Math.round((n.weight ?? 1) / 4)))
         for (let ox = -r; ox <= r; ox++) for (let oy = -r * 2; oy <= r * 2; oy++) c.dot(x + ox, y + oy, colour, true)
       })
 
-      // Labels last, so nothing draws over them -- and never over each other.
-      //
-      // Two labels written into the same cells produced
-      // `src/app/(marketing)src/app/globals.css`, which is not a file, not two
-      // files, and not something a reader can recover. A label that cannot be
-      // placed truthfully is not placed: the node is still drawn, and the
-      // legend already says what a node is.
       const taken = new Set()
       const free = (cx, cy, len) => {
         if (cy < 0 || cy >= c.h || cx < 0 || cx + len > c.w) return false
@@ -715,54 +674,30 @@ export function render(state, size) {
         return true
       }
       const claim = (cx, cy, len) => { for (let i = 0; i < len; i++) taken.add(`${cy}:${cx + i}`) }
-      // Most contested first: when two labels compete for the same row, the
-      // one that matters more should be the one that survives.
-      const order = g.nodes.map((n, i) => i).sort((a, b) => (g.nodes[b].weight ?? 0) - (g.nodes[a].weight ?? 0))
+      // Contested first, then the files that change most: when two labels
+      // compete for a row, the one that matters more survives.
+      const order = g.nodes.map((n, i) => i)
+        .sort((a, b) => (g.nodes[b].contested ? 1 : 0) - (g.nodes[a].contested ? 1 : 0) || (g.nodes[b].weight ?? 0) - (g.nodes[a].weight ?? 0))
       for (const i of order) {
         const n = g.nodes[i]
         const cx = Math.round(px(i) / 2), cy = Math.round(py(i) / 4)
-        // Paths truncate from the LEFT. `src/app/features/…` five times over
-        // is five identical labels for five different files -- the end of a
-        // path is what tells them apart, and the start is the part they share.
-        const name = n.label.length <= 18 ? n.label
-          : n.kind === 'file' ? `…${n.label.slice(-17)}`
-          : trunc(n.label, 18) ?? n.label
-        // And the CONTEXT, which a bare dot and a filename do not carry: how
-        // many sessions a file is contested by, which agent a session is, and
-        // when either last wrote. Without it the picture says two things are
-        // connected and nothing about whether that matters.
-        // The gap is the number. "×2" says two sessions were here; "12m apart"
-        // says whether that was a collision or a handover, and that is the
-        // difference between a fact and a warning.
-        // NOT named `c` -- that is the canvas, and shadowing it inside this
-        // loop threw on the first frame that had a collision to draw.
-        const hit_ = danger.get(n.id)
-        const tail = n.kind === 'session'
-          ? ` ${state.sessions?.get(n.id)?.agent ?? '?'} · ${ago(n.at, now)}`
-          : hit_ ? ` ×${n.weight} · ${hit_.gapMin}m apart`
-          : ` ×${n.weight} · ${ago(n.at, now)}`
+        // Paths truncate from the LEFT: the end tells two files apart, the
+        // start is the part they share.
+        const name = n.label.length <= 20 ? n.label : `…${n.label.slice(-19)}`
+        const tail = n.contested ? ` ⚠ ${n.contested.gapMin}m apart` : ` ×${n.weight}`
         const txt = `${name}${tail}`
-        // Right of the node, then left, then a row above or below. Four tries
-        // and then it goes unlabelled rather than on top of something.
-        const spots = [
-          [cx + 2, cy], [cx - txt.length - 2, cy],
-          [cx + 2, cy - 1], [cx + 2, cy + 1],
-        ]
+        const spots = [[cx + 2, cy], [cx - txt.length - 2, cy], [cx + 2, cy - 1], [cx + 2, cy + 1]]
         const spot = spots.find(([x, y]) => free(x, y, txt.length))
         if (!spot) continue
         claim(spot[0], spot[1], txt.length)
-        c.label(spot[0], spot[1], txt, n.kind === 'session' ? THEME.dim : THEME.fg)
+        c.label(spot[0], spot[1], txt, n.contested ? LUT.failure[95] : THEME.fg)
       }
       rows.push(...c.rows())
     }
 
-    const sessions = g.nodes.filter(n => n.kind === 'session').length
-    const files = g.nodes.filter(n => n.kind === 'file').length
-    // Say what was left out. A capped graph that does not admit it is a claim
-    // that the project is calmer than it is.
     const capped = [
+      g.morePairs ? `+${g.morePairs} weaker pair${g.morePairs === 1 ? '' : 's'}` : null,
       g.moreFiles ? `+${g.moreFiles} more file${g.moreFiles === 1 ? '' : 's'}` : null,
-      g.moreSessions ? `+${g.moreSessions} more session${g.moreSessions === 1 ? '' : 's'}` : null,
     ].filter(Boolean).join(' · ')
 
     return compose(h, [{ rect: V, lines: pane(V, {
@@ -779,12 +714,12 @@ export function render(state, size) {
         return painted
       })(),
       rows: [
-        ` ${BOLD}${p?.name ?? '—'}${R}${DIM} · ${sessions} session${sessions === 1 ? '' : 's'} · ${files} contested file${files === 1 ? '' : 's'}${capped ? ` · ${capped}` : ''}${R}` +
-          (danger.size ? `  ${LUT.failure[95]}${danger.size} collision${danger.size === 1 ? '' : 's'}${R}` : `  ${DIM}no collisions in ${lookback}${R}`),
+        ` ${BOLD}${p?.name ?? '—'}${R}${DIM} · ${g.files} file${g.files === 1 ? '' : 's'} changed · ${g.pairs} coupled pair${g.pairs === 1 ? '' : 's'}${capped ? ` · ${capped}` : ''}${R}` +
+          (contested.size ? `  ${LUT.failure[95]}${contested.size} collision${contested.size === 1 ? '' : 's'}${R}` : `  ${DIM}no collisions in ${lookback}${R}`),
         ...rows,
       ],
       state: (() => {
-        const note = `${DIM}${THEME.boxHead}○${R}${DIM} session · ${R}${LUT.failure[40]}●${R}${DIM} shared · ${R}${LUT.failure[95]}●${R}${DIM} written minutes apart by two live sessions${R}`
+        const note = `${DIM}an edge is "changed in the same commit" · ${R}${LUT.failure[95]}●${R}${DIM} two sessions were both in it · ×n = how often it changes${R}`
         const keys = [tag('↑↓', 'project'), tag('1', 'back'), tag('p', 'preset'), tag('a', lookback), tag('q', 'quit')]
         return `${note}  ${keys.join(TAG_SEP)}`
       })(),

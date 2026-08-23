@@ -1397,8 +1397,11 @@ test('the graph marks a collision, not just a shared file', async () => {
   assert.match(hotFrame, /1 collision/, 'the header counts it')
   // The GAP, not the age: it is what separates a collision from a handover.
   assert.match(hotFrame, /12m apart/)
-  // The calm file keeps its age instead.
-  assert.match(hotFrame, /calm\.ts ×2 · \d/)
+  // The graph plots CO-CHANGE now, so a file git never paired has no node of
+  // its own -- but a contested one is drawn regardless, because it is the one
+  // thing this screen is best placed to show. `calm.ts` is neither, and its
+  // absence is correct rather than a miss.
+  assert.doesNotMatch(hotFrame, /calm\.ts/)
 
   // With no collisions the screen says so rather than leaving it ambiguous.
   assert.match(frame([]), /no collisions in 24h/)

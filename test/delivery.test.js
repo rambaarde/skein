@@ -269,3 +269,27 @@ test('the offender list is not won by the file that ships most', async () => {
   assert.equal(top.file, 'big.js', '6 of 20 outranks 1 of 3')
   assert.equal(top.shipped, 20)
 })
+
+test('the deployment cache never answers for an injected reader', () => {
+  // deployments() shells out to `git tag`, and the velocity screen calls it
+  // once per project on every draw -- 41 projects cost 220ms a keypress, which
+  // is the whole feel of that screen being slow. It is memoised now.
+  //
+  // But a memo keyed on the repo must not answer for a caller that passed its
+  // own reader: the entire point of passing one is to get a different answer
+  // for the same root, and the first version handed back the previous stub's.
+  const root = process.cwd()
+  const a = deployments(root, { since: 0, run: () => [{ at: 1, name: 'v9.9.9' }] })
+  const b = deployments(root, { since: 0, run: () => [{ at: 2, name: 'v8.8.8' }] })
+  assert.equal(a[0].name, 'v9.9.9')
+  assert.equal(b[0].name, 'v8.8.8', 'the second reader is not served the first answer')
+
+  // And the real path is genuinely cached, or the fix does nothing.
+  const t0 = process.hrtime.bigint()
+  deployments(root, { since: 0 })
+  const cold = process.hrtime.bigint() - t0
+  const t1 = process.hrtime.bigint()
+  deployments(root, { since: 0 })
+  const warm = process.hrtime.bigint() - t1
+  assert.ok(warm < cold, `a second call is cheaper (${cold}ns then ${warm}ns)`)
+})
