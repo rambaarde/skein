@@ -34,6 +34,7 @@
 // corrupts the frame. A prettier marker is not worth that.
 import { DIM, R, fade } from './theme.js'
 import { fit } from './box.js'
+import { clock12 } from './format.js'
 
 // Shapes that stay distinct at one character: a solid block, a star, a cross,
 // a diagonal cross, a ring, a rule.
@@ -215,11 +216,14 @@ const MONTHS = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', '
 export function stampFor(span) {
   // Under a day the date is noise; over two days the clock is. Between them
   // neither alone is enough, so both, short.
-  if (span <= 36 * 3600_000) return t => new Date(t).toTimeString().slice(0, 5)
+  if (span <= 36 * 3600_000) return t => clock12(t)
   if (span <= 8 * 86_400_000) {
     return t => {
       const d = new Date(t)
-      return `${d.getDate()} ${d.toTimeString().slice(0, 5)}`
+      // Across days the minute is noise, and it is also two columns this
+      // label cannot spare -- `16 12:29pm` is ten wide and the ticks collide.
+      // The date and the hour are the read.
+      return `${d.getDate()} ${clock12(t).replace(/:\d\d/, '')}`
     }
   }
   return t => {

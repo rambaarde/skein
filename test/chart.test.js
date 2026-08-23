@@ -117,9 +117,13 @@ test('the x axis is ruled and labelled, ending at now', () => {
   assert.equal(times.length, 41)
   assert.ok(times.trimEnd().endsWith('now'), 'the right edge is the one label nobody should have to work out')
   // A time printed under the wrong tick is worse than no tick at all.
+  //
+  // Wall-clock, not timetable: `18:00` is arithmetic before it is a time, on a
+  // dashboard whose job is being readable at a glance.
   for (let i = 0; i < rule.length; i++) {
-    if (rule[i] === '┬' && i < rule.length - 4) assert.match(times.slice(i, i + 5), /^\d\d:\d\d$/)
+    if (rule[i] === '┬' && i < rule.length - 7) assert.match(times.slice(i, i + 7).trimEnd(), /^\d{1,2}:\d\d[ap]m$/)
   }
+  assert.doesNotMatch(times, /\b(1[3-9]|2[0-3]):\d\d/, 'nothing past twelve o clock')
 })
 
 test('a legend counts what it could not fit', () => {
@@ -211,15 +215,17 @@ test('the x axis says which day it is once the window is longer than one', async
   // which looks like time running BACKWARDS. The hours are real, they are just
   // from four different days, and nothing on the axis said so.
   const day = xaxis(now - D, now, { width: 90 })
-  assert.match(day, /^\d\d:\d\d/, 'inside a day the date is noise')
+  assert.match(day, /^\d{1,2}:\d\d[ap]m/, 'inside a day the date is noise')
   assert.doesNotMatch(day, /Aug|Jul/)
 
   const week = xaxis(now - 7 * D, now, { width: 90 })
-  assert.match(week, /^\d+ \d\d:\d\d/, 'across days it needs the day AND the hour')
+  // Day and hour, no minute: `16 12:29pm` is ten columns and the ticks
+  // collide. Across days the minute is noise anyway.
+  assert.match(week, /^\d+ \d{1,2}[ap]m/, 'across days it needs the day AND the hour')
 
   const month = xaxis(now - 30 * D, now, { width: 90 })
   assert.match(month, /^(Jan|Feb|Mar|Apr|May|Jun|Jul|Aug|Sep|Oct|Nov|Dec) \d+/, 'across a month the clock is noise')
-  assert.doesNotMatch(month, /\d\d:\d\d/)
+  assert.doesNotMatch(month, /\d:\d\d/)
 
   // Whatever the span, the right edge is `now` — the one label nobody should
   // have to work out.
