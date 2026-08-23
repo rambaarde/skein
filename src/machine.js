@@ -112,5 +112,20 @@ export function byRoot(rows) {
     cur.agents.add(r.agent)
     roots.set(r.root, cur)
   }
-  return { roots, unrooted }
+  return { roots, unrooted, rows }
+}
+
+/** Attribute sampled processes to most-specific linked checkout paths. */
+export function attributeToPaths(rows, paths) {
+  const out = new Map(paths.map(path => [path, { cpu: 0, agents: new Set() }]))
+  for (const row of rows) {
+    const path = [...out.keys()]
+      .filter(candidate => row.cwd === candidate || row.cwd?.startsWith(`${candidate}/`))
+      .sort((a, b) => b.length - a.length)[0]
+    if (!path) continue
+    const bucket = out.get(path)
+    bucket.cpu += row.cpu
+    bucket.agents.add(row.agent)
+  }
+  return out
 }
