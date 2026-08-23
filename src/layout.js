@@ -26,6 +26,7 @@ export function layout(w, h, shown = null) {
   // not panels.
   if (shown?.has('velocity')) return { wide: w >= WIDE_AT, velocity: { x: 0, y: 0, w, h } }
   if (shown?.has('graph')) return { wide: w >= WIDE_AT, graph: { x: 0, y: 0, w, h } }
+  if (shown?.has('estate')) return { wide: w >= WIDE_AT, estate: { x: 0, y: 0, w, h } }
 
   // head alone: the table gets the whole screen, which is the point of that
   // preset. No split, no leftover panes.

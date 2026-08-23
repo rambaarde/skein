@@ -110,17 +110,18 @@ The headline is **attention accumulated per project** — the line climbs while 
 were in a repo and runs flat while you were not, and ends the day at its own
 total. The project you have selected is lit; the rest fade back.
 
-### Four screens, one key
+### Six screens, one key
 
-`p` cycles them, `1`–`5` jump straight there.
+`p` cycles them, `1`–`6` jump straight there.
 
 | | Shows |
 |---|---|
 | **1 all** | the chart, the project table, a detail pane and the live activity feed |
 | **2 watch** | the chart and the feed at full width — what is happening right now |
 | **3 table** | the project table alone, the most projects on screen |
-| **4 velocity** | what landed on each trunk, how long it took, and what had to be repaired |
-| **5 graph** | within one project, which sessions touched the same file |
+| **4 velocity** | what landed on each trunk, how long it took, what had to be repaired, and whether the trend is improving |
+| **5 graph** | change coupling: which files move together, and which one two agents were both in at once |
+| **6 estate** | worktrees, whether a working copy has drifted from its latest tag, and live CPU per project |
 
 `⏎` opens a project's own screen: its agents, its sessions and their context
 pressure, its files, its tool calls, its collisions.
@@ -392,6 +393,36 @@ stated on screen (`+9 weaker pairs`) rather than applied silently, and the
 drawing's size follows the node count — a small graph sits compactly in the
 middle rather than being stretched across the terminal.
 
+### The estate
+
+Preset `6` is a different SOURCE from every other screen. Everything else
+reads agent transcripts or git history — records of what already happened.
+This reads the OS, right now:
+
+```
+PROJECT       BRANCH   WORKTREES  VERSION   TAG      CPU    RUNNING
+skeins        develop       none  0.36.0    0.36.0   6.2%   claude
+tn-admin-fe   develop       none  1.0.0     —        —      —
+```
+
+- **WORKTREES** counts other checkouts of the same repo — "none" for the
+  common case, `+2` for two more, never a raw total that would count this
+  checkout as one of its own others.
+- **VERSION / TAG** is the gap that matters: `package.json`'s version is a
+  number someone typed and can go stale; the latest tag is what a release
+  process actually pointed at. The two disagreeing is the finding, and it is
+  the only place skeins ever draws attention to a number a human wrote by hand.
+- **CPU** is sampled from the OS, not derived from anything a transcript
+  states, and it is true for the instant it was taken — a snapshot, not a
+  live gauge. It is sampled only while this screen is the one on screen, on
+  the same slow poll timer that governs everything else skeins reads from
+  disk, and batched into one call rather than one per process: the difference
+  measured on a real machine with eight running agents was 178ms against 52ms.
+- **CPU with no resolvable project** is folded into `unattributed` rather than
+  dropped — the work is real even when skeins cannot say whose it is.
+
+`skeins estate` is the same table in the other door.
+
 ### Collisions
 
 Two **sessions** editing one file close enough together to overwrite each other,
@@ -501,8 +532,12 @@ that rots.
   table and being silently wrong the day it drifts. *Context pressure* is the
   honest version and skeins does show it — how full a session's window is now is
   an operational state, like memory pressure, not a receipt.
-- **Process trees and CPU gauges.** agtop's are good, and it is three platforms
-  of `ps` pain.
+- **Process trees, per-core breakdowns, memory and disk gauges.** agtop's are
+  good, and skeins is not trying to be a second one. What preset 6 does show is
+  narrower than that promise sounds: one CPU number per PROJECT, sampled only
+  while that screen is open and on a slow cadence, batched into one `ps` call
+  and one cwd lookup rather than one per process — not a live gauge, a snapshot
+  you asked for by looking.
 - **Session management.** herdr and agent-manager own this.
 - **Anything hosted or shared.** Paths and titles carry client names.
 - **Telemetry.** Absent, not off-by-default.

@@ -26,6 +26,8 @@ import { GLOSSARY } from './glossary.js'
 import { banner, bannerWidth, ROWS as MENU_ROWS } from './menu.js'
 import { canvas } from './canvas.js'
 import { coupled, layout as forceLayout } from './graph.js'
+import { worktrees, versionOf } from './estate.js'
+import { sample as sampleMachineDefault, byRoot } from './machine.js'
 import { toolsOf, totalOf } from './tools.js'
 
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
@@ -91,7 +93,7 @@ const KEYS = [
   ['w', 'cycle the collision window: 30m · 60m · 10m'],
   ['c', 'show only projects that had a collision'],
   ['p / P', 'next / previous preset — a preset drops panes, it does not shrink them'],
-  ['1-5', 'jump straight to a preset: all · watch · table · velocity · graph'],
+  ['1-6', 'jump straight to a preset: all · watch · table · velocity · graph · estate'],
   ['', 'the selected project is lit on the chart; the rest fade back'],
   ['⏎', "open the project's own page — graph, agents, sessions, files, collisions"],
   ['space', 'peek at a project inline without leaving the list'],
@@ -782,6 +784,104 @@ export function render(state, size) {
     }) }])
   }
 
+  // ---- estate: what is actually checked out, and what is running --------
+  //
+  // A different SOURCE from every other screen. Everything else reads agent
+  // transcripts or git history -- records of what already happened. This
+  // reads the OS, right now: which worktree a project is in, whether the
+  // working copy matches what it claims to be, and which agent process is
+  // spending CPU where. None of that exists in a transcript.
+  function estateScreen(V) {
+    const W = V.w - 2
+    const rows = []
+    const nameW = Math.max(12, Math.min(24, projects.reduce((m, p) => Math.max(m, p.name.length + 2), 10)))
+
+    // One column plan, used by the header and every row, so the two cannot
+    // drift the way a hand-matched pair of fit() widths already has once in
+    // this file (the velocity table's header/row split, fixed earlier today).
+    const COLS = [
+      { head: 'BRANCH', w: 11 },
+      { head: 'WORKTREES', w: 11 },
+      { head: 'VERSION', w: 10 },
+      { head: 'TAG', w: 10 },
+      { head: 'CPU', w: 7 },
+      // Wide enough for TWO agents named at once -- "claude+codex" is a real
+      // row, not a rare one, and truncating it to "claude+c..." answered a
+      // different question than the one the column is for.
+      { head: 'RUNNING', w: 16 },
+    ]
+    rows.push(`${THEME.header} ${fit('PROJECT', nameW)}${COLS.map(c => fit(`  ${c.head}`, c.w + 2)).join('')}${R}`)
+
+    const M = state.machine ?? { roots: new Map(), unrooted: 0 }
+    const bodyH = Math.max(1, V.h - 4 - rows.length)
+    for (const p of projects.slice(0, bodyH)) {
+      const on = p === projects[sel]
+      const cell = s => `  ${s}`
+      // A project with no git history says so, RAW -- not fit() into the
+      // BRANCH column where it truncates to "no git his…". Every other empty
+      // row on this codebase's tables does the same: skip the per-column fit
+      // and let the one sentence stand for the whole row.
+      if (!p.root) {
+        const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}  ${DIM}no git history${R}`
+        hit.rows.push({ y: V.y + 1 + rows.length, index: projects.indexOf(p) })
+        rows.push(on ? selected(row, W) : row)
+        continue
+      }
+      const wt = worktrees(p.root)
+        const ver = versionOf(p.root)
+        const cpu = M.roots.get(p.root)
+        const meta = metaOf(p)
+
+        // The gap is the finding, not either number alone: what the working
+        // copy CLAIMS to be against what a release process actually pointed
+        // at last.
+        const gapped = ver && ver.declared && ver.tag && ver.declared !== ver.tag
+        const wCount = wt?.length ?? null
+
+        const cells = [
+          cell(fit(meta?.branch ?? `${DIM}—${R}`, COLS[0].w)),
+          // "+n", not the raw count -- "2 worktrees" reads as this checkout
+          // PLUS one more, which is not what git worktree list means by two.
+          cell(wCount === null ? `${DIM}${'—'.padStart(COLS[1].w)}${R}`
+            : wCount === 1 ? `${DIM}${'none'.padStart(COLS[1].w)}${R}`
+            : `${LUT.activity[60]}${`+${wCount - 1}`.padStart(COLS[1].w)}${R}`),
+          cell(ver?.declared
+            ? `${gapped ? LUT.failure[70] : ''}${fit(ver.declared, COLS[2].w)}${gapped ? R : ''}`
+            : `${DIM}${'—'.padStart(COLS[2].w)}${R}`),
+          cell(ver?.tag ? fit(ver.tag, COLS[3].w) : `${DIM}${'—'.padStart(COLS[3].w)}${R}`),
+          cell(cpu ? `${LUT.heat[Math.min(100, Math.round(cpu.cpu))]}${`${cpu.cpu.toFixed(1)}%`.padStart(COLS[4].w)}${R}` : `${DIM}${'—'.padStart(COLS[4].w)}${R}`),
+          cell(fit(cpu ? [...cpu.agents].map(a => `${hue(a)}${a}${R}`).join('+') : `${DIM}—${R}`, COLS[5].w)),
+        ]
+      const row = ` ${fit(`${THEME.fg}${p.name}${R}`, nameW)}${cells.map((c, i) => fit(c, COLS[i].w + 2)).join('')}`
+      hit.rows.push({ y: V.y + 1 + rows.length, index: projects.indexOf(p) })
+      rows.push(on ? selected(row, W) : row)
+    }
+
+    const liveN = M.roots.size
+    const cpuTotal = [...M.roots.values()].reduce((n, r) => n + r.cpu, 0) + M.unrooted
+
+    return compose(h, [{ rect: V, lines: pane(V, {
+      title: 'estate', key: SUP[5], line: THEME.boxHead,
+      head: (() => {
+        const at = V.x + 6 + 'estate'.length + width(SUP[5])
+        hit.tags.push({ y: V.y, x0: at, x1: at + 'm menu'.length, key: 'm' })
+        return tag('m', 'menu')
+      })(),
+      right: (() => {
+        const painted = `${DIM}preset ${R}${BOLD}${(state.preset ?? 0) + 1} ${NAMES[state.preset ?? 0] ?? ''}${R}  ${clock} ${DIM}${pulse}${R}`
+        const x0 = V.x + V.w - width(painted) - 3
+        hit.tags.push({ y: V.y, x0, x1: x0 + 12, key: 'p' })
+        return painted
+      })(),
+      rows,
+      state: (() => {
+        const note = `${DIM}${liveN} project${liveN === 1 ? '' : 's'} with a running agent · ${cpuTotal.toFixed(1)}% CPU total${M.unrooted > 0.05 ? ` · ${M.unrooted.toFixed(1)}% unattributed` : ''} · sampled from the OS, not the transcripts${R}`
+        const keys = [tag('↑↓', 'project'), tag('1', 'back'), tag('p', 'preset'), tag('r', 'refresh'), tag('q', 'quit')]
+        return `${note}  ${keys.join(TAG_SEP)}`
+      })(),
+    }) }])
+  }
+
   // ---- velocity: what landed, and how long it took to land ----------------
   //
   // DORA, translated for ONE developer. Three quarters of DORA does not
@@ -1161,6 +1261,7 @@ export function render(state, size) {
   // Same reason, same place: velocityScreen reads clock and pulse.
   if (L.velocity) return velocityScreen(L.velocity)
   if (L.graph) return graphScreen(L.graph)
+  if (L.estate) return estateScreen(L.estate)
 
   // Fitted to the budget rather than switched at two breakpoints, and the two
   // escape hatches are PINNED. Adding one control used to push '? keys' off the
@@ -1842,11 +1943,22 @@ export function build(windowMin, lookbackMs, now) {
   return { events: recent, sessions, projects, colls, since, dirty }
 }
 
-export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin } = {}) {
+export function start({ now = () => Date.now(), stdout = process.stdout, stdin = process.stdin, sampleMachine = sampleMachineDefault } = {}) {
   const LOOKBACKS = [[6 * 3_600_000, '6h'], [24 * 3_600_000, '24h'], [7 * 86_400_000, '7d'], [30 * 86_400_000, '30d']]
   let lb = 1, windowMin = WINDOW_MIN, sel = 0, tick = 0
   let sortIdx = 0, filter = '', typing = false, help = 0, menu = null, onlyColliding = false, focus = null
   let preset = 0, tab = 0, feedTop = 0, page = null
+  // Sampled from the OS, not built from anything in `build()`. It costs a
+  // process spawn -- measured at ~50ms each for `ps` and the batched cwd
+  // lookup -- so it is taken on the SLOW poll cadence and only while the
+  // estate preset is actually the one on screen, never on every paint tick
+  // and never for a preset nobody is looking at.
+  const ESTATE = NAMES.indexOf('estate')
+  let machine = { roots: new Map(), unrooted: 0 }
+  // Injectable, the same discipline every other OS/git read in this codebase
+  // keeps: a test that hits the real process table is a test of this machine,
+  // not of skein, and it is flaky on any CI runner with no agent of its own.
+  const pollMachine = () => { if (preset === ESTATE) machine = byRoot(sampleMachine()) }
   const expanded = new Set()
   const tier = tierFor()
   let state = null
@@ -1863,7 +1975,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     if (onlyColliding) list = list.filter(p => built.colls.some(c => c.project === p.root))
     list = [...list].sort(SORTS[sortIdx].cmp)
     state = {
-      ...built, projects: list, expanded, tier,
+      ...built, projects: list, expanded, tier, machine,
       lookback: LOOKBACKS[lb][1], windowMin,
       ...interactive(),
       now: t,
@@ -1906,7 +2018,12 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     onlyColliding,
     sort: SORTS[sortIdx].label,
   })
-  const sync = () => Object.assign(state, interactive())
+  // `machine` is not user input, so it does not belong in interactive() --
+  // but it is the other thing draw() must reflect without waiting for a full
+  // reload(), or pressing 6 to reach the estate preset paints the CPU sample
+  // pollMachine() JUST took into the closure variable and never onto state.
+  // Exactly the sync()/reload() split this file already hit once for `menu`.
+  const sync = () => Object.assign(state, interactive(), { machine })
 
   const draw = () => {
     sync()
@@ -1952,6 +2069,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     pollTimer.unref?.()
   }
   const onPoll = () => {
+    pollMachine()
     const changed = reload()
     if (changed) { idleTicks = 0; pollMs = POLL_FAST }
     else if (++idleTicks >= 3) pollMs = Math.min(POLL_SLOW, pollMs * 2)
@@ -2097,10 +2215,10 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // same job. Shift-Tab steps back.
     else if (k === '\t') tab = (tab + 1) % TABS.length
     else if (k === '\x1b[Z') tab = (tab - 1 + TABS.length) % TABS.length
-    else if (k === 'p') preset = (preset + 1) % PRESETS.length
-    else if (k === 'P') preset = (preset - 1 + PRESETS.length) % PRESETS.length
-    else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) preset = Number(k) - 1
-    else if (k === 'r') reload()
+    else if (k === 'p') { preset = (preset + 1) % PRESETS.length; pollMachine() }
+    else if (k === 'P') { preset = (preset - 1 + PRESETS.length) % PRESETS.length; pollMachine() }
+    else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) { preset = Number(k) - 1; pollMachine() }
+    else if (k === 'r') { pollMachine(); reload() }
     // The feed is the one pane with more rows than fit, so it gets the paging
     // keys. g returns it to the newest, which is where it starts.
     else if (k === '\x1b[6~') feedTop = Math.min(state.feedMax ?? 0, feedTop + 10)

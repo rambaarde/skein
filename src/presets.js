@@ -15,7 +15,7 @@
 //
 // skeins's boxes are head (the strip and the project table), detail, feed, and
 // velocity (what landed, and how long it took to land).
-export const BOXES = ['head', 'detail', 'feed', 'velocity', 'graph']
+export const BOXES = ['head', 'detail', 'feed', 'velocity', 'graph', 'estate']
 export const SYMBOLS = ['default', 'braille', 'block', 'tty']
 export const MAX_PRESETS = 9
 export const MAX_BOXES = 4
@@ -25,11 +25,14 @@ export const MAX_BOXES = 4
 // 4: velocity, which is a different question entirely and so gets the screen
 // to itself rather than a corner of somebody else's. 5: the contention graph,
 // same reasoning -- a picture of who is in the same file as whom is not a
-// panel of anything.
+// panel of anything. 6: the estate -- worktrees, working-copy version against
+// the latest tag, and live CPU -- a different SOURCE (the OS, not the
+// transcripts) and so a different screen rather than a column bolted onto one
+// that already has ten.
 export const DEFAULT_PRESETS =
-  'head:0:default,detail:0:default,feed:0:default head:0:default,feed:0:default head:0:default velocity:0:default graph:0:default'
+  'head:0:default,detail:0:default,feed:0:default head:0:default,feed:0:default head:0:default velocity:0:default graph:0:default estate:0:default'
 
-export const NAMES = ['all', 'watch', 'table', 'velocity', 'graph']
+export const NAMES = ['all', 'watch', 'table', 'velocity', 'graph', 'estate']
 
 // Returns { ok: true, presets } or { ok: false, error } — never throws and
 // never silently drops an entry, because a preset that quietly vanishes reads
@@ -55,12 +58,12 @@ export function parse(str) {
     // Every preset needs something that is a whole screen on its own. Without
     // one there is a detail pane and a feed describing a selection nothing on
     // screen lets you make.
-    if (!boxes.some(b => b.name === 'head' || b.name === 'velocity' || b.name === 'graph')) {
-      return { ok: false, error: 'every preset must keep head, velocity or graph — with none of them there is nothing to look at' }
+    if (!boxes.some(b => b.name === 'head' || b.name === 'velocity' || b.name === 'graph' || b.name === 'estate')) {
+      return { ok: false, error: 'every preset must keep head, velocity, graph or estate — with none of them there is nothing to look at' }
     }
     // Each of these answers a different question and none is a panel of
     // another, so they do not share a screen.
-    for (const solo of ['velocity', 'graph']) {
+    for (const solo of ['velocity', 'graph', 'estate']) {
       if (boxes.some(b => b.name === solo) && boxes.length > 1) {
         return { ok: false, error: `${solo} takes the whole screen — it cannot share a preset with another box` }
       }
