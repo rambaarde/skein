@@ -29,6 +29,8 @@ import { coupled, layout as forceLayout } from './graph.js'
 import { worktrees, versionOf, worktreeState } from './estate.js'
 import { sample as sampleMachineDefault, byRoot, attributeToPaths } from './machine.js'
 
+const PROJECT_TABS = ['tools', 'version', 'collisions']
+const PROJECT_TAB_TITLES = ['tool calls, most used first', 'version control', 'collisions']
 const ALT = '\x1b[?1049h', UNALT = '\x1b[?1049l'
 const HIDE = '\x1b[?25l', SHOW = '\x1b[?25h'
 const CLEAR = '\x1b[H\x1b[2J'
@@ -457,16 +459,16 @@ export function render(state, size) {
     // rowsP graph rows, the chart's own rule/times/legend, and two borders.
     const headHp = rowsP + CHART_BELOW + 2
     const lowerH = h - headHp - collH - failH
-    // Four across. The fourth pane is version-control state because that is the
-    // first thing a client asks for once they click into one project: what is
-    // checked out, what changed, and how far it is from upstream/release.
+    // Four across. The fourth pane is a tabbed project detail pane: tools by
+    // default, version-control when asked, collisions when they matter. That
+    // keeps the tool-call panel visible instead of trading it away for git state.
     const q = Math.floor(w / 4)
     const rects = {
       head: { x: 0, y: 0, w, h: headHp },
       agents: { x: 0, y: headHp, w: q, h: lowerH },
       sessions: { x: q, y: headHp, w: q, h: lowerH },
       files: { x: q * 2, y: headHp, w: q, h: lowerH },
-      vcs: { x: q * 3, y: headHp, w: w - q * 3, h: lowerH },
+      detail: { x: q * 3, y: headHp, w: w - q * 3, h: lowerH },
       // Two halves of one question: which files keep breaking, and which
       // releases they broke. Split rather than stacked, because reading one
       // without the other is how a popularity contest gets mistaken for a
@@ -583,14 +585,27 @@ export function render(state, size) {
       }
     }
 
-    // sessions and files reuse the tab bodies, so a number cannot mean one
-    // thing on the page and another in the pane. Version-control is separate:
-    // it is git/worktree state, not transcript activity.
+    // The fourth pane is switched, not replaced. Tools are the default because
+    // they answer what the agents actually did; version-control is the next tab
+    // for the same selected project.
     const F = { fit, hue, ago, trunc, short, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling }
     const tctx = k => ({ state, now, detailW: rects[k].w - 2, detailH: rects[k].h, collsHere, lookback, F })
     const sessRows = sessionsTab(p, tctx('sessions'))
     const fileRows = filesTab(p, tctx('files'))
-    const vcsRows = versionRows(p, rects.vcs.w - 2).slice(0, Math.max(1, rects.vcs.h - 2))
+    const projectTabI = Math.min(state.tab ?? 0, PROJECT_TABS.length - 1)
+    const projectRows = []
+    let tx = 1
+    const projectBar = PROJECT_TABS.map((name, i) => {
+      hit.tabs.push({ y: rects.detail.y + 1, x0: rects.detail.x + tx, x1: rects.detail.x + tx + name.length, index: i })
+      tx += name.length + 2
+      return i === projectTabI ? `${BOLD}${THEME.hi}${name}${R}` : `${DIM}${name}${R}`
+    }).join('  ')
+    projectRows.push(` ${projectBar}`)
+    projectRows.push(` ${DIM}${PROJECT_TABS.map((n, i) => (i === projectTabI ? '─'.repeat(n.length) : ' '.repeat(n.length))).join('  ')}${R}`)
+    const projectCtx = { ...tctx('detail'), detailH: rects.detail.h - 4 }
+    if (projectTabI === 1) projectRows.push(...versionRows(p, rects.detail.w - 2).slice(0, Math.max(1, rects.detail.h - 4)))
+    else if (projectTabI === 2) projectRows.push(...collisionsTab(p, projectCtx))
+    else projectRows.push(...toolsTab(p, projectCtx))
 
     const panes = [
       { rect: rects.head, lines: pane(rects.head, {
@@ -613,12 +628,9 @@ export function render(state, size) {
           // other way round — a number you cannot read is a nuisance, a way
           // out you cannot see is a trap.
           //
-          // 'tab panes' is gone. It was inherited from the detail pane, where
-          // tab switches between tabs that share one box — this page shows
-          // agents, sessions, files and version control all at once, so there
-          // was nothing to switch and the key did nothing. A control that does
-          // nothing is worse than an absent one: it makes the reader doubt the
-          // keyboard rather than the label.
+          // Tab now switches the project detail pane: tools, version-control,
+          // and collisions share one box. The other project-page boxes stay
+          // visible, so tab has an obvious place to act.
           const parts = [
             { key: '\x1b', label: 'back', glyph: 'esc' },
             { key: 'a', label: lookback, glyph: 'a' },
@@ -645,8 +657,8 @@ export function render(state, size) {
       { rect: rects.sessions, lines: pane(rects.sessions, { title: 'sessions', line: THEME.boxDetail, rows: sessRows }) },
       { rect: rects.files, lines: pane(rects.files, { title: 'files', line: THEME.boxFeed, rows: fileRows,
         state: `${DIM}${p.files} touched${R}` }) },
-      { rect: rects.vcs, lines: pane(rects.vcs, { title: 'version control', line: THEME.boxFeed, rows: vcsRows,
-        state: versionState(p) }) },
+      { rect: rects.detail, lines: pane(rects.detail, { title: PROJECT_TAB_TITLES[projectTabI], line: THEME.boxFeed, rows: projectRows,
+        state: `${tag('tab', 'panes')} ${PROJECT_TABS.map((n, i) => i === projectTabI ? `${BOLD}${n}${R}` : `${DIM}${n}${R}`).join(`${DIM} · ${R}`)}${R}` }) },
     ]
     if (failH > 0) {
       const bw = rects.breaks.w - 2
@@ -2117,7 +2129,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
           // indistinguishable from the mouse not working at all.
           sel = row
           const target = state.projects[row]
-          if (target) { page = target.root ?? target.name; focus = null }
+          if (target) { page = target.root ?? target.name; focus = null; tab = 0 }
         }
       }
       draw()
@@ -2178,7 +2190,7 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // this repo" needs a screen, not an expansion.
     else if (k === '\r' || k === '\n') {
       const p = current()
-      if (p) { page = p.root ?? p.name; focus = null }
+      if (p) { page = p.root ?? p.name; focus = null; tab = 0 }
     }
     else if (k === ' ') {
       const p = current()
@@ -2196,8 +2208,8 @@ export function start({ now = () => Date.now(), stdout = process.stdout, stdin =
     // straight to one, which is how you actually use them once you know them.
     // Tab switches the detail pane's view, which is the key agtop uses for the
     // same job. Shift-Tab steps back.
-    else if (k === '\t') tab = (tab + 1) % TABS.length
-    else if (k === '\x1b[Z') tab = (tab - 1 + TABS.length) % TABS.length
+    else if (k === '\t') tab = (tab + 1) % (page ? PROJECT_TABS.length : TABS.length)
+    else if (k === '\x1b[Z') tab = (tab - 1 + (page ? PROJECT_TABS.length : TABS.length)) % (page ? PROJECT_TABS.length : TABS.length)
     else if (k === 'p') { preset = (preset + 1) % PRESETS.length; pollMachine() }
     else if (k === 'P') { preset = (preset - 1 + PRESETS.length) % PRESETS.length; pollMachine() }
     else if (/^[1-9]$/.test(k) && Number(k) <= PRESETS.length) { preset = Number(k) - 1; pollMachine() }
