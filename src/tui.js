@@ -432,8 +432,18 @@ export function render(state, size) {
     // --- agents: btop's per-core list, but the cores are agents
     const perAgent = (p.agents ?? []).map(a => {
       const ev = (p.events ?? []).filter(e => e.agent === a)
-      return { agent: a, n: ev.length, at: Math.max(0, ...ev.map(e => e.at)), files: new Set(ev.map(e => e.path)).size }
-    }).sort((x, y) => y.n - x.n)
+      // An agent present only through an OPEN session has no event to take a
+      // timestamp from. Math.max(0) then gave it the epoch, and the pane read
+      // "last 20688d" -- a number so wrong it reads as a broken tool rather
+      // than as a session that simply has not written anything yet.
+      const open = (p.open ?? []).filter(o => o.agent === a)
+      return {
+        agent: a,
+        n: ev.length,
+        at: Math.max(0, ...ev.map(e => e.at), ...open.map(o => o.at)),
+        files: new Set(ev.map(e => e.path)).size,
+      }
+    }).sort((x, y) => y.n - x.n || y.at - x.at)
     const totalN = Math.max(1, perAgent.reduce((s, a) => s + a.n, 0))
     const aw = rects.agents.w - 2
     const agentRows = []
