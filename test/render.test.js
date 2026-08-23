@@ -1224,3 +1224,33 @@ test('the failure panel points at the reasons', async () => {
   assert.doesNotMatch(frame, /which files, and what repaired them/)
   assert.match(frame, /CHANGE FAILURE · repo/)
 })
+
+test('a project with only an open session reports it, not the epoch', async () => {
+  // Both of these shipped: the agents pane read "last 20688d" because an agent
+  // present only through an open session had no event to take a timestamp
+  // from, and the header said "1 session" beside a pane saying "no sessions in
+  // this window".
+  const { render } = await import('../src/tui.js')
+  const { byProject } = await import('../src/project.js')
+  const now = Date.now()
+  const root = process.cwd()
+  const sessions = new Map([['open-1', { cwd: root, agent: 'claude', last: now - 112_000, title: 'planning', context: 5000 }]])
+  const projects = [...byProject([], sessions).values()]
+  assert.equal(projects.length, 1)
+  assert.equal(projects[0].sessions, 1)
+  assert.equal(projects[0].idle, 1, 'and it is counted as one that has not written')
+
+  const frame = render({
+    projects, events: [], sessions, sel: 0, expanded: new Set(), colls: [], tier: 'braille',
+    since: now - 86_400_000, now, lookback: '24h', windowMin: 30, tick: 0, sort: 'recent',
+    filter: '', onlyColliding: false, preset: 0, tab: 1, feedTop: 0, page: projects[0].root,
+  }, { cols: 150, rows: 30 }).replace(/\x1b\[[0-9;]*m/g, '')
+
+  assert.doesNotMatch(frame, /\d{4,}d/, 'no timestamp anywhere near the epoch')
+  assert.match(frame, /1 session/)
+  assert.doesNotMatch(frame, /no sessions in this window/, 'the pane must agree with the header')
+  // The MODEL column is fourteen columns wide, so at this terminal size the
+  // label is legitimately truncated. Assert what survives, not what would
+  // require a wider screen than the pane has.
+  assert.match(frame, /open · no/, 'and say what kind of session it is')
+})
