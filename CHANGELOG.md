@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.36.1](https://github.com/rambaarde/skein/compare/v0.36.0...v0.36.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **claude:** compactions were always zero, and they cost 83 minutes ([18ef615](https://github.com/rambaarde/skein/commit/18ef615b9831ec013f31c4e787cac85e6b3b5dce))
+* **claude:** compactions were always zero, and they cost 83 minutes ([#185](https://github.com/rambaarde/skein/issues/185)) ([98f1013](https://github.com/rambaarde/skein/commit/98f1013cb5083c8477dd85b4d3e4786b32b2421e))
+
 ## [0.36.0](https://github.com/rambaarde/skein/compare/v0.35.0...v0.36.0) (2026-08-23)
 
 
