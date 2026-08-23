@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.33.0](https://github.com/rambaarde/skein/compare/v0.32.4...v0.33.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** the menu tag sits beside the box name, where btop puts it ([76a76a3](https://github.com/rambaarde/skein/commit/76a76a35d36d8414b05be84f6f081ebe2d6fae5f))
+* **tui:** the menu tag sits beside the box name, where btop puts it ([#155](https://github.com/rambaarde/skein/issues/155)) ([1c3ba9e](https://github.com/rambaarde/skein/commit/1c3ba9ee68aacac9c5958ff839ac80c9140a6d0a))
+
 ## [0.32.4](https://github.com/rambaarde/skein/compare/v0.32.3...v0.32.4) (2026-08-23)
 
 
