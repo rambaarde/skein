@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.0](https://github.com/rambaarde/skein/compare/v0.36.1...v0.37.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** are you improving, or is this rotting ([c19780a](https://github.com/rambaarde/skein/commit/c19780a81024adb079a9d9a16a70eae4c36842f1))
+* **tui:** are you improving, or is this rotting ([#188](https://github.com/rambaarde/skein/issues/188)) ([b935902](https://github.com/rambaarde/skein/commit/b9359029da1144d6beca1447d1ef1d3facefba21))
+
 ## [0.36.1](https://github.com/rambaarde/skein/compare/v0.36.0...v0.36.1) (2026-08-23)
 
 
