@@ -737,6 +737,19 @@ export function render(state, size) {
       rows.push(...c.rows())
     }
 
+    // Nodes with no edges are not a graph, and scattering them reads as one.
+    //
+    // Two projects showed this: one with no git at all, where coupling cannot
+    // be computed and only the contested files are drawn, and one whose files
+    // simply never move together. Both came out as red dots flung across an
+    // empty screen with no line between any of them, which looks broken rather
+    // than quiet. Say which it is.
+    const why = !g.edges.length
+      ? (!ships
+          ? `${DIM}no git history here, so nothing can be paired — these are the files two sessions were both in${R}`
+          : `${DIM}no two files in this repo change together often enough to pair${R}`)
+      : null
+
     const capped = [
       g.morePairs ? `+${g.morePairs} weaker pair${g.morePairs === 1 ? '' : 's'}` : null,
       g.moreFiles ? `+${g.moreFiles} more file${g.moreFiles === 1 ? '' : 's'}` : null,
@@ -758,6 +771,7 @@ export function render(state, size) {
       rows: [
         ` ${BOLD}${p?.name ?? '—'}${R}${DIM} · ${g.files} file${g.files === 1 ? '' : 's'} changed · ${g.pairs} coupled pair${g.pairs === 1 ? '' : 's'}${capped ? ` · ${capped}` : ''}${R}` +
           (contested.size ? `  ${LUT.failure[95]}${contested.size} collision${contested.size === 1 ? '' : 's'}${R}` : `  ${DIM}no collisions in ${lookback}${R}`),
+        ...(why ? [` ${why}`] : []),
         ...rows,
       ],
       state: (() => {
