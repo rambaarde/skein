@@ -699,7 +699,13 @@ export function render(state, size) {
       // neither the metric nor the row.
       const head = `CHANGE FAILURE · ${name}`
       side.push(`${DIM}${fit(head.length <= sideW - 6 ? head : `FAILURE · ${name}`, sideW - 6)}${R}${band}${rate.padStart(5)}${R}`)
-      side.push('')
+      // The reasons exist on the project page and NOTHING on this screen said
+      // so. A reader looking at 13% has exactly one next question -- at what --
+      // and the answer was one keystroke away with no sign of it.
+      const failed = here?.v?.cfrOf?.verdicts?.filter(v => v.failed).length ?? 0
+      side.push(failed
+        ? ` ${DIM}${failed} of ${here.v.cfrOf.judged} came back · ${R}${BOLD}⏎${R}${DIM} which files, and what repaired them${R}`
+        : '')
       if (here?.v?.cfrOf?.verdicts?.length) {
         side.push(...chart([{
           // The legend row would otherwise repeat the title. Spend it on the

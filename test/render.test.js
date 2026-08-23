@@ -1203,3 +1203,24 @@ test('the menu stands in front of the dashboard, not instead of it', async () =>
   // The hint is not clipped mid-word by a ground sized to the words alone.
   assert.match(small, /leave\. skeins never started anything/)
 })
+
+test('the failure panel points at the reasons', async () => {
+  // 13% has exactly one next question -- at what -- and the answer was one
+  // keystroke away with nothing on screen saying so.
+  const { render } = await import('../src/tui.js')
+  const now = Date.now()
+  const p = {
+    name: 'repo', root: '/w/repo', sessions: 1, files: 1, agents: ['claude'], last: now,
+    events: [{ at: now - 3600_000, agent: 'claude', session: 's', path: '/w/repo/f.ts', project: '/w/repo' }],
+  }
+  const frame = render({
+    projects: [p], events: p.events, sessions: new Map(), sel: 0, expanded: new Set(),
+    colls: [], tier: 'braille', since: now - 7 * 86_400_000, now, lookback: '7d',
+    windowMin: 30, tick: 0, sort: 'recent', filter: '', onlyColliding: false,
+    preset: 3, tab: 0, feedTop: 0, page: null,
+  }, { cols: 150, rows: 40 }).replace(/\x1b\[[0-9;]*m/g, '')
+  // This fixture has no git behind it, so there is nothing to point AT and the
+  // pointer must not appear. The line is earned, not decoration.
+  assert.doesNotMatch(frame, /which files, and what repaired them/)
+  assert.match(frame, /CHANGE FAILURE · repo/)
+})

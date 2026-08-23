@@ -130,6 +130,52 @@ pressure, its files, its tool calls, its collisions.
 
 ---
 
+## Where the numbers come from
+
+Nothing here is inferred, estimated or modelled. Every number is read from one
+of two places — **the agents' own transcript files**, or **git** — and this
+table says which, and by what rule. `skeins doctor` prints what it actually
+found in each store on your machine.
+
+### The two sources
+
+| | |
+|---|---|
+| **transcripts** | `~/.claude/projects/**/*.jsonl` (or `$CLAUDE_CONFIG_DIR`), `~/.codex/sessions/**/*.jsonl`, `$XDG_DATA_HOME/opencode/storage`. Read-only, never written. These are the files the agents already keep. |
+| **git** | `git log --first-parent <trunk> --format=%ct%x00%s --name-only` and `git tag --format='%(creatordate:unix) %(refname:short)'`, run in each project root. Read-only, no network. |
+
+### Every metric, and its rule
+
+| metric | source | exact rule |
+|---|---|---|
+| **open** | transcripts | a session records a `cwd`, and its last record is inside the window |
+| **files** · **edits** | transcripts | records that WROTE a file — an edit, a write, a patch, or a shell command that redirects into one. Reads, searches and plain commands are not edits |
+| **attention** | transcripts | wall-clock spanned by those write events, with any gap over **5 minutes** cut out and any stretch under **30 seconds** dropped |
+| **collision** | transcripts | two *sessions* wrote the same canonical path within **30 minutes** (`w` cycles it) *and* their lifetimes overlapped. Two edits either side of a handover are not a collision |
+| **tools** | transcripts | the agents' own tool-call records, counted by name. MCP names are matched on their last segment, so `mcp__x__read` counts as a read |
+| **landed** | git | commits on the first-parent line of the trunk (`main`, `master`, `develop`, `trunk` — first that exists), minus release commits matching `^chore(...)!?: release` |
+| **lead** | both | median of: first *write event* after the previous landing → that landing's commit time. Measured from when you started, which git cannot see through a squash merge |
+| **attn/ship** | both | attention ÷ landed |
+| **deployment** | git | a tag matching `^v?\d+\.\d+`. Only if the repo has no such tag does it fall back to release commits — never both, or a release bot counts one publish twice |
+| **CFR** | git | of the deployments that can be judged, the share whose **next** deployment contained a commit matching `^(fix\|revert)(...)!?:` that touched a file the first one shipped |
+| **hotfixed n/m** | git | per file: `n` deployments that shipped it were repaired by the next one, out of `m` deployments it shipped in at all |
+
+### What is deliberately absent
+
+| | |
+|---|---|
+| **MTTR** | needs incident data. A laptop has none, and inventing one would make the other three numbers untrustworthy by association |
+| **deploy frequency** | for one developer that is the `landed` column. Not printed twice under a second name |
+| **any advice** | skeins reports what it observed. "What you should improve" is not in the transcripts or in git |
+
+### Three things that are easy to get wrong, and how skeins handles them
+
+- **A fix is not a failure.** A fix that lands *before* the next release means nothing ever shipped broken. Counting those rated this repository at 92%; counting per *deployment* rates it at 15%.
+- **The newest deployment can never be judged.** Nothing has shipped after it, so it leaves the denominator rather than counting as a success — otherwise every release would improve the number for a day and then not.
+- **Absence is an explicit `null`.** "This repo has no git history", "you landed nothing" and "there were fewer than two deployments to compare" are three different answers, and none of them is `0`.
+
+---
+
 ## What the numbers mean
 
 Every term below is also in the tool: press `m` for the menu and choose
@@ -161,42 +207,33 @@ observed.
 
 ### Attention
 
-**ATTENTION** is wall-clock time an agent spent *editing* a project. Gaps longer
-than a few minutes are not counted, so it is time worked, not time elapsed.
-Everything else on the velocity screen is git's; this is the half only skeins has.
+Wall-clock time an agent spent *editing* a project — time worked, not time
+elapsed. Everything else on the velocity screen is git's; this is the half only
+skeins has, and it is what makes `ATTN/SHIP` possible: git knows what came out,
+skeins knows what it cost.
 
 ### Velocity, for one developer
 
 DORA is an org metric and half of it does not survive being pointed at one
-person. skeins ships the part that does, and names the part it cannot:
+person. skeins ships the part that does and names the part it cannot — see
+*what is deliberately absent* above.
 
-| | |
-|---|---|
-| **LANDED** | commits on the trunk's first-parent line (`main`, `master`, `develop`) inside the window. Release commits excluded — they are bookkeeping, not work |
-| **/DAY** · **/WEEK** | landed divided by the window. Under seven days the column reads `/DAY`, because a weekly rate extrapolated from two days is a projection, not a measurement |
-| **LEAD** | median time from the first edit made *after the previous landing* until this one lands — from when you started, which git cannot see through a squash merge |
-| **ATTN/SHIP** | attention divided by landings: what one shipped change cost in agent time. The join no other tool can make — skeins knows the time, git knows what came out of it |
-| ~~MTTR~~ | mean time to restore needs incident data a laptop does not have. Absent, not faked |
-| ~~deploy frequency~~ | for one developer that is the **LANDED** column. Not printed twice |
+`/DAY` and `/WEEK` are the same number over a different divisor, and the column
+header says which: under seven days it reads `/DAY`, because a weekly rate
+extrapolated from two days is a projection wearing a measurement's clothes.
 
 ### Change failure rate
 
 The share of your deployments that had to be repaired. It gets its own graph
 beside the table, for whichever project the cursor is on.
 
-| | |
-|---|---|
-| **a deployment** | a version tag. Where a repo tags nothing, a release commit instead — never both, or a release bot counts one publish twice |
-| **DEPLOYS n/m** | `m` deployments in the window, `n` of them judged. The newest can never be judged: nothing has shipped after it yet, so it leaves the denominator rather than counting as a success |
-| **CFR** | of the judged deployments, the share whose **next** deployment carried a `fix` or `revert` **touching a file that deployment shipped** |
-
-Both halves of that last rule matter:
+Both halves of the rule matter, and both were wrong in an earlier version:
 
 - **The unit is the deployment, not the commit.** A fix that lands before the
-  next release means nothing ever shipped broken. Counting those made every
-  fast-moving repo look broken — 92% on this one, against 30% by the rule above.
-- **The hotfix has to touch what went out.** "A fix happened afterwards" is true
-  of every repository anyone is working on.
+  next release means nothing ever shipped broken. Counting those rated this
+  repository at 92%, against 15% by the rule that ships.
+- **The hotfix has to touch what went out.** "A fix happened afterwards" is
+  true of every repository anyone is working on.
 
 Colour is red at every value and only the *tone* moves, so it reads as severity
 at a glance. The legend names DORA's band: **0–15%** elite and high, **16–30%**
@@ -208,7 +245,9 @@ A percentage tells you to worry; it does not tell you where. Deciding a
 deployment failed already requires knowing *which* hotfix touched *which* file
 it shipped — so skeins keeps that instead of throwing it away.
 
-`⏎` on a project shows two panes, and `skeins failures` prints the same thing:
+The failure panel on the velocity screen says how many came back and points at
+them; `⏎` on the project opens two panes, and `skeins failures` prints the same
+thing:
 
 ```
 what keeps breaking                    and what repaired it
