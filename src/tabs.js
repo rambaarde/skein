@@ -24,7 +24,16 @@ export function sessionsTab(p, ctx) {
   const { state, now, detailW, detailH, F } = ctx
   const { fit, hue, ago, trunc, humanTokens, meter, DIM, R, BOLD, LUT, limitOf, ceiling } = F
   const out = []
-  const ids = [...new Map((p.events ?? []).map(e => [e.session, e])).values()].sort((a, b) => b.at - a.at)
+  // Sessions that have WRITTEN, plus sessions merely open here. The header
+  // counted both and this pane counted only the first, so a project read
+  // "1 session" beside "no sessions in this window" -- two numbers from one
+  // screen disagreeing, which is the failure D13 exists to prevent.
+  const ids = [...new Map((p.events ?? []).map(e => [e.session, e])).values()]
+  const written = new Set(ids.map(e => e.session))
+  for (const o of p.open ?? []) {
+    if (!written.has(o.session)) ids.push({ session: o.session, agent: o.agent, at: o.at, open: true })
+  }
+  ids.sort((a, b) => b.at - a.at)
   if (!ids.length) return [` ${DIM}no sessions in this window${R}`]
 
   out.push(` ${DIM}${fit('AGENT', 9)}${fit('CONTEXT', 15)}${fit('MODEL', 14)}${'LAST'.padStart(5)}${R}`)
@@ -36,7 +45,9 @@ export function sessionsTab(p, ctx) {
     const gauge = tokens
       ? `${meter(frac, 5, LUT.heat)} ${LUT.heat[Math.round(frac * 100)]}${humanTokens(tokens).padStart(6)}${R}`
       : `${DIM}${'—'.padStart(12)}${R}`
-    out.push(` ${hue(e.agent)}${fit(e.agent, 9)}${R}${fit(gauge, 15)}${DIM}${fit(trunc(s?.model, 13) ?? '—', 14)}${ago(e.at, now).padStart(5)}${R}`)
+    // An open session says so where the model would go. It has a context and
+    // a model like any other; what it does not have is a file to its name.
+    out.push(` ${hue(e.agent)}${fit(e.agent, 9)}${R}${fit(gauge, 15)}${DIM}${fit(e.open ? 'open · no writes' : (trunc(s?.model, 13) ?? '—'), 14)}${ago(e.at, now).padStart(5)}${R}`)
     // The title is what you actually recognise a session by, so it gets its own
     // line rather than being truncated into a column.
     if (s?.title) out.push(`   ${DIM}${trunc(s.title, Math.max(8, detailW - 6))}${R}`)
