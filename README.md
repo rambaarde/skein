@@ -29,7 +29,7 @@ skeins                  # the dashboard
 <div align="center">
 
 [![npm](https://img.shields.io/npm/v/skeins)](https://www.npmjs.com/package/skeins)
-![tests](https://img.shields.io/badge/tests-199%20passing-brightgreen)
+![tests](https://img.shields.io/badge/tests-229%20passing-brightgreen)
 ![runtime deps](https://img.shields.io/badge/runtime%20deps-0-blue)
 ![node](https://img.shields.io/badge/node-%E2%89%A520-339933)
 ![ci](https://img.shields.io/badge/ci-ubuntu%20%C2%B7%20macos%20%C2%B7%20windows%20%C3%97%20node%2020%2F22%2F24-brightgreen)
@@ -286,6 +286,11 @@ ARE YOU IMPROVING  every project · 2 weeks each · 30d loaded    -8w   -6w   -4
                                               · = before your transcripts begin
 ```
 
+Rows with nothing in them at all collapse into one sentence naming themselves
+and the key that fixes it, rather than showing four columns of dots. Nothing
+moves from a baseline of zero: `0m` then `1m` is not a hundred-percent rise,
+it is one minute measured against nothing, and no arrow is drawn for it.
+
 The arrow knows which way is **good**: more landed is better, more attention
 per change is not, and both point up. A move under 10% is `flat` rather than a
 trend, and no direction is drawn at all from fewer than eight landings.
@@ -413,12 +418,13 @@ skeins who [path]          who else is in this repo, or in one file
 skeins collisions          recent same-file overlaps
 skeins velocity            what landed, how long it took, what failed
 skeins tools               what the agents called, not only what they wrote
-skeins failures           which files keep being shipped and then repaired
+skeins failures            which files keep being shipped and then repaired
 skeins glossary            what every number on these screens counts
 skeins doctor              why is my screen empty: what each store held, and
-                          what skeins could read out of it
+                           what skeins could read out of it
 skeins hook                the ambient line, for a session-start hook
 skeins install             wire the hook into every agent it finds
+skeins themes              the btop .theme files it can find
 skeins --json | --toon     machine-readable
 ```
 

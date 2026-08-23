@@ -35,9 +35,9 @@ const pick = a => a[Math.floor(rnd() * a.length)]
 const PROJECTS = [
   { name: 'atlas-api', files: ['src/auth/session.ts', 'src/auth/middleware.ts', 'src/routes/users.ts', 'src/routes/orders.ts', 'src/db/pool.ts', 'src/db/migrate.ts', 'src/mail/send.ts', 'src/config.ts', 'src/log.ts', 'test/auth.test.ts'] },
   { name: 'atlas-web', files: ['app/login/page.tsx', 'app/dashboard/page.tsx', 'app/settings/page.tsx', 'lib/api.ts', 'lib/format.ts', 'components/Nav.tsx', 'components/Table.tsx', 'styles/theme.css'] },
-  { name: 'checkout', files: ['src/cart.ts', 'src/pricing.ts', 'src/tax.ts', 'src/coupon.ts', 'src/receipt.ts', 'test/cart.test.ts'] },
-  { name: 'notify-svc', files: ['worker.go', 'queue.go', 'retry.go', 'templates.go', 'README.md'] },
-  { name: 'docs-site', files: ['content/intro.md', 'content/guide.md', 'content/api.md', 'content/faq.md'] },
+  { name: 'checkout', files: ['src/cart.ts', 'src/pricing.ts', 'src/tax.ts', 'src/coupon.ts', 'src/receipt.ts', 'src/refund.ts', 'src/currency.ts', 'src/session.ts', 'test/cart.test.ts'] },
+  { name: 'notify-svc', files: ['worker.go', 'queue.go', 'retry.go', 'templates.go', 'dispatch.go', 'backoff.go', 'metrics.go', 'config.go', 'README.md'] },
+  { name: 'docs-site', files: ['content/intro.md', 'content/guide.md', 'content/api.md', 'content/faq.md', 'content/install.md', 'content/cli.md', 'content/themes.md', 'content/changelog.md'] },
 ]
 // Weighted by how often a real session reaches for them: Read dominates,
 // then Grep and Bash, with the occasional Task and web call.
@@ -98,7 +98,12 @@ for (const [pi, p] of PROJECTS.entries()) {
   // count as evidence, and twenty commits walking a ring of ten files visits
   // each pair exactly twice -- so the fixture had real files, real releases,
   // and a coupling graph of three edges that looked broken rather than quiet.
-  const n = Math.max(8, 40 - pi * 7)
+  // A FLOOR, not just a ceiling. The smaller projects were getting twelve
+  // commits and four tags, so three judgeable deployments -- where a single
+  // repaired release reads 33%, and two read 100%. Pooled across the machine
+  // that dragged the trend band to 47%, which is not what a working machine
+  // looks like and is the first number a reader sees in the README.
+  const n = Math.max(20, 44 - pi * 6)
   // Commits TOUCH FILES, and touch them in pairs.
   //
   // They were `--allow-empty`, which made the fixture silently useless for two

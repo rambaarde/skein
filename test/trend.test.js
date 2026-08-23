@@ -65,3 +65,12 @@ test('one stray old event does not vouch for a whole fortnight', () => {
   assert.ok(buckets[3].attention > 0, 'and the busy bucket is real')
   assert.ok(MIN_COVERAGE > 0 && MIN_COVERAGE < 1)
 })
+
+test('nothing moves from a baseline of zero', () => {
+  // "0m then 1m" was reported as a 100% rise and drawn as `worse` -- a verdict
+  // on one minute measured against nothing at all.
+  assert.equal(direction([0, 0, 1], { good: 'down' }), null)
+  assert.equal(direction([0, 0, 0], { good: 'up' }).dir, 'flat')
+  // A real baseline still gives a real direction.
+  assert.equal(direction([4, 4, 9], { good: 'down' }).better, false)
+})
