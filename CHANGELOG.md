@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.38.0](https://github.com/rambaarde/skein/compare/v0.37.3...v0.38.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** preset 6 -- worktrees, version drift, and live CPU ([a3421f8](https://github.com/rambaarde/skein/commit/a3421f87b9d225359ba2da45555e977311ac1126))
+* **tui:** preset 6 -- worktrees, version drift, and live CPU ([#202](https://github.com/rambaarde/skein/issues/202)) ([928f2aa](https://github.com/rambaarde/skein/commit/928f2aa88babece2aa0bbb10762d99c07787e95e))
+
 ## [0.37.3](https://github.com/rambaarde/skein/compare/v0.37.2...v0.37.3) (2026-08-23)
 
 
