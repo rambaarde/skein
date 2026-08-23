@@ -1,5 +1,133 @@
 # Changelog
 
+## [0.36.0](https://github.com/rambaarde/skein/compare/v0.35.0...v0.36.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** the graph plots change coupling, and velocity stops lagging ([50807e2](https://github.com/rambaarde/skein/commit/50807e20cf44b29673f35438fa61791e63ea1123))
+* **tui:** the graph plots change coupling, and velocity stops lagging ([#176](https://github.com/rambaarde/skein/issues/176)) ([0fe503b](https://github.com/rambaarde/skein/commit/0fe503b572ac34b60d155ed422d0aed60e85153c))
+
+## [0.35.0](https://github.com/rambaarde/skein/compare/v0.34.1...v0.35.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** the graph shows which shared file is actually dangerous ([2b8bb21](https://github.com/rambaarde/skein/commit/2b8bb21b7483dd1a8c050504ae70603675fe465c))
+* **tui:** the graph shows which shared file is actually dangerous ([#173](https://github.com/rambaarde/skein/issues/173)) ([64aabf4](https://github.com/rambaarde/skein/commit/64aabf4278e918955c6790870bfe28c14c445a46))
+
+## [0.34.1](https://github.com/rambaarde/skein/compare/v0.34.0...v0.34.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the graph says what it is showing ([49eb02a](https://github.com/rambaarde/skein/commit/49eb02a592581a7ebadb56a423ba057d22df8735))
+* **tui:** the graph says what it is showing ([#170](https://github.com/rambaarde/skein/issues/170)) ([8eae238](https://github.com/rambaarde/skein/commit/8eae2382c8584d31d6901b37f3e5361d8eb0dc1d))
+
+## [0.34.0](https://github.com/rambaarde/skein/compare/v0.33.3...v0.34.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** preset 5 draws who is in the same file as whom ([9698de8](https://github.com/rambaarde/skein/commit/9698de89068ea9b9685c8036fed39103e311e0c7))
+* **tui:** preset 5 draws who is in the same file as whom ([#167](https://github.com/rambaarde/skein/issues/167)) ([fcdffe8](https://github.com/rambaarde/skein/commit/fcdffe8ca7706c1b226831f07a854a594f5fb993))
+
+## [0.33.3](https://github.com/rambaarde/skein/compare/v0.33.2...v0.33.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the selected row stops being the only monochrome row on screen ([0048d38](https://github.com/rambaarde/skein/commit/0048d3815aad80aa31bf3691cf5ce93074f1be16))
+* **tui:** the selected row stops being the only monochrome row on screen ([#164](https://github.com/rambaarde/skein/issues/164)) ([5c328e6](https://github.com/rambaarde/skein/commit/5c328e6736787664aa4b355d800638813c42c85a))
+
+## [0.33.2](https://github.com/rambaarde/skein/compare/v0.33.1...v0.33.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the menu stops being a wall of blocks ([0131d49](https://github.com/rambaarde/skein/commit/0131d49449c798fb69c7d3b6dfcdf87c7dbf1e6c))
+* **tui:** the menu stops being a wall of blocks ([#161](https://github.com/rambaarde/skein/issues/161)) ([1c5c3c2](https://github.com/rambaarde/skein/commit/1c5c3c2191ee9b7b9d7f2ce7bc3e50f5c37d3d78))
+
+## [0.33.1](https://github.com/rambaarde/skein/compare/v0.33.0...v0.33.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** pressing m opens the menu ([6b58bca](https://github.com/rambaarde/skein/commit/6b58bcade512ec50a5be2ce2dfbd08fdd70f72a9))
+* **tui:** pressing m opens the menu ([#158](https://github.com/rambaarde/skein/issues/158)) ([07e34ef](https://github.com/rambaarde/skein/commit/07e34ef22993aad862b86ab96cef36e0f7cafe11))
+
+## [0.33.0](https://github.com/rambaarde/skein/compare/v0.32.4...v0.33.0) (2026-08-23)
+
+
+### Features
+
+* **tui:** the menu tag sits beside the box name, where btop puts it ([76a76a3](https://github.com/rambaarde/skein/commit/76a76a35d36d8414b05be84f6f081ebe2d6fae5f))
+* **tui:** the menu tag sits beside the box name, where btop puts it ([#155](https://github.com/rambaarde/skein/issues/155)) ([1c3ba9e](https://github.com/rambaarde/skein/commit/1c3ba9ee68aacac9c5958ff839ac80c9140a6d0a))
+
+## [0.32.4](https://github.com/rambaarde/skein/compare/v0.32.3...v0.32.4) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** a clean window says so instead of leaving a blank line ([d865bcb](https://github.com/rambaarde/skein/commit/d865bcbe385aadf4ed505576c9af78287e3f487c))
+* **tui:** a clean window says so instead of leaving a blank line ([#150](https://github.com/rambaarde/skein/issues/150)) ([057d718](https://github.com/rambaarde/skein/commit/057d718d5b173c277f838d43b3836f2d1826d91d))
+
+## [0.32.3](https://github.com/rambaarde/skein/compare/v0.32.2...v0.32.3) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tools:** count the calls a session made where it is working ([d25b65b](https://github.com/rambaarde/skein/commit/d25b65b7fb798bd8cb984ccc2c5df4c9b2a2478c))
+* **tools:** count the calls a session made where it is working ([#147](https://github.com/rambaarde/skein/issues/147)) ([72a057a](https://github.com/rambaarde/skein/commit/72a057a3243d426a5e629dbb0ca3c56dede5bb90))
+
+## [0.32.2](https://github.com/rambaarde/skein/compare/v0.32.1...v0.32.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** an open session shows its time, not the epoch ([3908444](https://github.com/rambaarde/skein/commit/3908444fddff68603ea8898c85a37d373b18271f))
+* **tui:** an open session shows its time, not the epoch ([#144](https://github.com/rambaarde/skein/issues/144)) ([d17ed1f](https://github.com/rambaarde/skein/commit/d17ed1f30693848f521986769e3d087d7b29c83a))
+
+## [0.32.1](https://github.com/rambaarde/skein/compare/v0.32.0...v0.32.1) (2026-08-23)
+
+
+### Bug Fixes
+
+* a repo appears when a session opens in it, not when it first writes ([4306097](https://github.com/rambaarde/skein/commit/4306097382385cd4776229a83f287014e5cad6fb))
+* a repo appears when a session opens in it, not when it first writes ([#139](https://github.com/rambaarde/skein/issues/139)) ([25e4e8c](https://github.com/rambaarde/skein/commit/25e4e8c8210f806ced78c1b38954fd72dc326cc6))
+
+## [0.32.0](https://github.com/rambaarde/skein/compare/v0.31.2...v0.32.0) (2026-08-23)
+
+
+### Features
+
+* a failure rate that says what failed ([78eb425](https://github.com/rambaarde/skein/commit/78eb4253232ce264aa7776d1656fc16b764e5ed8))
+* a failure rate that says what failed ([#136](https://github.com/rambaarde/skein/issues/136)) ([ae9f5e4](https://github.com/rambaarde/skein/commit/ae9f5e4ca6424d6caf4ef6b237da22295de54726))
+
+## [0.31.2](https://github.com/rambaarde/skein/compare/v0.31.1...v0.31.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **tui:** the clock reads like a clock, and two strings kept the old name ([9d8c252](https://github.com/rambaarde/skein/commit/9d8c252b651810bb461201482852e404f6e0d889))
+* **tui:** the clock reads like a clock, and two strings kept the old name ([#133](https://github.com/rambaarde/skein/issues/133)) ([3f15c7e](https://github.com/rambaarde/skein/commit/3f15c7eb7c4f3cdacf381561132fbb9fcda966fa))
+
+## [0.31.1](https://github.com/rambaarde/skein/compare/v0.31.0...v0.31.1) (2026-08-22)
+
+
+### Bug Fixes
+
+* **ci:** the publish guard names the binary the bin map names ([33c7613](https://github.com/rambaarde/skein/commit/33c761338e0620686c56624bbb982c9c14f17535))
+* **ci:** the publish guard names the binary the bin map names ([#130](https://github.com/rambaarde/skein/issues/130)) ([a6ef447](https://github.com/rambaarde/skein/commit/a6ef4473d7183c8131970974323517f208a138fe))
+
+## [0.31.0](https://github.com/rambaarde/skein/compare/v0.30.0...v0.31.0) (2026-08-22)
+
+
+### Features
+
+* the command is `skeins`, the name people already installed ([905f3f8](https://github.com/rambaarde/skein/commit/905f3f8227abe87312573cec830ffd5ae8754220))
+* the command is `skeins`, the name people already installed ([#127](https://github.com/rambaarde/skein/issues/127)) ([f44f61f](https://github.com/rambaarde/skein/commit/f44f61f98c8adddddee0c2b35f1b12fcce79e25b))
+
 ## [0.30.0](https://github.com/rambaarde/skein/compare/v0.29.0...v0.30.0) (2026-08-22)
 
 
