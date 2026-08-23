@@ -143,6 +143,36 @@ for (const p of PROJECTS) {
   }
 }
 
+// A FIRST SESSION: opened minutes ago, has read and searched, written nothing.
+//
+// This is what a new user's very first `skeins` looks like, and it was the
+// case nothing exercised. It has to show something: the project, the session,
+// its context, and the tool calls it has made -- because for the first few
+// minutes of any session that is all there is, and a screen of four empty
+// panes reads as a tool that does not work rather than as work that has not
+// landed yet.
+{
+  const root = join(REPOS, 'first-look')
+  // A real repo with NO history: a project someone just started. Its velocity
+  // row reads "no git history", which is the honest answer and a different
+  // one from "you landed nothing".
+  mkdirSync(root, { recursive: true })
+  execFileSync('git', ['init', '-q', '-b', 'main'], { cwd: root })
+  const id = 'fixture-first-session'
+  const start = NOW - 9 * MIN
+  const lines = [
+    { type: 'user', cwd: root, gitBranch: 'main', sessionId: id, timestamp: iso(start) },
+    { type: 'ai-title', aiTitle: 'plan the auth refactor', sessionId: id },
+  ]
+  for (let i = 0; i < 14; i++) {
+    lines.push({
+      timestamp: iso(start + i * 30_000), cwd: root, gitBranch: 'main',
+      message: { content: [{ type: 'tool_use', name: pick(READ_TOOLS), input: {} }] },
+    })
+  }
+  write(join(claudeDir, root.replace(/\//g, '-'), `${id}.jsonl`), lines)
+}
+
 // A deliberate collision: two live sessions, one file, twenty minutes apart.
 {
   const root = join(REPOS, 'atlas-api')

@@ -125,3 +125,31 @@ test('a verb must be the whole word, not a prefix of one', () => {
   assert.equal(classify('NotebookEdit'), 'write')
   assert.equal(classify('MultiEdit'), 'write')
 })
+
+test('a session open in a project contributes its tool calls', async () => {
+  // A real session: 524 tool calls, 4 edits, and those edits belonged to a
+  // NESTED repo -- so the project it was actually working in had no session by
+  // the events map, and the pane read "no tool calls recorded" against 524 of
+  // them. Reads outnumber writes several to one, which is the whole reason the
+  // pane exists, so it must not be reachable only through writing.
+  const { toolsOf, totalOf, shape } = await import('../src/tools.js')
+  const sessions = new Map([
+    ['wrote', { tools: { Edit: 2 } }],
+    ['open-only', { tools: { Read: 40, Bash: 10 } }],
+    ['elsewhere', { tools: { Read: 999 } }],
+  ])
+  const project = {
+    events: [{ session: 'wrote', path: '/w/p/a.ts' }],
+    open: [{ session: 'open-only' }, { session: 'wrote' }],
+  }
+  const rolled = toolsOf(project, sessions)
+  assert.equal(totalOf(rolled), 52, 'both routes, and neither counted twice')
+  assert.deepEqual(shape(rolled), { read: 40, write: 2, run: 10, other: 0 })
+  assert.equal(rolled.find(t => t.tool === 'Read')?.n, 40)
+  // A session in some other project is never borrowed.
+  assert.equal(rolled.some(t => t.n === 999), false)
+
+  // And a project with no `open` at all still works -- every other caller
+  // passes one built from events only.
+  assert.equal(totalOf(toolsOf({ events: project.events }, sessions)), 2)
+})
