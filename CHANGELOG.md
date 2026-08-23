@@ -1,5 +1,13 @@
 # Changelog
 
+## [0.37.2](https://github.com/rambaarde/skein/compare/v0.37.1...v0.37.2) (2026-08-23)
+
+
+### Bug Fixes
+
+* **trend:** 376ms a draw, because I reintroduced the bug I had just fixed ([0a775aa](https://github.com/rambaarde/skein/commit/0a775aaacae047152cb7f8b6611d679494859546))
+* **trend:** 376ms a draw, because I reintroduced the bug I had just fixed ([#194](https://github.com/rambaarde/skein/issues/194)) ([64f5db0](https://github.com/rambaarde/skein/commit/64f5db08fd084479c3cb668760056fe49396cef1))
+
 ## [0.37.1](https://github.com/rambaarde/skein/compare/v0.37.0...v0.37.1) (2026-08-23)
 
 
