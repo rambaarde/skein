@@ -63,5 +63,5 @@ test('a preset drops boxes, and the survivors take the space', () => {
   assert.equal(es.estate.h, 32, 'estate gets the whole screen')
   assert.match(parse('estate:0:default,feed:0:default').error, /whole screen/)
 
-  assert.equal(PRESETS.length, 6)
+  assert.equal(PRESETS.length, 7)
 })
